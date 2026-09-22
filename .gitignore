@@ -1,0 +1,8 @@
+.serena/
+__pycache__/
+.venv/
+saves/
+*.world
+*.world-wal
+*.world-shm
+settings.json
