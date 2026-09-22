@@ -2076,7 +2076,7 @@ def test_talk_focuses_and_farewell_returns(game):
 def test_talk_to_someone_absent_commits_nothing(game):
     before = game.world.digest()
     turn = game.perform(Action("talk", 99999))
-    assert turn.lines[0][1] == "system"
+    assert turn.lines[-1][1] == "system"
     assert game.world.digest() == before
 
 
@@ -2098,7 +2098,7 @@ def test_journal_lists_history(game):
 
 
 def test_unknown_and_ambiguous(game):
-    assert game.perform(Action("unknown", "dance")).lines[0][1] == "system"
+    assert game.perform(Action("unknown", "dance")).lines[-1][1] == "system"
     options = tuple(game.start().choices[:2])
     turn = game.perform(Action("ambiguous", options))
     assert turn.choices == list(options)

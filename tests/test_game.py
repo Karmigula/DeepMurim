@@ -1,0 +1,70 @@
+import pytest
+
+from engine.game import Action, Game
+from world.db import SaveError
+
+
+@pytest.fixture
+def game(tmp_path):
+    g = Game.new(tmp_path / "g.world", "Hero", world_seed=42)
+    yield g
+    g.close()
+
+
+def verbs(turn):
+    return [c.action.verb for c in turn.choices]
+
+
+def test_start_shows_opening_scene_and_choices(game):
+    turn = game.start()
+    assert any("Hero" in text for text, _ in turn.lines)  # the 'began' narration
+    assert {"talk", "travel", "look", "journal"} <= set(verbs(turn))
+    assert turn.art["type"] == "scene"
+    assert "Hero" in turn.status and "Year 1" in turn.status
+
+
+def test_talk_focuses_and_farewell_returns(game):
+    talk = next(c for c in game.start().choices if c.action.verb == "talk")
+    turn = game.perform(talk.action)
+    assert turn.art["type"] == "portrait"
+    assert set(verbs(turn)) == {"ask", "farewell"}
+    turn = game.perform(Action("ask", "work"))
+    assert turn.lines
+    turn = game.perform(Action("farewell"))
+    assert turn.art["type"] == "scene"
+
+
+def test_talk_to_someone_absent_commits_nothing(game):
+    before = game.world.digest()
+    turn = game.perform(Action("talk", 99999))
+    assert turn.lines[-1][1] == "system"
+    assert game.world.digest() == before
+
+
+def test_travel_changes_place_and_time(game):
+    start = game.place.id
+    road = next(c for c in game.start().choices if c.action.verb == "travel" and "north" in c.label)
+    turn = game.perform(road.action)
+    assert game.place.id != start
+    assert "Year 1, Spring day 4" in turn.status
+    assert any(c.action.verb == "talk" for c in turn.choices)  # new town was populated
+
+
+def test_journal_lists_history(game):
+    talk = next(c for c in game.start().choices if c.action.verb == "talk")
+    game.perform(talk.action)
+    lines = [text for text, _ in game.perform(Action("journal")).lines]
+    assert any("set out from" in line for line in lines)
+    assert any("Met " in line for line in lines)
+
+
+def test_unknown_and_ambiguous(game):
+    assert game.perform(Action("unknown", "dance")).lines[-1][1] == "system"
+    options = tuple(game.start().choices[:2])
+    turn = game.perform(Action("ambiguous", options))
+    assert turn.choices == list(options)
+
+
+def test_load_missing_raises(tmp_path):
+    with pytest.raises(SaveError):
+        Game.load(tmp_path / "none.world")
