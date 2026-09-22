@@ -21,6 +21,7 @@ PALETTE: dict[str, Color] = {
     "grey": (145, 145, 145),
     "purple": (165, 115, 195),
     "rule": (70, 70, 80),
+    "heading": (225, 185, 85),  # UI headings: gold, but never counted as prose
 }
 
 

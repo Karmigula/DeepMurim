@@ -55,6 +55,8 @@ class Game:
         self.narrator = narrator or ProceduralNarrator()
         self.focus: int | None = None
         self.submenu: str | None = None
+        self.last_briefs: list = []  # what the narrator was given this turn (debug overlay, invariants)
+        self._last_look: tuple[int, int] | None = None
         self._pending: list[Line] = []
 
     @classmethod
@@ -105,9 +107,11 @@ class Game:
         return self.look()
 
     def look(self) -> Turn:
+        self.last_briefs = []
         return self._do_look(None)
 
     def perform(self, action: Action) -> Turn:
+        self.last_briefs = []
         handler = getattr(self, f"_do_{action.verb}", None)
         if handler is None:
             return self._turn([(f"You can't do that ({action.verb}).", "system")])
@@ -124,6 +128,10 @@ class Game:
 
     def _do_look(self, _target) -> Turn:
         self.focus = None
+        here = (self.place.id, self.world.time)
+        if here == self._last_look:
+            return self._turn([("Nothing has changed since you last looked.", "dim")] + self._presence())
+        self._last_look = here
         return self._turn(self._describe("look") + self._presence())
 
     def _do_travel(self, dest) -> Turn:
@@ -134,6 +142,7 @@ class Game:
         self.focus = None
         lines = self._commit(travel.travel_events(self.player.id, self.place.id, route))
         populate(self.world, self.place.id)
+        self._last_look = (self.place.id, self.world.time)
         return self._turn(lines + self._describe("arrive") + self._presence())
 
     def _do_talk(self, npc_id) -> Turn:
@@ -157,7 +166,7 @@ class Game:
 
     def _do_journal(self, _target) -> Turn:
         entries = list(reversed(self.world.chronicle_about(self.player.id, limit=15)))
-        lines = [(f"Chronicle of {self.player.name}:", "gold")]
+        lines = [(f"Chronicle of {self.player.name}:", "heading")]
         lines += [(summarize(self.world, e), "dim") for e in entries]
         return self._turn(lines)
 
@@ -177,11 +186,15 @@ class Game:
         ids = commit(self.world, events)
         lines: list[Line] = []
         for event_id, event in zip(ids, events):
-            lines += self.narrator.narrate(event_brief(self.world, event_id, event))
+            brief = event_brief(self.world, event_id, event)
+            self.last_briefs.append(brief)
+            lines += self.narrator.narrate(brief)
         return lines
 
     def _describe(self, salt: str) -> list[Line]:
-        return self.narrator.narrate(scene_brief(self.world, self.place.id, self.player.id, salt))
+        brief = scene_brief(self.world, self.place.id, self.player.id, salt)
+        self.last_briefs.append(brief)
+        return self.narrator.narrate(brief)
 
     def _presence(self) -> list[Line]:
         people = people_at(self.world, self.place.id, exclude=self.player.id)

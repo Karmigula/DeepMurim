@@ -8,3 +8,4 @@ saves/
 settings.json
 .pytest_cache/
 pytest-cache-files-*/
+logs/

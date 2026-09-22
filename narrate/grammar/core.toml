@@ -2,9 +2,15 @@
 greeting = ["Well met.", "Traveller.", "Hm.", "Greetings, young hero.", "Another wanderer, is it?", "Mind your step."]
 look = ["looks you over", "eyes you warily", "offers a shallow bow", "barely glances up", "studies your hands for calluses", "sizes up your stance"]
 remember = ["You again.", "I remember your face.", "Back so soon?", "The world is small, it seems.", "Ah, it's you."]
-farewell = ["May the heavens favour your path.", "Walk carefully.", "Don't make trouble here.", "Until the rivers meet again."]
+farewell = ["May the heavens favour your path.", "Walk carefully.", "Don't make trouble here.", "Until the rivers meet again.", "Go well."]
 road = ["dusty", "rutted", "winding", "rain-slick", "bandit-haunted", "quiet", "pilgrim-worn"]
-wind = ["A cold wind", "A warm breeze", "A restless wind", "Still air"]
+wind = ["A cold wind", "A warm breeze", "A restless wind", "Still air", "A thin drizzle"]
+shrug = ["shrugs", "sighs", "rubs the back of their neck", "spreads their hands", "snorts"]
+hush = ["lowers their voice", "glances over their shoulder", "leans in", "taps the side of their nose"]
+impatience = ["gives you a flat look", "raises an eyebrow", "sighs through their nose", "folds their arms", "chuckles despite themself"]
+told_you = ["As I said,", "I told you already:", "Same answer as before:", "Were you not listening?", "Again?"]
+sound = ["a dog barks somewhere", "a cart creaks past", "someone is haggling loudly", "wind chimes clink", "a child runs by laughing"]
+sky = ["under a pale sky", "under low cloud", "in clear light", "beneath drifting mist"]
 
 [began]
 colour = "gold"
@@ -30,15 +36,29 @@ lines = [
 ["asked.work"]
 colour = "npc"
 lines = [
-  "\"Work? I am a {occupation}. It feeds me, mostly,\" says {npc}.",
-  "{npc} shrugs. \"A {occupation}'s life. The sect people never pay what they owe.\"",
+  "\"Work? I am a {occupation}. It feeds me, mostly,\" says {npc}, and #sound#.",
+  "{npc} #shrug#. \"A {occupation}'s life. The sect people never pay what they owe.\"",
+]
+
+["asked.work.again"]
+colour = "npc"
+lines = [
+  "{npc} #impatience#. \"#told_you# I am a {occupation}. That has not changed.\"",
+  "\"#told_you# {occupation},\" {npc} says. \"Ask me something new.\"",
 ]
 
 ["asked.town"]
 colour = "npc"
 lines = [
-  "\"{town}? A {kind} of {region}. Quiet, until it isn't,\" says {npc}.",
-  "{npc} lowers their voice. \"{town} looks peaceful. Every {kind} in {region} does, from the outside.\"",
+  "\"{town}? A {kind} of {region}. Quiet, until it isn't,\" says {npc}, as #sound#.",
+  "{npc} #hush#. \"{town} looks peaceful. Every {kind} in {region} does, from the outside.\"",
+]
+
+["asked.town.again"]
+colour = "npc"
+lines = [
+  "{npc} #impatience#. \"#told_you# {town} is a {kind}. It is still a {kind}.\"",
+  "\"#told_you# nothing here changes quickly,\" {npc} says of {town}.",
 ]
 
 [parted]
@@ -51,42 +71,42 @@ lines = [
 [travelled]
 colour = "default"
 lines = [
-  "You take the #road# road for {days}. At {watch} you reach {dest}.",
-  "After {days} on the #road# road, {dest} rises ahead of you at {watch}.",
+  "You take the #road# road for {days}. As {watch} comes on, you reach {dest}.",
+  "After {days} on the #road# road, {dest} rises ahead of you #sky#.",
 ]
 
 ["scene.plains"]
 lines = [
-  "{town} sits among open fields. #wind# moves through the {season} grain at {watch}.",
-  "Flat land runs to the horizon around {town}. Farmers bend in the fields this {season} {watch}.",
+  "{town} sits among open fields. #wind# moves through the {season} grain this {watch}.",
+  "Flat land runs to the horizon around {town} #sky#. Farmers bend in the fields and #sound#.",
 ]
 
 ["scene.mountains"]
 lines = [
-  "{town} clings to a mountainside. Mist pours between the peaks this {season} {watch}.",
-  "Stone steps wind up through {town}. Somewhere above, a sect bell rings at {watch}.",
+  "{town} clings to a mountainside #sky#. Mist pours between the peaks this {season} {watch}.",
+  "Stone steps wind up through {town}. Somewhere above a sect bell rings, and #sound#.",
 ]
 
 ["scene.river"]
 lines = [
-  "Boats crowd the docks of {town}. The river runs broad and brown this {season} {watch}.",
-  "{town} straddles the river. Ferrymen shout prices across the water at {watch}.",
+  "Boats crowd the docks of {town} #sky#. The river runs broad and brown this {season} {watch}.",
+  "{town} straddles the river. Ferrymen shout prices across the water and #sound#.",
 ]
 
 ["scene.forest"]
 lines = [
-  "{town} huddles beneath old trees. #wind# stirs the {season} canopy at {watch}.",
-  "Woodcutters stack timber at the edge of {town}. The forest is loud with birds at {watch}.",
+  "{town} huddles beneath old trees. #wind# stirs the {season} canopy this {watch}.",
+  "Woodcutters stack timber at the edge of {town} #sky#; #sound#.",
 ]
 
 ["scene.marsh"]
 lines = [
-  "{town} stands on stilts above the reeds. Frogs drone through the {season} {watch}.",
-  "Plank walkways link the houses of {town}. The marsh smells of rot and lotus at {watch}.",
+  "{town} stands on stilts above the reeds #sky#. Frogs drone through the {season} {watch}.",
+  "Plank walkways link the houses of {town}. The marsh smells of rot and lotus, and #sound#.",
 ]
 
 ["scene.hills"]
 lines = [
-  "{town} rolls over green hills. Tea terraces catch the {season} light at {watch}.",
-  "Goat paths criss-cross the hills around {town}. #wind# carries woodsmoke at {watch}.",
+  "{town} rolls over green hills. Tea terraces catch the {season} light #sky#.",
+  "Goat paths criss-cross the hills around {town}. #wind# carries woodsmoke this {watch}.",
 ]

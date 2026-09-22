@@ -2,6 +2,7 @@
 
 import random
 import re
+from collections import deque
 import tomllib
 from pathlib import Path
 
@@ -64,18 +65,46 @@ def context_of(brief: Brief) -> dict[str, str]:
 
 
 class ProceduralNarrator:
+    """Grammar prose with a short memory, so repeating an action doesn't repeat the text.
+
+    The same salt always gives the same text (re-rendering a moment is stable).
+    A new salt re-rolls away from the last RECENT texts of the same kind.
+    """
+
+    RECENT = 4
+    REROLLS = 12
+
     def __init__(self, grammar: Grammar | None = None) -> None:
         self.grammar = grammar or Grammar.load()
+        self._recent: dict[str, deque[str]] = {}
+        self._last_salt: dict[str, tuple[str, str]] = {}
 
     def narrate(self, brief: Brief) -> list[Line]:
-        if brief.kind == "scene":
-            key = f"scene.{brief.place.terrain}"
-        elif brief.kind == "asked":
-            key = f"asked.{brief.details.get('topic', '')}"
-        else:
-            key = brief.kind
+        key = self._key(brief)
         if key not in self.grammar.tables:
             return [(f"[{brief.kind}]", "dim")]
-        rng = rng_for(brief.seed, brief.salt)
         colour = self.grammar.tables[key].get("colour", "default")
-        return [(self.grammar.expand(key, rng, context_of(brief)), colour)]
+        salt, cached = self._last_salt.get(key, ("", ""))
+        if salt == brief.salt:
+            return [(cached, colour)]
+        rng = rng_for(brief.seed, brief.salt)
+        context = context_of(brief)
+        recent = self._recent.setdefault(key, deque(maxlen=self.RECENT))
+        text = self.grammar.expand(key, rng, context)
+        for _ in range(self.REROLLS):
+            if text not in recent:
+                break
+            text = self.grammar.expand(key, rng, context)
+        recent.append(text)
+        self._last_salt[key] = (brief.salt, text)
+        return [(text, colour)]
+
+    def _key(self, brief: Brief) -> str:
+        if brief.kind == "scene":
+            return f"scene.{brief.place.terrain}"
+        if brief.kind == "asked":
+            key = f"asked.{brief.details.get('topic', '')}"
+            if brief.details.get("asked_before") and f"{key}.again" in self.grammar.tables:
+                return f"{key}.again"
+            return key
+        return brief.kind

@@ -277,6 +277,19 @@ class World:
         return [Memory(row[0], _entry(row[4:]), row[1], row[2], bool(row[3])) for row in rows]
 
     # --- integrity ----------------------------------------------------------
+    def recent_chronicle_times(self, limit: int = 50) -> list[int]:
+        """Times of the latest chronicle entries, oldest first."""
+        rows = self._conn.execute("select time from chronicle order by id desc limit ?", (limit,))
+        return [row[0] for row in rows][::-1]
+
+    def backup_to(self, path) -> None:
+        """A consistent copy of the live save, safe to take mid-session."""
+        target = sqlite3.connect(Path(path))
+        try:
+            self._conn.backup(target)
+        finally:
+            target.close()
+
     def digest(self) -> str:
         """A hash of every row, for proving a save reloads identically."""
         h = hashlib.sha256()

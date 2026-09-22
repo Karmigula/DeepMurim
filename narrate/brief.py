@@ -125,6 +125,13 @@ def _relationship(world: World, npc: Entity, player: Entity) -> tuple[list[str],
     return facts, details, prior
 
 
+def _times_asked(world: World, npc: Entity, player: Entity, topic: str) -> int:
+    return sum(
+        1 for m in world.memories(npc.id, about=player.id)
+        if m.event.kind == "asked" and m.event.data.get("topic") == topic
+    )
+
+
 def event_brief(world: World, event_id: int, event) -> Brief:
     player = world.entity(event.actors[0])
     other = world.entity(event.actors[1]) if len(event.actors) > 1 else None
@@ -137,6 +144,13 @@ def event_brief(world: World, event_id: int, event) -> Brief:
         details["times_ordinal"] = ordinal(prior + 1)
     if "topic" in event.data:
         details["topic"] = str(event.data["topic"])
+        if event.kind == "asked" and other is not None:
+            repeats = _times_asked(world, other, player, details["topic"]) - 1  # this question is committed
+            if repeats > 0:
+                details["asked_before"] = str(repeats)
+                about = "their work" if details["topic"] == "work" else world.entity(event.place).name
+                plural = "s" if repeats != 1 else ""
+                facts.insert(0, f"You have already asked {other.name} about {about} {repeats} time{plural} before.")
     place_id = event.place
     if event.kind == "travelled":
         dest = world.entity_by_seed(town_path(*event.data["to"]))
