@@ -27,7 +27,8 @@ DeepMurim answers both:
 | Topic | Decision |
 |---|---|
 | Narration | Hybrid: procedural text always works; AI enrichment is optional |
-| AI backend | Claude Code CLI (`claude -p`) plus a small DeepMurim MCP server |
+| AI backend | Claude Code CLI (`claude -p`), Haiku by default; an optional small DeepMurim MCP server for proposals |
+| Tracking bar | State is tracked and pre-digested well enough that Haiku writes adequate prose from a `Brief` alone (§6.0) |
 | Input | Numbered context choices plus a typed command line |
 | Presentation | Same as AsciiCrawler: Python 3.14, pygame-ce character-grid window, IBM Plex Mono |
 | Depth systems | Cultivation & body, social web & grudges, living world, martial arts creation, factions (join/found), lineage & death, knowledge vs truth, heart & karma, items & crafts with history |
@@ -192,34 +193,59 @@ Each system: what it tracks, and how it touches others.
 
 ## 6. Narration
 
+### 6.0 Briefs: the engine thinks, the writer only writes
+**Requirement:** tracking has to be good enough that a small model (Claude Haiku) can write adequate short prose from it. So every narrator receives a finished **`Brief`** and never touches the database. Nothing is left to infer.
+
+- The engine builds one `Brief` per event and per scene description (`narrate/brief.py`). It contains:
+  - `kind`, `when` (a readable date), and `place`: name, kind, region, terrain, season, watch.
+  - `player` and `other`, each a `PersonBrief`:
+    - name, role, traits, realm;
+    - `toward_player`: one word or phrase such as "stranger", "acquaintance", or "familiar face". Phase 3 widens this to the full attitude scale.
+  - `details`: pre-rendered strings the prose may use, such as `topic`, `dest`, `days`, `times_ordinal`, `first_met_season`.
+  - `facts`: **at most 6** plain-English sentences, ranked by salience, all written from what the player knows. Example: "You first met Li Wei in the spring of year 1."
+- **Rules for briefs:**
+  - No entity ids, no JSON blobs, and no ground truth the player hasn't learned. Briefs are the knowledge-isolation choke point.
+  - Every fact is self-contained and true according to the database.
+  - `Brief.to_prompt()` renders a labelled plain-text block of at most 1,200 characters.
+- **Salience ranking** (grows by phase):
+  - indelible memories (killings, betrayals, debts of life);
+  - active grudges and obligations;
+  - first meeting;
+  - recent events;
+  - count of encounters;
+  - the other person's traits.
+- **Why:** the hard work (memory, recall, relevance) happens in deterministic code that can be tested. The model only has to phrase given facts, which any model can do, and which a bigger model does more beautifully.
+
 ### 6.1 Procedural (always on)
-- A grammar in TOML files (in the style of Tracery) keyed by event kind and context tags: season, weather, realm gap, attitude.
-- It produces prose for every event and for scene descriptions.
-- It is deterministic per event id, so reloading shows the same text.
+- A grammar in TOML files (Tracery-lite: `#symbol#` expansion and `{field}` slots) keyed by event kind.
+- Slots are filled only from `Brief` fields and `details`.
+- It produces prose for every event and scene, deterministic per `brief.salt`, so reloading shows the same text.
 
 ### 6.2 ASCII art
-- `.art` files: plain text with an inline colour markup such as `{c:jade}…{/}`, plus a header for size and anchor.
-- **Layered scene composition:** sky → far mountains → structures → foreground. It depends on terrain, time of day, season, and weather.
-- **NPC portraits** are composed from part libraries (face, hair, headwear, robe, weapon), chosen by NPC seed and faction colours.
-- The art frame is fixed at about 40 columns by the frame height. Art is clipped or centred to fit.
+- `.art` files are plain text. Inline colour markup `{jade}…{/}` uses palette keys, lines starting with `;` are comments, and spaces are transparent.
+- **Layered scene composition:** sky (by time of day) → terrain → settlement, bottom-aligned. Season and weather layers come later.
+- **NPC portraits** are composed from part libraries (hair or headwear, face, robe), chosen by NPC seed. Faction colours come in phase 3.
+- The art frame is fixed at 40 columns by the frame height. Art is clipped or centred to fit.
 
 ### 6.3 Claude layer (phase 6)
 - **Runner:** `narrate/bridge.py` runs, on a background thread:
   ```
-  claude -p "<scene brief>" --output-format json --strict-mcp-config \
-    --mcp-config deepmurim/mcp.json --allowedTools "mcp__deepmurim__*"
+  claude -p "<instructions + brief.to_prompt()>" --model <setting, default haiku> --output-format json
   ```
-- **Scene brief:** a compact JSON of the current scene. Claude pulls anything further through tools.
-- **MCP read tools:** `get_scene`, `get_entity`, `get_memories`, `player_beliefs`, `chronicle_search`, `get_relations`.
-  - All of them are filtered through the player's knowledge, so Claude can't leak ground truth.
-- **MCP propose tools:** `propose_prose`, `propose_dialogue`, `propose_npc`, `propose_rumor`, `propose_action` (for free text).
-  - Proposals go into a `proposals` table.
+  - The prose task needs **no tools**: the brief is complete.
+  - Instructions: write 1–3 sentences, use only the facts given, never invent names or events, and keep to wuxia tone.
+- **Model:** a setting, **Haiku by default** for speed and cost. Sonnet or Opus are optional for richer prose.
+- **Optional MCP tools** (`mcp_server/`), for bigger models and non-prose tasks only (content proposals, free-text interpretation):
+  - Read tools, all filtered through the player's knowledge: `get_entity`, `get_memories`, `chronicle_search`, `get_relations`.
+  - Propose tools: `propose_dialogue`, `propose_npc`, `propose_rumor`, `propose_action`.
+- **Proposals** go to a `proposals` table.
   - The engine validates each one: entities exist, nothing contradicts facts, power levels are plausible, and the schema is valid.
   - Proposals that pass become Events; rejects are logged.
+- **Output check** on prose: a reply that names a person or place not in the brief is discarded, and the procedural text stays. This is cheap, and it catches small-model invention.
 - **Fallback:** procedural text shows immediately, and Claude's prose replaces it when it arrives.
-  - On timeout (8 s by default), an error, or AI toggled off, the procedural text stays.
-- **Free-text commands:** when AI is off, a small keyword parser handles them. When on, Claude interprets them into a `propose_action`.
-- **Interfaces fixed in phase 1:** the `Narrator` protocol and the proposal dataclasses, so phase 6 plugs in without reshaping anything.
+  - On timeout (8 s by default), an error, a failed output check, or AI toggled off, the procedural text stays.
+- **Free-text commands:** when AI is off, the keyword parser handles them. When on, Claude maps the text to one of the current numbered choices, or to a `propose_action`.
+- **Interfaces fixed in phase 1:** `Brief`, the `Narrator` protocol (`narrate(brief) -> lines`), and the proposal dataclasses.
 
 ## 7. Presentation
 
@@ -262,6 +288,10 @@ Each phase gets its own implementation plan and is playable at its end.
 - `pytest`. Systems are tested headless against a temporary `.world` database.
 - **Generation stability:** the same seed and path give an identical entity, across runs and processes.
 - **Knowledge isolation:** property tests confirm that no UI, narration, or MCP output contains a fact the player doesn't believe.
+- **Brief quality:**
+  - Every brief's facts are true according to the database.
+  - Briefs contain no entity ids, `to_prompt()` stays within 1,200 characters, and there are at most 6 facts.
+  - Phase 6 adds a small golden set: fixed briefs run through Haiku, and the output check must pass on each.
 - **Persistence:** save, reload, and state is identical (hash of all tables).
 - **Soak** (phase 4 on): 500 in-game years headless. No exceptions, database growth stays bounded (the far-zone summary compacts old detail), and factions still exist.
 - **Render:** layout and text builders are tested without pygame, following the AsciiCrawler pattern.

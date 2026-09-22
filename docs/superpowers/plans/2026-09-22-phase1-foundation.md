@@ -23,6 +23,7 @@
 - Python 3.14 (`.venv` created with `python -m venv .venv`). Dependencies: `pygame-ce>=2.5`, `pytest>=8` only.
 - Only `render/screen.py` and `main.py` may `import pygame`. `world/`, `systems/`, `engine/`, `narrate/`, `render/art.py`, `render/layout.py`, `render/menu.py`, and `app.py` must never import pygame.
 - The engine is the only writer to the database. State changes happen via `world.events.commit` (generation/materialization is the one exception: it writes entities directly, inside a transaction).
+- Narrators never read the database. The engine builds a `Brief` (spec §6.0) and narrators only phrase it. This is what lets Haiku narrate adequately in phase 6.
 - Seeded generation must be deterministic across processes. Use `world.seed.rng_for`; never use `hash()` or unseeded `random`.
 - Font: `assets/fonts/IBMPlexMono-Regular.ttf`, copied from `E:\AIExperiments\AsciiCrawler\assets\fonts\`.
 - Art frame: `art_width = 40` columns, default side `left`, F2 swaps sides, F3 hides it, and both settings persist in `settings.json`.
@@ -58,7 +59,8 @@
 | `systems/time.py` | watches/dates, `advance` |
 | `systems/travel.py` | routes, travel events, travel effect, `location_of` |
 | `systems/talk.py` | greet/ask/farewell events, talk effects |
-| `narrate/base.py`, `narrate/proposals.py` | `Narrator` protocol, `Line`, proposal types (phase-6 seam) |
+| `narrate/base.py`, `narrate/proposals.py` | `Narrator` protocol (`narrate(brief)`), `Line`, proposal types (phase-6 seam) |
+| `narrate/brief.py` | `Brief`: engine-built, id-free, ranked facts; the only input any narrator (grammar or Haiku) gets |
 | `narrate/procedural.py`, `narrate/grammar/core.toml` | Tracery-lite grammar narrator |
 | `engine/game.py`, `engine/journal.py`, `engine/commands.py` | `Game`, `Action`, `Choice`, `Turn`, parser |
 | `render/art.py`, `assets/art/*.art` | art parsing and composition |
@@ -1412,31 +1414,35 @@ def _talking_takes_a_watch(world: World, event: Event) -> None:
 
 ---
 
-### Task 7: Narration (protocol, proposals, procedural grammar)
+### Task 7: Briefs and narration (protocol, proposals, procedural grammar)
+
+The engine pre-digests everything into a `Brief` (spec §6.0), so any narrator only has to phrase given facts. This applies equally to the procedural grammar here and to Haiku in phase 6. Narrators never touch the database.
 
 **Files:**
-- Create: `narrate/base.py`, `narrate/proposals.py`, `narrate/procedural.py`, `narrate/grammar/core.toml`
-- Test: `tests/test_narrate.py`
+- Create: `narrate/base.py`, `narrate/brief.py`, `narrate/proposals.py`, `narrate/procedural.py`, `narrate/grammar/core.toml`
+- Test: `tests/test_brief.py`, `tests/test_narrate.py`
 
 **Interfaces:**
-- Consumes: `World`, `Event`, `rng_for`, time helpers, `region_of`, `conversations_with`
+- Consumes: `World`, `Event`, `rng_for`, time helpers, `region_of`, `people_at`, `conversations_with`, `town_path`
 - Produces:
-  - `Line = tuple[str, str]` (text, palette key)
-  - `Narrator` protocol (runtime_checkable) with `narrate_event(world, event_id, event) -> list[Line]` and `describe_scene(world, place_id, salt) -> list[Line]`
-  - `Proposal(kind, payload, source="claude")`, `Verdict(accepted, reason="")`
-  - `Validator` protocol, and `RejectAll`
-  - `Grammar.load(directory=None)` and `Grammar.expand(key, rng, context) -> str`
-  - `ProceduralNarrator(grammar=None)`
+  - In `narrate/base.py`:
+    - `Line = tuple[str, str]` (text, palette key)
+    - `Narrator` protocol (runtime_checkable) with `narrate(brief) -> list[Line]`
+  - In `narrate/brief.py`:
+    - `PlaceBrief(name, kind, region, terrain, season, watch)`
+    - `PersonBrief(name, role, traits: tuple[str, ...], realm, toward_player)`
+    - `Brief(kind, when, place, player, other, details: dict[str, str], facts: tuple[str, ...], seed: int, salt: str)` with `.to_prompt() -> str`
+    - `event_brief(world, event_id, event) -> Brief`, `scene_brief(world, place_id, player_id, salt) -> Brief`
+    - `MAX_FACTS = 6`, `MAX_PROMPT = 1200`
+  - In `narrate/proposals.py`: `Proposal(kind, payload, source="claude")`, `Verdict(accepted, reason="")`, the `Validator` protocol, and `RejectAll`
+  - In `narrate/procedural.py`: `Grammar.load(directory=None)`, `Grammar.expand(key, rng, context) -> str`, `context_of(brief) -> dict[str, str]`, and `ProceduralNarrator(grammar=None)`
+  - Scene briefs have `kind == "scene"`. The procedural grammar key is `scene.<terrain>`.
 
-- [ ] **Step 1: Write the failing test** — `tests/test_narrate.py`
+- [ ] **Step 1: Write the failing brief test** — `tests/test_brief.py`
 ```python
-import random
-
 import pytest
 
-from narrate.base import Narrator
-from narrate.procedural import Grammar, ProceduralNarrator
-from narrate.proposals import Proposal, RejectAll
+from narrate.brief import MAX_FACTS, MAX_PROMPT, event_brief, scene_brief
 from systems.talk import greet_events
 from world.db import World
 from world.events import Event, commit
@@ -1447,11 +1453,83 @@ from world.gen.materialize import ensure_town, populate
 def setup(tmp_path):
     world = World.create(tmp_path / "t.world", 42)
     town = ensure_town(world, 0, 0, 0)
-    player = world.add_entity("person", "Hero", {"is_player": True})
+    player = world.add_entity("person", "Hero", {"is_player": True, "realm": "mortal"})
     world.relate(player, town, "located_in")
     npc = populate(world, town)[0]
     yield world, town, player, npc
     world.close()
+
+
+def greet(world, player, npc, town):
+    events = greet_events(world, player, npc.id, town)
+    [eid] = commit(world, events)
+    return event_brief(world, eid, events[0])
+
+
+def test_first_meeting_brief(setup):
+    world, town, player, npc = setup
+    brief = greet(world, player, npc, town)
+    assert brief.kind == "met"
+    assert brief.other.name == npc.name and brief.other.role == npc.data["occupation"]
+    assert brief.other.toward_player == "stranger"
+    assert brief.place.name == world.entity(town).name
+    assert brief.player.name == "Hero"
+
+
+def test_repeat_meeting_brief_carries_history(setup):
+    world, town, player, npc = setup
+    greet(world, player, npc, town)
+    brief = greet(world, player, npc, town)
+    assert brief.kind == "conversed"
+    assert brief.other.toward_player == "acquaintance"
+    assert brief.details["times_ordinal"] == "second"
+    assert brief.details["first_met_season"] == "the spring of year 1"
+    assert f"You first met {npc.name} in the spring of year 1." in brief.facts
+    assert brief.facts[0].startswith("You first met")  # most salient first
+
+
+def test_prompt_is_small_labelled_and_id_free(setup):
+    world, town, player, npc = setup
+    for _ in range(12):
+        brief = greet(world, player, npc, town)
+    prompt = brief.to_prompt()
+    assert len(prompt) <= MAX_PROMPT and len(brief.facts) <= MAX_FACTS
+    for label in ("EVENT:", "WHEN:", "WHERE:", "YOU:", "THEM:", "FACTS:"):
+        assert label in prompt
+    assert "{" not in prompt and "seed" not in prompt.lower() and "salt" not in prompt.lower()
+    assert brief.other.toward_player == "familiar face"
+
+
+def test_travel_and_scene_briefs(setup):
+    world, town, player, _ = setup
+    event = Event("travelled", (player,), town, {"to": [0, 0, 0], "watches": 12})
+    brief = event_brief(world, 99, event)
+    assert brief.details["dest"] == world.entity(town).name and brief.details["days"] == "three days"
+    assert brief.other is None and "THEM:" not in brief.to_prompt()
+    scene = scene_brief(world, town, player, "look")
+    assert scene.kind == "scene" and scene.place.terrain == world.entity(town).data["terrain"]
+    assert any(fact.startswith("Here:") for fact in scene.facts)
+```
+
+- [ ] **Step 2: Write the failing narrator test** — `tests/test_narrate.py`
+```python
+import random
+
+from narrate.base import Narrator
+from narrate.brief import Brief, PersonBrief, PlaceBrief, event_brief, scene_brief
+from narrate.procedural import Grammar, ProceduralNarrator
+from narrate.proposals import Proposal, RejectAll
+from world.db import World
+from world.events import Event
+from world.gen.materialize import ensure_town, populate
+
+PLACE = PlaceBrief("Jade Town", "town", "the Misty Peaks", "mountains", "spring", "dusk")
+YOU = PersonBrief("Hero", "you", (), "mortal", "self")
+LI = PersonBrief("Li Wei", "innkeeper", ("proud", "greedy"), "mortal", "acquaintance")
+
+
+def brief(kind, other=LI, **details):
+    return Brief(kind, "Year 1, Spring day 3, dusk", PLACE, YOU, other, details, (), 42, f"t:{kind}")
 
 
 def test_is_a_narrator():
@@ -1463,42 +1541,45 @@ def test_grammar_expands_symbols_and_keeps_unknown_fields():
     assert grammar.expand("k", random.Random(1), {"name": "Mo"}) == "hi Mo {missing}"
 
 
-def test_met_names_the_npc_and_is_deterministic(setup):
-    world, town, player, npc = setup
-    events = greet_events(world, player, npc.id, town)
-    [eid] = commit(world, events)
+def test_deterministic_per_salt():
     narrator = ProceduralNarrator()
-    first = narrator.narrate_event(world, eid, events[0])
-    assert npc.name in first[0][0]
-    assert narrator.narrate_event(world, eid, events[0]) == first
+    b = brief("met")
+    assert narrator.narrate(b) == narrator.narrate(b)
+    assert "Li Wei" in narrator.narrate(b)[0][0]
 
 
-def test_every_event_kind_has_prose(setup):
-    world, town, player, npc = setup
+def test_every_kind_renders_fully_from_a_brief_alone():
     narrator = ProceduralNarrator()
-    kinds = [
-        Event("began", (player,), town),
-        Event("met", (player, npc.id), town, {"times": 0}),
-        Event("conversed", (player, npc.id), town, {"times": 1}),
-        Event("asked", (player, npc.id), town, {"topic": "work"}),
-        Event("asked", (player, npc.id), town, {"topic": "town"}),
-        Event("parted", (player, npc.id), town),
-        Event("travelled", (player,), town, {"to": [0, 0, 0], "watches": 12}),
+    cases = [
+        brief("began", None),
+        brief("met"),
+        brief("conversed", times_ordinal="second", first_met_season="the spring of year 1"),
+        brief("asked", topic="work"),
+        brief("asked", topic="town"),
+        brief("parted"),
+        brief("travelled", None, dest="Jade Town", days="three days"),
+        brief("scene", None),
     ]
-    for n, event in enumerate(kinds):
-        [(text, _)] = narrator.narrate_event(world, 1000 + n, event)
-        assert "#" not in text and "{" not in text, (event.kind, text)
+    for b in cases:
+        [(text, _)] = narrator.narrate(b)
+        assert "#" not in text and "{" not in text, (b.kind, text)
 
 
-def test_unknown_kind_falls_back(setup):
-    world, town, player, _ = setup
-    assert ProceduralNarrator().narrate_event(world, 1, Event("mystery", (player,), town)) == [("[mystery]", "dim")]
+def test_unknown_kind_falls_back():
+    assert ProceduralNarrator().narrate(brief("mystery")) == [("[mystery]", "dim")]
 
 
-def test_scene_mentions_town(setup):
-    world, town, _, _ = setup
-    [(text, _)] = ProceduralNarrator().describe_scene(world, town, "look")
+def test_real_world_scene_and_opening(tmp_path):
+    world = World.create(tmp_path / "t.world", 42)
+    town = ensure_town(world, 0, 0, 0)
+    player = world.add_entity("person", "Hero", {"is_player": True})
+    world.relate(player, town, "located_in")
+    populate(world, town)
+    [(text, _)] = ProceduralNarrator().narrate(scene_brief(world, town, player, "look"))
     assert world.entity(town).name in text
+    [(text, _)] = ProceduralNarrator().narrate(event_brief(world, 1, Event("began", (player,), town)))
+    assert "Hero" in text
+    world.close()
 
 
 def test_reject_all():
@@ -1506,13 +1587,17 @@ def test_reject_all():
     assert not verdict.accepted and verdict.reason
 ```
 
-- [ ] **Step 2: Run to verify fails** → FAIL
+- [ ] **Step 3: Run to verify both fail** — `.venv/Scripts/python.exe -m pytest tests/test_brief.py tests/test_narrate.py -q` → FAIL (ModuleNotFoundError)
 
-- [ ] **Step 3: Implement**
+- [ ] **Step 4: Implement**
 
 `narrate/base.py`:
 ```python
-"""The seam between the engine and whoever writes the prose."""
+"""The seam between the engine and whoever writes the prose.
+
+A narrator gets a finished Brief and returns lines. It never reads the world:
+everything it may say is already in the brief.
+"""
 
 from typing import Protocol, runtime_checkable
 
@@ -1521,9 +1606,189 @@ Line = tuple[str, str]  # (text, palette key)
 
 @runtime_checkable
 class Narrator(Protocol):
-    def narrate_event(self, world, event_id: int, event) -> list[Line]: ...
+    def narrate(self, brief) -> list[Line]: ...
+```
+`narrate/brief.py`:
+```python
+"""Briefs: the engine's pre-digested account of one moment.
 
-    def describe_scene(self, world, place_id: int, salt: str) -> list[Line]: ...
+All recall and relevance judgement happens here, in tested code. A narrator,
+whether a grammar or a small model like Haiku, only has to phrase these facts.
+Rules: no entity ids, only what the player knows, ranked facts, short.
+"""
+
+from dataclasses import dataclass, field
+
+from systems.talk import conversations_with
+from systems.time import WATCH_NAMES, format_date, format_season_year, season_of
+from world.db import Entity, World
+from world.gen.materialize import people_at, region_of
+from world.gen.town import town_path
+
+MAX_FACTS = 6
+MAX_PROMPT = 1200
+ORDINALS = ("first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth")
+NUMBER_WORDS = ("one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten")
+
+
+@dataclass(frozen=True)
+class PlaceBrief:
+    name: str
+    kind: str
+    region: str
+    terrain: str
+    season: str
+    watch: str
+
+
+@dataclass(frozen=True)
+class PersonBrief:
+    name: str
+    role: str
+    traits: tuple[str, ...]
+    realm: str
+    toward_player: str
+
+
+@dataclass(frozen=True)
+class Brief:
+    kind: str
+    when: str
+    place: PlaceBrief
+    player: PersonBrief
+    other: PersonBrief | None
+    details: dict[str, str] = field(default_factory=dict)
+    facts: tuple[str, ...] = ()
+    seed: int = 0   # deterministic procedural text only; never shown to a model
+    salt: str = ""
+
+    def to_prompt(self) -> str:
+        p = self.place
+        lines = [
+            f"EVENT: {self.kind}",
+            f"WHEN: {self.when}",
+            f"WHERE: {p.name} ({p.kind}) in {p.region}; {p.terrain}; {p.season}; {p.watch}",
+            f"YOU: {self.player.name}, {self.player.realm}",
+        ]
+        if self.other is not None:
+            o = self.other
+            traits = ", ".join(o.traits) or "unremarkable"
+            lines.append(f"THEM: {o.name}, {o.role}; {traits}; {o.realm}; to you: {o.toward_player}")
+        if self.details:
+            lines.append("DETAILS: " + "; ".join(f"{k}={v}" for k, v in sorted(self.details.items())))
+        lines.append("FACTS:")
+        lines += [f"- {fact}" for fact in self.facts[:MAX_FACTS]]
+        return "\n".join(lines)[:MAX_PROMPT]
+
+
+def ordinal(n: int) -> str:
+    return ORDINALS[n - 1] if 1 <= n <= len(ORDINALS) else f"{n}th"
+
+
+def days_phrase(watches: int) -> str:
+    days = max(1, watches // 4)
+    if days == 1:
+        return "a day"
+    return f"{NUMBER_WORDS[days - 1] if days <= len(NUMBER_WORDS) else days} days"
+
+
+def _place(world: World, place_id: int) -> PlaceBrief:
+    town = world.entity(place_id)
+    return PlaceBrief(
+        town.name, town.data["kind"], region_of(world, town.id).name, town.data["terrain"],
+        season_of(world.time), WATCH_NAMES[world.time % 4],
+    )
+
+
+def _toward(prior_conversations: int) -> str:
+    if prior_conversations == 0:
+        return "stranger"
+    return "acquaintance" if prior_conversations < 5 else "familiar face"
+
+
+def _person(entity: Entity, toward: str) -> PersonBrief:
+    data = entity.data
+    role = "you" if data.get("is_player") else data.get("occupation", "stranger")
+    return PersonBrief(entity.name, role, tuple(data.get("traits", ())), data.get("realm", "mortal"), toward)
+
+
+def _relationship(world: World, npc: Entity, player: Entity, include_current: bool) -> tuple[list[str], dict[str, str], int]:
+    """Ranked facts about the player and this person, details, and the prior-conversation count.
+
+    Salience order (spec §6.0): first meeting, then encounter count, then traits.
+    Later phases insert indelible memories, grudges and obligations above these.
+    `include_current` is True when the event being narrated is itself a conversation
+    that has already been committed, so it must not count as "before".
+    """
+    history = conversations_with(world, npc.id, player.id)
+    prior = max(0, len(history) - 1) if include_current else len(history)
+    facts: list[str] = []
+    details: dict[str, str] = {}
+    met = [m for m in history if m.event.kind == "met"]
+    if met and prior:
+        season = format_season_year(met[0].event.time)
+        details["first_met_season"] = season
+        facts.append(f"You first met {npc.name} in {season}.")
+    if prior:
+        facts.append(f"You have spoken with {npc.name} {prior} time{'s' if prior != 1 else ''} before.")
+    traits = npc.data.get("traits")
+    if traits:
+        facts.append(f"{npc.name} is {' and '.join(traits)}.")
+    return facts, details, prior
+
+
+def event_brief(world: World, event_id: int, event) -> Brief:
+    player = world.entity(event.actors[0])
+    other = world.entity(event.actors[1]) if len(event.actors) > 1 else None
+    facts: list[str] = []
+    details: dict[str, str] = {}
+    other_brief = None
+    if other is not None:
+        facts, details, prior = _relationship(world, other, player, event.kind in ("met", "conversed"))
+        other_brief = _person(other, _toward(prior))
+        details["times_ordinal"] = ordinal(prior + 1)
+    if "topic" in event.data:
+        details["topic"] = str(event.data["topic"])
+    place_id = event.place
+    if event.kind == "travelled":
+        dest = world.entity_by_seed(town_path(*event.data["to"]))
+        details["dest"] = dest.name if dest else "a town"
+        details["days"] = days_phrase(event.data["watches"])
+        facts.insert(0, f"You travelled {details['days']} to reach {details['dest']}.")
+        if dest is not None:
+            place_id = dest.id
+    return Brief(
+        kind=event.kind,
+        when=format_date(world.time),
+        place=_place(world, place_id),
+        player=_person(player, "self"),
+        other=other_brief,
+        details=details,
+        facts=tuple(facts[:MAX_FACTS]),
+        seed=world.world_seed,
+        salt=f"event:{event_id}",
+    )
+
+
+def scene_brief(world: World, place_id: int, player_id: int, salt: str) -> Brief:
+    player = world.entity(player_id)
+    present = [p for p in people_at(world, place_id, exclude=player_id)]
+    facts = []
+    if present:
+        facts.append("Here: " + ", ".join(f"{p.name} the {p.data.get('occupation', 'stranger')}" for p in present) + ".")
+    known = [p.name for p in present if conversations_with(world, p.id, player_id)]
+    if known:
+        facts.append("You already know " + ", ".join(known) + ".")
+    return Brief(
+        kind="scene",
+        when=format_date(world.time),
+        place=_place(world, place_id),
+        player=_person(player, "self"),
+        other=None,
+        facts=tuple(facts[:MAX_FACTS]),
+        seed=world.world_seed,
+        salt=f"scene:{place_id}:{world.time}:{salt}",
+    )
 ```
 `narrate/proposals.py`:
 ```python
@@ -1563,7 +1828,7 @@ class RejectAll:
 ```
 `narrate/procedural.py`:
 ```python
-"""Prose from grammar files. Deterministic per event, so a reload reads the same."""
+"""Prose from grammar files, filled only from a Brief. Deterministic per brief.salt."""
 
 import random
 import re
@@ -1571,29 +1836,16 @@ import tomllib
 from pathlib import Path
 
 from narrate.base import Line
+from narrate.brief import Brief
 from paths import bundled
-from systems.talk import conversations_with
-from systems.time import WATCH_NAMES, format_season_year, season_of
-from world.gen.materialize import region_of
-from world.gen.town import town_path
 from world.seed import rng_for
 
 SYMBOL = re.compile(r"#(\w+)#")
-ORDINALS = ("first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth")
 
 
 class _KeepMissing(dict):
     def __missing__(self, key: str) -> str:
         return "{" + key + "}"
-
-
-def ordinal(n: int) -> str:
-    return ORDINALS[n - 1] if 1 <= n <= len(ORDINALS) else f"{n}th"
-
-
-def days_phrase(watches: int) -> str:
-    days = max(1, watches // 4)
-    return "a day" if days == 1 else f"{('two', 'three', 'four', 'five')[days - 2] if days <= 5 else days} days"
 
 
 class Grammar:
@@ -1624,58 +1876,39 @@ class Grammar:
         return text.format_map(_KeepMissing(context))
 
 
+def context_of(brief: Brief) -> dict[str, str]:
+    """Flatten a brief into grammar slots: the only data the grammar ever sees."""
+    p = brief.place
+    context = {
+        "player": brief.player.name, "town": p.name, "kind": p.kind, "region": p.region,
+        "terrain": p.terrain, "season": p.season, "watch": p.watch, "when": brief.when,
+    }
+    if brief.other is not None:
+        o = brief.other
+        context.update(
+            npc=o.name, npc_full=o.name, occupation=o.role,
+            trait=o.traits[0] if o.traits else "quiet", toward=o.toward_player,
+        )
+    context.update(brief.details)
+    return context
+
+
 class ProceduralNarrator:
     def __init__(self, grammar: Grammar | None = None) -> None:
         self.grammar = grammar or Grammar.load()
 
-    def narrate_event(self, world, event_id: int, event) -> list[Line]:
-        key = event.kind + (f".{event.data['topic']}" if event.kind == "asked" else "")
+    def narrate(self, brief: Brief) -> list[Line]:
+        if brief.kind == "scene":
+            key = f"scene.{brief.place.terrain}"
+        elif brief.kind == "asked":
+            key = f"asked.{brief.details.get('topic', '')}"
+        else:
+            key = brief.kind
         if key not in self.grammar.tables:
-            return [(f"[{event.kind}]", "dim")]
-        rng = rng_for(world.world_seed, f"event:{event_id}")
+            return [(f"[{brief.kind}]", "dim")]
+        rng = rng_for(brief.seed, brief.salt)
         colour = self.grammar.tables[key].get("colour", "default")
-        return [(self.grammar.expand(key, rng, self._context(world, event)), colour)]
-
-    def describe_scene(self, world, place_id: int, salt: str) -> list[Line]:
-        town = world.entity(place_id)
-        rng = rng_for(world.world_seed, f"scene:{place_id}:{world.time}:{salt}")
-        context = self._place_context(world, town)
-        return [(self.grammar.expand(f"scene.{town.data['terrain']}", rng, context), "default")]
-
-    def _place_context(self, world, town) -> dict:
-        return {
-            "town": town.name,
-            "kind": town.data["kind"],
-            "terrain": town.data["terrain"],
-            "region": region_of(world, town.id).name,
-            "season": season_of(world.time),
-            "watch": WATCH_NAMES[world.time % 4],
-        }
-
-    def _context(self, world, event) -> dict:
-        context: dict = {}
-        if event.place is not None:
-            context.update(self._place_context(world, world.entity(event.place)))
-        player = world.entity(event.actors[0])
-        context["player"] = player.name
-        if len(event.actors) > 1:
-            npc = world.entity(event.actors[1])
-            context.update(
-                npc=npc.name,
-                npc_full=npc.name,
-                occupation=npc.data.get("occupation", "stranger"),
-                trait=(npc.data.get("traits") or ["quiet"])[0],
-            )
-            times = event.data.get("times", 0)
-            context["times_ordinal"] = ordinal(times + 1)
-            met = [m for m in conversations_with(world, npc.id, player.id) if m.event.kind == "met"]
-            context["first_met_season"] = format_season_year(met[0].event.time) if met else "some time ago"
-        if event.kind == "travelled":
-            x, y, i = event.data["to"]
-            dest = world.entity_by_seed(town_path(x, y, i))
-            context["dest"] = dest.name if dest else "a town"
-            context["days"] = days_phrase(event.data["watches"])
-        return context
+        return [(self.grammar.expand(key, rng, context_of(brief)), colour)]
 ```
 `narrate/grammar/core.toml`:
 ```toml
@@ -1773,9 +2006,9 @@ lines = [
 ]
 ```
 
-- [ ] **Step 4: Run tests** → PASS (7 passed)
+- [ ] **Step 5: Run tests** — `.venv/Scripts/python.exe -m pytest tests/test_brief.py tests/test_narrate.py -q` → PASS (11 passed)
 
-- [ ] **Step 5: Commit** — `git add -A && git commit -m "feat: procedural narration and phase-6 narrator seam" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"`
+- [ ] **Step 6: Commit** — `git add -A && git commit -m "feat: briefs and procedural narration (phase-6 narrator seam)" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"`
 
 ---
 
@@ -1786,7 +2019,7 @@ lines = [
 - Test: `tests/test_game.py`
 
 **Interfaces:**
-- Consumes: everything from Tasks 3–7
+- Consumes: everything from Tasks 3–7. All prose goes through `narrator.narrate(brief)`; the engine builds the brief with `event_brief` or `scene_brief`.
 - Produces:
   - `Action(verb: str, target=None)` (frozen)
   - `Choice(label: str, action: Action)` (frozen)
@@ -1922,6 +2155,7 @@ import systems.talk as talk
 import systems.travel as travel
 from engine.journal import summarize
 from narrate.base import Line, Narrator
+from narrate.brief import event_brief, scene_brief
 from narrate.procedural import ProceduralNarrator
 from systems.time import format_date
 from world.db import Entity, SaveError, World
@@ -2010,7 +2244,7 @@ class Game:
 
     def _do_look(self, _target) -> Turn:
         self.focus = None
-        return self._turn(self.narrator.describe_scene(self.world, self.place.id, "look") + self._presence())
+        return self._turn(self._describe("look") + self._presence())
 
     def _do_travel(self, dest) -> Turn:
         routes = {r.dest: r for r in travel.routes_from(self.world, self.place)}
@@ -2020,7 +2254,7 @@ class Game:
         self.focus = None
         lines = self._commit(travel.travel_events(self.player.id, self.place.id, route))
         populate(self.world, self.place.id)
-        return self._turn(lines + self.narrator.describe_scene(self.world, self.place.id, "arrive") + self._presence())
+        return self._turn(lines + self._describe("arrive") + self._presence())
 
     def _do_talk(self, npc_id) -> Turn:
         present = {p.id for p in people_at(self.world, self.place.id, exclude=self.player.id)}
@@ -2063,8 +2297,11 @@ class Game:
         ids = commit(self.world, events)
         lines: list[Line] = []
         for event_id, event in zip(ids, events):
-            lines += self.narrator.narrate_event(self.world, event_id, event)
+            lines += self.narrator.narrate(event_brief(self.world, event_id, event))
         return lines
+
+    def _describe(self, salt: str) -> list[Line]:
+        return self.narrator.narrate(scene_brief(self.world, self.place.id, self.player.id, salt))
 
     def _presence(self) -> list[Line]:
         people = people_at(self.world, self.place.id, exclude=self.player.id)
@@ -3391,7 +3628,7 @@ def test_there_and_back_again(tmp_path):
   - Procedural narration: Task 7.
   - Art loader with scenes and portraits: Task 10.
   - Save, load, and new world: Tasks 3, 12, and 13.
-  - Narrator and proposal interfaces: Task 7.
+  - Narrator, `Brief`, and proposal interfaces: Task 7. Briefs meet the spec §6.0 bar: at most 6 ranked facts, no ids, and a prompt of at most 1,200 characters (`test_brief.py`).
 - **Deferred to later phases (by the spec):** facts and beliefs are used only as empty tables, and there is no level-of-detail simulation.
 - **Review Focus:**
   - Items 1 and 2: `test_commands.py`.
