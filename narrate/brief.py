@@ -100,16 +100,16 @@ def _person(entity: Entity, toward: str) -> PersonBrief:
     return PersonBrief(entity.name, role, tuple(data.get("traits", ())), data.get("realm", "mortal"), toward)
 
 
-def _relationship(world: World, npc: Entity, player: Entity, include_current: bool) -> tuple[list[str], dict[str, str], int]:
+def _relationship(world: World, npc: Entity, player: Entity) -> tuple[list[str], dict[str, str], int]:
     """Ranked facts about the player and this person, details, and the prior-conversation count.
 
     Salience order (spec §6.0): first meeting, then encounter count, then traits.
     Later phases insert indelible memories, grudges and obligations above these.
-    `include_current` is True when the event being narrated is itself a conversation
-    that has already been committed, so it must not count as "before".
+    Every event with another person happens inside a conversation whose opening
+    greeting is already committed, so that greeting never counts as "before".
     """
     history = conversations_with(world, npc.id, player.id)
-    prior = max(0, len(history) - 1) if include_current else len(history)
+    prior = max(0, len(history) - 1)
     facts: list[str] = []
     details: dict[str, str] = {}
     met = [m for m in history if m.event.kind == "met"]
@@ -132,7 +132,7 @@ def event_brief(world: World, event_id: int, event) -> Brief:
     details: dict[str, str] = {}
     other_brief = None
     if other is not None:
-        facts, details, prior = _relationship(world, other, player, event.kind in ("met", "conversed"))
+        facts, details, prior = _relationship(world, other, player)
         other_brief = _person(other, _toward(prior))
         details["times_ordinal"] = ordinal(prior + 1)
     if "topic" in event.data:

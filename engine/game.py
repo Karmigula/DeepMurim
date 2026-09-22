@@ -1,7 +1,8 @@
 """The engine: Actions in, Turns out. The only code that commits events."""
 
 import random
-from dataclasses import dataclass
+import sqlite3
+from dataclasses import dataclass, field
 
 import systems.talk as talk
 import systems.travel as travel
@@ -13,6 +14,8 @@ from systems.time import format_date
 from world.db import Entity, SaveError, World
 from world.events import Event, commit
 from world.gen.materialize import ensure_town, people_at, populate, region_of
+
+MAX_SHOWN = 9  # digits 1-9 pick a choice with one key
 
 HELP = [
     ("Type a number, or a command:", "system"),
@@ -39,6 +42,11 @@ class Turn:
     choices: list[Choice]
     art: dict
     status: str
+    extra: list[Choice] = field(default_factory=list)  # valid now but grouped off-screen
+
+    @property
+    def all_choices(self) -> list[Choice]:
+        return self.choices + self.extra
 
 
 class Game:
@@ -46,6 +54,7 @@ class Game:
         self.world = world
         self.narrator = narrator or ProceduralNarrator()
         self.focus: int | None = None
+        self.submenu: str | None = None
         self._pending: list[Line] = []
 
     @classmethod
@@ -65,9 +74,19 @@ class Game:
     @classmethod
     def load(cls, path, narrator=None) -> "Game":
         world = World.open(path)
-        if world.get_meta("player_id") is None:
+        try:
+            player_id = world.get_meta("player_id")
+            player = world.entity(player_id) if isinstance(player_id, int) else None
+            if player is None:
+                raise SaveError(f"{world.path.name} has no player")
+            if not world.targets(player.id, "located_in"):
+                raise SaveError(f"{world.path.name}: {player.name} is nowhere in the world")
+        except SaveError:
             world.close()
-            raise SaveError(f"{world.path.name} has no player")
+            raise
+        except (sqlite3.DatabaseError, ValueError, KeyError, TypeError) as exc:
+            world.close()
+            raise SaveError(f"{world.path.name} is damaged ({exc})") from exc
         return cls(world, narrator)
 
     def close(self) -> None:
@@ -92,7 +111,16 @@ class Game:
         handler = getattr(self, f"_do_{action.verb}", None)
         if handler is None:
             return self._turn([(f"You can't do that ({action.verb}).", "system")])
+        if action.verb not in ("people", "ambiguous"):
+            self.submenu = None
         return handler(action.target)
+
+    def _do_people(self, _target) -> Turn:
+        self.submenu = "people"
+        return self._turn([("Who do you approach?", "system")])
+
+    def _do_back(self, _target) -> Turn:
+        return self._turn([])
 
     def _do_look(self, _target) -> Turn:
         self.focus = None
@@ -165,20 +193,31 @@ class Game:
             described.append(f"{person.name} the {person.data.get('occupation', 'stranger')}{known}")
         return [("Here: " + ", ".join(described) + ".", "dim")]
 
-    def _choices(self) -> list[Choice]:
+    def _choices(self) -> tuple[list[Choice], list[Choice]]:
+        """(shown, extra). At most MAX_SHOWN are shown, so every one has a single-key number.
+
+        When a town is too busy, its people fold into one "Talk to someone here"
+        entry; the ways out, look and journal always stay on the first screen.
+        Folded choices go in `extra` so typed commands like `talk li` still reach them.
+        """
         if self.focus is not None:
             return [
                 Choice("Ask about their work", Action("ask", "work")),
                 Choice(f"Ask about {self.place.name}", Action("ask", "town")),
                 Choice("Say farewell", Action("farewell")),
-            ]
-        choices = [
+            ], []
+        people = [
             Choice(f"Talk to {p.name} ({p.data.get('occupation', 'stranger')})", Action("talk", p.id))
             for p in people_at(self.world, self.place.id, exclude=self.player.id)
         ]
-        choices += [Choice(r.label, Action("travel", r.dest)) for r in travel.routes_from(self.world, self.place)]
-        choices += [Choice("Look around", Action("look")), Choice("Read your journal", Action("journal"))]
-        return choices
+        routes = [Choice(r.label, Action("travel", r.dest)) for r in travel.routes_from(self.world, self.place)]
+        general = [Choice("Look around", Action("look")), Choice("Read your journal", Action("journal"))]
+        if self.submenu == "people":
+            return people[: MAX_SHOWN - 1] + [Choice("Back", Action("back"))], people[MAX_SHOWN - 1:] + routes + general
+        if len(people) + len(routes) + len(general) <= MAX_SHOWN:
+            return people + routes + general, []
+        group = Choice(f"Talk to someone here ({len(people)})", Action("people"))
+        return [group] + routes + general, people
 
     def _art(self) -> dict:
         if self.focus is not None:
@@ -193,4 +232,5 @@ class Game:
 
     def _turn(self, lines: list[Line]) -> Turn:
         lines, self._pending = self._pending + lines, []
-        return Turn(lines, self._choices(), self._art(), self._status())
+        shown, extra = self._choices()
+        return Turn(lines, shown, self._art(), self._status(), extra)

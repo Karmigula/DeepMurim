@@ -67,3 +67,15 @@ def test_travel_and_scene_briefs(setup):
     scene = scene_brief(world, town, player, "look")
     assert scene.kind == "scene" and scene.place.terrain == world.entity(town).data["terrain"]
     assert any(fact.startswith("Here:") for fact in scene.facts)
+
+
+def test_asking_during_first_conversation_is_not_a_repeat(setup):
+    from systems.talk import ask_events
+    world, town, player, npc = setup
+    greet(world, player, npc, town)
+    events = ask_events(player, npc.id, town, "work")
+    [eid] = commit(world, events)
+    brief = event_brief(world, eid, events[0])
+    assert brief.other.toward_player == "stranger"
+    assert brief.details["times_ordinal"] == "first"
+    assert not any("before" in fact for fact in brief.facts)

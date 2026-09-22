@@ -36,6 +36,7 @@ class App:
         self.game: Game | None = None
         self.log: list = []
         self.choices: list = []
+        self.extra: list = []
         self.art: list = []
         self.status = ""
         self.command = ""
@@ -109,7 +110,7 @@ class App:
 
     # --- game -----------------------------------------------------------------
     def submit(self, text: str) -> None:
-        action = parse(text, self.choices)
+        action = parse(text, self.choices, self.extra)
         self.command = ""
         if action is None or self.game is None:
             return
@@ -122,6 +123,7 @@ class App:
         self.log.extend(turn.lines)
         del self.log[:-MAX_LOG]
         self.choices = turn.choices
+        self.extra = turn.extra
         self.art = render_request(turn.art, self.config.art_width, self.config.art_height)
         self.status = turn.status
         self.scroll = 0

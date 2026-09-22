@@ -91,3 +91,12 @@ def test_digest_changes_with_state(world):
     before = world.digest()
     world.add_entity("x", "y")
     assert world.digest() != before
+
+
+def test_non_json_version_is_a_save_error(tmp_path):
+    path = tmp_path / "odd.world"
+    w = World.create(path, 1)
+    w._conn.execute("update meta set value = 'not json' where key = 'schema_version'")
+    w.close()
+    with pytest.raises(SaveError):
+        World.open(path)

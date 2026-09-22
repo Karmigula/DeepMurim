@@ -112,18 +112,32 @@ class World:
 
     @classmethod
     def open(cls, path) -> "World":
+        """Open a save, or raise SaveError with a message fit for the title screen.
+
+        The version is read before anything is written (WAL mode is a write),
+        so a foreign or future file is rejected untouched.
+        """
         path = Path(path)
         if not path.is_file():
             raise SaveError(f"No save at {path}")
+        conn = sqlite3.connect(path, isolation_level=None)
         try:
-            conn = cls._connect(path)
             row = conn.execute("select value from meta where key = 'schema_version'").fetchone()
-        except sqlite3.DatabaseError as exc:
+            version = json.loads(row[0]) if row else None
+        except (sqlite3.DatabaseError, ValueError) as exc:
+            conn.close()
             raise SaveError(f"{path.name} is not a DeepMurim save ({exc})") from exc
-        version = json.loads(row[0]) if row else None
         if version != SCHEMA_VERSION:
             conn.close()
             raise SaveError(f"{path.name} has save version {version}; this game reads version {SCHEMA_VERSION}")
+        try:
+            conn.execute("pragma journal_mode = wal")
+            problem = conn.execute("pragma quick_check").fetchone()[0]
+        except sqlite3.DatabaseError as exc:
+            problem = str(exc)
+        if problem != "ok":
+            conn.close()
+            raise SaveError(f"{path.name} is damaged ({problem})")
         return cls(conn, path)
 
     @staticmethod

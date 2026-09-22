@@ -2,7 +2,7 @@ from engine.game import Action, Game
 
 
 def talk_choice(turn):
-    return next(c for c in turn.choices if c.action.verb == "talk")
+    return next(c for c in turn.all_choices if c.action.verb == "talk")
 
 
 def test_npc_remembers_across_reload(tmp_path):
@@ -37,11 +37,11 @@ def test_same_seed_same_world(tmp_path):
 def test_there_and_back_again(tmp_path):
     game = Game.new(tmp_path / "w.world", "Tester", world_seed=42)
     home = game.place.id
-    residents = {c.action.target for c in game.start().choices if c.action.verb == "talk"}
+    residents = {c.action.target for c in game.start().all_choices if c.action.verb == "talk"}
     north = next(c for c in game.look().choices if "north road" in c.label)
     game.perform(north.action)
     south = next(c for c in game.look().choices if "south road" in c.label)
     turn = game.perform(south.action)
     assert game.place.id == home
-    assert {c.action.target for c in turn.choices if c.action.verb == "talk"} == residents
+    assert residents and {c.action.target for c in turn.all_choices if c.action.verb == "talk"} == residents
     game.close()

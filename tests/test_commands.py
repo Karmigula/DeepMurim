@@ -47,3 +47,14 @@ def test_junk_never_crashes():
     for junk in ["говорить 🐉", "x" * 5000, "talk", "go ", "ask about", "!!!", "\x00\x01"]:
         action = parse(junk, CHOICES)
         assert action is None or action.verb in {"unknown", "ambiguous", "talk", "travel"}
+
+
+def test_unicode_digits_are_unknown_not_a_crash():
+    for text in ["²", "①", "٣", "1²"]:
+        assert parse(text, CHOICES).verb == "unknown"
+
+
+def test_words_also_search_extra_choices():
+    hidden = [Choice("Talk to Mok Hwa (blacksmith)", Action("talk", 9))]
+    assert parse("talk mok", CHOICES, hidden) == Action("talk", 9)
+    assert parse("6", CHOICES, hidden).verb == "unknown"  # numbers only index visible choices
