@@ -1,0 +1,92 @@
+[symbols]
+greeting = ["Well met.", "Traveller.", "Hm.", "Greetings, young hero.", "Another wanderer, is it?", "Mind your step."]
+look = ["looks you over", "eyes you warily", "offers a shallow bow", "barely glances up", "studies your hands for calluses", "sizes up your stance"]
+remember = ["You again.", "I remember your face.", "Back so soon?", "The world is small, it seems.", "Ah, it's you."]
+farewell = ["May the heavens favour your path.", "Walk carefully.", "Don't make trouble here.", "Until the rivers meet again."]
+road = ["dusty", "rutted", "winding", "rain-slick", "bandit-haunted", "quiet", "pilgrim-worn"]
+wind = ["A cold wind", "A warm breeze", "A restless wind", "Still air"]
+
+[began]
+colour = "gold"
+lines = [
+  "Your story begins in {town}, in the {season} of the first year. You carry little but a name: {player}.",
+  "{player} arrives in {town} with empty pockets and a head full of legends. The martial world waits.",
+]
+
+[met]
+colour = "npc"
+lines = [
+  "{npc_full}, a {trait} {occupation}, #look#. \"#greeting# The name is {npc_full}.\"",
+  "A {trait} {occupation} #look#. \"#greeting#\" They give their name as {npc_full}.",
+]
+
+[conversed]
+colour = "npc"
+lines = [
+  "{npc} #look#. \"#remember# We first spoke in {first_met_season}, did we not?\"",
+  "\"#remember#\" says {npc}. It is the {times_ordinal} time the two of you have spoken.",
+]
+
+["asked.work"]
+colour = "npc"
+lines = [
+  "\"Work? I am a {occupation}. It feeds me, mostly,\" says {npc}.",
+  "{npc} shrugs. \"A {occupation}'s life. The sect people never pay what they owe.\"",
+]
+
+["asked.town"]
+colour = "npc"
+lines = [
+  "\"{town}? A {kind} of {region}. Quiet, until it isn't,\" says {npc}.",
+  "{npc} lowers their voice. \"{town} looks peaceful. Every {kind} in {region} does, from the outside.\"",
+]
+
+[parted]
+colour = "npc"
+lines = [
+  "\"#farewell#\" {npc} turns back to their business.",
+  "{npc} nods. \"#farewell#\"",
+]
+
+[travelled]
+colour = "default"
+lines = [
+  "You take the #road# road for {days}. At {watch} you reach {dest}.",
+  "After {days} on the #road# road, {dest} rises ahead of you at {watch}.",
+]
+
+["scene.plains"]
+lines = [
+  "{town} sits among open fields. #wind# moves through the {season} grain at {watch}.",
+  "Flat land runs to the horizon around {town}. Farmers bend in the fields this {season} {watch}.",
+]
+
+["scene.mountains"]
+lines = [
+  "{town} clings to a mountainside. Mist pours between the peaks this {season} {watch}.",
+  "Stone steps wind up through {town}. Somewhere above, a sect bell rings at {watch}.",
+]
+
+["scene.river"]
+lines = [
+  "Boats crowd the docks of {town}. The river runs broad and brown this {season} {watch}.",
+  "{town} straddles the river. Ferrymen shout prices across the water at {watch}.",
+]
+
+["scene.forest"]
+lines = [
+  "{town} huddles beneath old trees. #wind# stirs the {season} canopy at {watch}.",
+  "Woodcutters stack timber at the edge of {town}. The forest is loud with birds at {watch}.",
+]
+
+["scene.marsh"]
+lines = [
+  "{town} stands on stilts above the reeds. Frogs drone through the {season} {watch}.",
+  "Plank walkways link the houses of {town}. The marsh smells of rot and lotus at {watch}.",
+]
+
+["scene.hills"]
+lines = [
+  "{town} rolls over green hills. Tea terraces catch the {season} light at {watch}.",
+  "Goat paths criss-cross the hills around {town}. #wind# carries woodsmoke at {watch}.",
+]
