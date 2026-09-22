@@ -6,3 +6,5 @@ saves/
 *.world-wal
 *.world-shm
 settings.json
+.pytest_cache/
+pytest-cache-files-*/
