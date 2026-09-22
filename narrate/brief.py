@@ -7,7 +7,7 @@ Rules: no entity ids, only what the player knows, ranked facts, short.
 
 from dataclasses import dataclass, field
 
-from systems.talk import conversations_with
+from systems.talk import conversations_with, times_asked
 from systems.time import WATCH_NAMES, format_date, format_season_year, season_of
 from world.db import Entity, World
 from world.gen.materialize import people_at, region_of
@@ -122,14 +122,27 @@ def _relationship(world: World, npc: Entity, player: Entity) -> tuple[list[str],
     traits = npc.data.get("traits")
     if traits:
         facts.append(f"{npc.name} is {' and '.join(traits)}.")
+    _patience_facts(world, npc, player, history, facts, details)
     return facts, details, prior
 
 
-def _times_asked(world: World, npc: Entity, player: Entity, topic: str) -> int:
-    return sum(
-        1 for m in world.memories(npc.id, about=player.id)
-        if m.event.kind == "asked" and m.event.data.get("topic") == topic
-    )
+def _patience_facts(world, npc, player, greetings, facts, details) -> None:
+    """Did this person lose patience with the player in the previous conversation, or ever?"""
+    if not greetings:
+        return
+    current_start = greetings[-1].event.id
+    previous_start = greetings[-2].event.id if len(greetings) > 1 else None
+    lost = [
+        m.event.id for m in world.memories(npc.id, about=player.id)
+        if m.event.kind == "lost_patience" and m.event.id < current_start
+    ]
+    if not lost:
+        return
+    if previous_start is not None and lost[-1] > previous_start:
+        details["annoyed_last_time"] = "yes"
+        facts.insert(0, f"Last time, {npc.name} lost patience with your repeated questions.")
+    else:
+        facts.append(f"{npc.name} once lost patience with your repeated questions.")
 
 
 def event_brief(world: World, event_id: int, event) -> Brief:
@@ -145,7 +158,7 @@ def event_brief(world: World, event_id: int, event) -> Brief:
     if "topic" in event.data:
         details["topic"] = str(event.data["topic"])
         if event.kind == "asked" and other is not None:
-            repeats = _times_asked(world, other, player, details["topic"]) - 1  # this question is committed
+            repeats = times_asked(world, other.id, player.id, details["topic"]) - 1  # this question is committed
             if repeats > 0:
                 details["asked_before"] = str(repeats)
                 about = "their work" if details["topic"] == "work" else world.entity(event.place).name

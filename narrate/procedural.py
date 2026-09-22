@@ -113,4 +113,6 @@ class ProceduralNarrator:
             if brief.details.get("asked_before") and f"{key}.again" in self.grammar.tables:
                 return f"{key}.again"
             return key
+        if brief.kind == "conversed" and brief.details.get("annoyed_last_time") and "conversed.annoyed" in self.grammar.tables:
+            return "conversed.annoyed"
         return brief.kind

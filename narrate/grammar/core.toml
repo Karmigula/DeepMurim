@@ -11,6 +11,8 @@ impatience = ["gives you a flat look", "raises an eyebrow", "sighs through their
 told_you = ["As I said,", "I told you already:", "Same answer as before:", "Were you not listening?", "Again?"]
 sound = ["a dog barks somewhere", "a cart creaks past", "someone is haggling loudly", "wind chimes clink", "a child runs by laughing"]
 sky = ["under a pale sky", "under low cloud", "in clear light", "beneath drifting mist"]
+dismiss = ["Go bother someone else.", "We are done here.", "I have work to do.", "Ask the wind next time."]
+warning = ["Try not to ask me the same thing five times today.", "I hope you listen better this time.", "Ask what you need, once.", "Keep it short.", "No riddles, no repeats."]
 
 [began]
 colour = "gold"
@@ -59,6 +61,20 @@ colour = "npc"
 lines = [
   "{npc} #impatience#. \"#told_you# {town} is a {kind}. It is still a {kind}.\"",
   "\"#told_you# nothing here changes quickly,\" {npc} says of {town}.",
+]
+
+["conversed.annoyed"]
+colour = "npc"
+lines = [
+  "{npc} #look#, unsmiling. \"You again. #warning#\"",
+  "\"Oh. It's you,\" {npc} says flatly. \"#warning#\"",
+]
+
+[lost_patience]
+colour = "npc"
+lines = [
+  "{npc} #impatience#. \"Enough. #dismiss#\" They turn their back on you.",
+  "\"#told_you# I have answered you. #dismiss#\" {npc} walks away.",
 ]
 
 [parted]

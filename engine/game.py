@@ -155,7 +155,12 @@ class Game:
     def _do_ask(self, topic) -> Turn:
         if self.focus is None or topic not in talk.TOPICS:
             return self._turn([("Ask whom, about what?", "system")])
-        return self._turn(self._commit(talk.ask_events(self.player.id, self.focus, self.place.id, topic)))
+        npc, me = self.world.entity(self.focus), self.player.id
+        if talk.repeats_if_asked(self.world, npc.id, me, topic) > talk.patience_of(npc):
+            lines = self._commit(talk.lost_patience_events(me, npc.id, self.place.id, topic))
+            self.focus = None
+            return self._turn(lines)
+        return self._turn(self._commit(talk.ask_events(me, npc.id, self.place.id, topic)))
 
     def _do_farewell(self, _target) -> Turn:
         if self.focus is None:

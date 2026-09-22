@@ -1,10 +1,50 @@
-"""Conversation. Phase 1: meeting, remembering, small talk."""
+"""Conversation: meeting, remembering, small talk, and running out of patience."""
+
+from collections import Counter
 
 from systems.time import advance
 from world.db import Memory, World
 from world.events import Event, Witness, effect
 
 TOPICS = ("work", "town")
+GREETINGS = ("met", "conversed")
+PATIENCE = 3  # repeated questions tolerated in one conversation
+PATIENCE_BY_TRAIT = {"hot-tempered": 2, "kind": 4}
+
+
+def patience_of(npc) -> int:
+    for trait in npc.data.get("traits", []):
+        if trait in PATIENCE_BY_TRAIT:
+            return PATIENCE_BY_TRAIT[trait]
+    return PATIENCE
+
+
+def current_conversation(world: World, npc_id: int, player_id: int) -> list[Memory]:
+    """What the NPC remembers since their latest greeting with the player."""
+    memories = world.memories(npc_id, about=player_id)
+    starts = [i for i, m in enumerate(memories) if m.event.kind in GREETINGS]
+    return memories[starts[-1] + 1:] if starts else memories
+
+
+def times_asked(world: World, npc_id: int, player_id: int, topic: str) -> int:
+    """Across every conversation ever, how often the player asked this."""
+    return sum(
+        1 for m in world.memories(npc_id, about=player_id)
+        if m.event.kind == "asked" and m.event.data.get("topic") == topic
+    )
+
+
+def repeats_if_asked(world: World, npc_id: int, player_id: int, topic: str) -> int:
+    """Repeated questions in this conversation, counting the one about to be asked."""
+    counts = Counter(
+        m.event.data.get("topic") for m in current_conversation(world, npc_id, player_id) if m.event.kind == "asked"
+    )
+    counts[topic] += 1
+    return sum(count - 1 for count in counts.values())
+
+
+def lost_patience_events(player: int, npc_id: int, place: int, topic: str) -> list[Event]:
+    return [Event("lost_patience", (player, npc_id), place, {"topic": topic}, witnesses=(Witness(npc_id, "annoyed", 0.5),))]
 
 
 def conversations_with(world: World, npc_id: int, about: int) -> list[Memory]:

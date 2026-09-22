@@ -20,6 +20,8 @@ def summarize(world: World, entry: ChronicleEntry) -> str:
             text = f"Asked {other} about {entry.data.get('topic', 'things')}."
         case "parted":
             text = f"Took leave of {other}."
+        case "lost_patience":
+            text = f"{other} lost patience with your questions."
         case "travelled":
             dest = world.entity_by_seed(town_path(*entry.data["to"]))
             text = f"Left {place} for {dest.name if dest else 'parts unknown'}."
