@@ -23,7 +23,7 @@ def test_is_a_narrator():
 
 def test_grammar_expands_symbols_and_keeps_unknown_fields():
     grammar = Grammar({"k": {"lines": ["#a# {name} {missing}"]}, "symbols": {"a": ["#b#"], "b": ["hi"]}})
-    assert grammar.expand("k", random.Random(1), {"name": "Mo"}) == "hi Mo {missing}"
+    assert grammar.expand("k", random.Random(1), {"name": "Mo"}) == "Hi Mo {missing}"
 
 
 def test_deterministic_per_salt():

@@ -61,6 +61,7 @@ class App:
         self.crash_count = 0
         self.violations: list[str] = []
         self.debug_visible = False
+        self.report_note = ""
         self._recent_narration: deque[str] = deque(maxlen=4)
 
     # --- saves --------------------------------------------------------------
@@ -113,7 +114,10 @@ class App:
             self.config.show_art = not self.config.show_art
             self._save_settings()
         elif key == "f9":
-            self.bug_report()
+            if self.command.strip():
+                self.bug_report()
+            else:
+                self.state, self.report_note = "report", ""
         elif key == "f12":
             self.debug_visible = not self.debug_visible
         elif key == "page up":
@@ -135,6 +139,19 @@ class App:
                 self.submit(text)
             elif len(self.command) < MAX_COMMAND:
                 self.command += text
+
+    def _report_key(self, key: str, text: str) -> None:
+        """F9 on an empty command line: ask for a description, Enter saves, Esc cancels."""
+        if key == "escape":
+            self.state = "game"
+        elif key == "backspace":
+            self.report_note = self.report_note[:-1]
+        elif key in ("return", "enter"):
+            self.command = self.report_note
+            self.state = "game"
+            self.bug_report()
+        elif len(text) == 1 and text.isprintable() and len(self.report_note) < MAX_COMMAND:
+            self.report_note += text
 
     # --- game -----------------------------------------------------------------
     def submit(self, text: str) -> None:
@@ -304,14 +321,16 @@ class App:
             return compose_title(cols, rows, PALETTE, self.title_options(), self.selected, self.message)
         if self.state == "name":
             return compose_title(cols, rows, PALETTE, [], 0, self.message, f"What is your name? {self.name}_")
-        status, log = self.status, self.log
+        status, log, command = self.status, self.log, self.command
+        if self.state == "report":
+            command = f"Describe the bug (Enter saves, Esc cancels): {self.report_note}"
         if self.debug_visible:
             seed = self.game.world.world_seed if self.game else "?"
-            status = f"DEBUG (F12 closes) | seed {seed} | type a note, then F9 saves a bug report"
+            status = f"DEBUG (F12 closes) | seed {seed} | F9 reports a bug"
             log = self.debug_lines()
         view = View(
             status=status, log=log, art=self.art,
-            choices=[c.label for c in self.choices], command=self.command,
+            choices=[c.label for c in self.choices], command=command,
             art_side=self.config.art_side, show_art=self.config.show_art,
             scroll=0 if self.debug_visible else self.scroll,
         )

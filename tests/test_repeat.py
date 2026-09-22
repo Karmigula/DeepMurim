@@ -1,6 +1,8 @@
 """Doing the same thing twice should not read like a stuck record."""
 
 
+import random
+
 import pytest
 
 from app import App
@@ -106,3 +108,9 @@ def test_held_number_key_fires_once(tmp_path):
     app.handle_key("h", "h", repeat=True)  # held letters still type, like any text box
     assert app.command == "h"
     app.shutdown()
+
+
+def test_sentences_start_with_a_capital():
+    grammar = Grammar({"k": {"lines": ["\"#t# {job},\" she says. again? #t# ok"]}, "symbols": {"t": ["Again?"]}})
+    text = grammar.expand("k", random.Random(1), {"job": "hunter"})
+    assert text == "\"Again? Hunter,\" she says. Again? Again? Ok"

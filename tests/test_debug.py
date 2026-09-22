@@ -181,3 +181,28 @@ def test_violations_surface_in_the_log(tmp_path):
     press(app, "look")
     assert app.violations and any("debug:" in line for line, _ in app.log)
     app.shutdown()
+
+
+def test_lowercase_sentence_start_is_a_violation(tmp_path):
+    game = Game.new(tmp_path / "w.world", "Hero", world_seed=42)
+    turn = Turn([('"Again? hunter," he says.', "npc")], [], {"type": "scene"}, "status")
+    assert any("lowercase" in p for p in check_turn(game, turn, []))
+    game.close()
+
+
+def test_f9_with_empty_line_asks_for_a_note(tmp_path):
+    app = make_app(tmp_path)
+    start(app)
+    app.handle_key("f9", "")
+    assert app.state == "report"
+    assert "Describe the bug" in "\n".join("".join(c[0] if c else " " for c in row) for row in app.grid(120, 40))
+    for ch in "npc repeats":
+        app.handle_key(ch, ch)
+    app.handle_key("return", "\r")
+    assert app.state == "game"
+    [folder] = list((tmp_path / "logs").glob("report-*"))
+    assert "npc repeats" in (folder / "summary.txt").read_text(encoding="utf-8")
+    app.handle_key("f9", "")
+    app.handle_key("escape", "\x1b")  # cancel: no report, back to the game
+    assert app.state == "game" and len(list((tmp_path / "logs").glob("report-*"))) == 1
+    app.shutdown()

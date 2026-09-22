@@ -11,6 +11,7 @@ from narrate.brief import MAX_FACTS, MAX_PROMPT
 
 LEFTOVER = re.compile(r"\{\w+\}|#\w+#")
 FALLBACK = re.compile(r"^\[\w+\]$")
+LOWER_START = re.compile(r"(^|[.?!]\s+)[\"']?[a-z]")
 NARRATIVE = {"npc", "default", "gold"}  # prose colours; dim/system lines may repeat legitimately
 MAX_CHOICES = 9
 
@@ -41,6 +42,8 @@ def check_turn(game, turn, recent_narration: Sequence[str]) -> list[str]:
             problems.append(f"leftover template slot in: {text[:80]}")
         if FALLBACK.match(text):
             problems.append(f"narration fallback, no grammar for {text}")
+        if key in NARRATIVE and LOWER_START.search(text):
+            problems.append(f"lowercase sentence start in: {text[:80]}")
         if key in NARRATIVE and text and text in recent_narration:
             problems.append(f"repeat of a recent line: {text[:80]}")
     if len(turn.choices) > MAX_CHOICES:

@@ -12,6 +12,12 @@ from paths import bundled
 from world.seed import rng_for
 
 SYMBOL = re.compile(r"#(\w+)#")
+SENTENCE_START = re.compile(r"(^|[.?!]\s+)([\"']?)([a-z])")
+
+
+def sentence_case(text: str) -> str:
+    """Capitalise the first letter of every sentence, including just inside a quote."""
+    return SENTENCE_START.sub(lambda m: m.group(1) + m.group(2) + m.group(3).upper(), text)
 
 
 class _KeepMissing(dict):
@@ -44,7 +50,7 @@ class Grammar:
             if expanded == text:
                 break
             text = expanded
-        return text.format_map(_KeepMissing(context))
+        return sentence_case(text.format_map(_KeepMissing(context)))
 
 
 def context_of(brief: Brief) -> dict[str, str]:
