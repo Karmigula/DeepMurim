@@ -5,5 +5,9 @@ from narrate.gossip_text import EXTRA_PHRASES
 WORLD_PHRASES = {
     "died": "{actor} died.",
     "broke_through": "{actor} broke through to a higher realm.",
+    "married": "{actor} married {target}.",
+    "born": "{actor} had a child, {target}.",
+    "moved": "{actor} moved to {target}.",
+    "apprenticed": "{actor} took {target} as a disciple.",
 }
 EXTRA_PHRASES.update(WORLD_PHRASES)
