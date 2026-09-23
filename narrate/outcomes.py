@@ -38,3 +38,4 @@ import narrate.road_text  # noqa: E402,F401
 import narrate.learning_text  # noqa: E402,F401
 import narrate.invent_text  # noqa: E402,F401
 import narrate.gossip_text  # noqa: E402,F401
+import narrate.mask_text  # noqa: E402,F401

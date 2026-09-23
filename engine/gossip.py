@@ -5,7 +5,7 @@ import systems.talk as talk
 import systems.telling as telling
 from engine.actions import Action, Choice
 from narrate.gossip_text import rumour_text, who
-from systems.beliefs import confidence_word, knowledge_of, known_people
+from systems.beliefs import apparent_to, confidence_word, knowledge_of, known_people
 from systems.facts import make_variant
 from systems.kin import ensure_kin
 from world.events import Event, Witness
@@ -184,8 +184,8 @@ class GossipMixin:
         return self._turn(self._commit(events) + self._exposures())
 
     def _speaker(self) -> int:
-        """Who the listener takes the teller to be (Task 8 makes this the persona while masked)."""
-        return self.player.id
+        """Who the listener takes the teller to be: the persona while masked and unrecognised."""
+        return apparent_to(self.world, self.focus, self.player.id)
 
     # --- the Rumours page ----------------------------------------------------------------------
     def _do_rumours(self, _target):

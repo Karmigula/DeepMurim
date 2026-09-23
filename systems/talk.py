@@ -3,6 +3,7 @@
 from collections import Counter
 
 from systems.time import advance
+from systems.beliefs import knows_identity
 from world.db import Memory, World
 from world.events import Event, Witness, effect
 
@@ -53,6 +54,9 @@ def conversations_with(world: World, npc_id: int, about: int) -> list[Memory]:
 
 def greet_events(world: World, player: int, npc_id: int, place: int) -> list[Event]:
     past = conversations_with(world, npc_id, player)
+    persona = world.entity(player).data.get("masked")
+    if persona and not knows_identity(world, npc_id, persona):
+        past = [m for m in past if m.event.data.get("as") == persona]  # to them, a masked stranger
     kind, feeling = ("conversed", "familiar") if past else ("met", "curious")
     return [Event(kind, (player, npc_id), place, {"times": len(past)}, witnesses=(Witness(npc_id, feeling, 0.3),))]
 

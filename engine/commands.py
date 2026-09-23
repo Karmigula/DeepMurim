@@ -21,6 +21,8 @@ GLOBAL = {
     "spar": Action("spar"), "challenge": Action("challenge"),
     "news": Action("news"), "rumours": Action("rumours"), "rumors": Action("rumours"), "gossip": Action("rumours"),
     "tell": Action("tell_menu"),
+    "wear mask": Action("wear_mask"), "mask": Action("wear_mask"), "put on mask": Action("wear_mask"),
+    "remove mask": Action("remove_mask"), "unmask": Action("remove_mask"), "take off mask": Action("remove_mask"),
 }
 PREFIX_VERBS = {
     "talk": "talk", "speak": "talk", "go": "travel", "travel": "travel", "walk": "travel", "ask": ("ask", "ask_about", "news"),

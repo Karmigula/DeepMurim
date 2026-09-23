@@ -34,6 +34,17 @@ class GameHooks:
         """Extra entries for the main menu's general group (rumours, masks)."""
         return []
 
+    def _stamp(self, events: list) -> list:
+        """Adjust events before they are committed (a mask stamps who the player seems to be)."""
+        return events
+
+    def _after_commit(self, ids: list, events: list) -> list:
+        """Lines from reactions to what was just committed (someone seeing through a mask)."""
+        return []
+
+    def _status_suffix(self) -> str:
+        return ""
+
     def _practise_extras(self, body) -> list:
         return []
 

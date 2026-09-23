@@ -16,8 +16,8 @@ class DealingsMixin:
         if learning.can_ask_to_learn(self.world, npc.id, self.player.id) \
                 and learning.will_teach(self.world, npc.id, self.player.id, self.place.id):
             extras.append(Choice("Ask to learn an art...", Action("learn_menu")))
-        if learning.ensure_goods(self.world, npc.id):
-            extras.append(Choice("Browse their manuals...", Action("browse")))
+        if learning.ensure_goods(self.world, npc.id) or npc.data.get("occupation") == "merchant":
+            extras.append(Choice("Browse their goods...", Action("browse")))
         return extras
 
     def _submenu_options(self) -> dict:
@@ -53,7 +53,8 @@ class DealingsMixin:
 
     def _do_browse(self, _target):
         if self.focus is None or not learning.will_deal(self.world, self.focus, self.player.id) \
-                or not learning.ensure_goods(self.world, self.focus):
+                or not (learning.ensure_goods(self.world, self.focus)
+                        or self.world.entity(self.focus).data.get("occupation") == "merchant"):
             return self._turn([("No one here is selling manuals.", "system")])
         self.submenu = "browse"
         return self._turn([("Which manual catches your eye?", "system")])

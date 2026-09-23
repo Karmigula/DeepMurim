@@ -15,6 +15,7 @@ from engine.actions import Action, Choice, Turn
 from engine.dealings import DealingsMixin
 from engine.fight import FightMixin
 from engine.gossip import GossipMixin
+from engine.masks import MasksMixin
 from engine.roads import RoadsMixin
 from engine.hooks import GameHooks
 from engine.inventing import InventingMixin
@@ -47,12 +48,12 @@ HELP = [
     ("  look | talk <name> | go <place or direction> | ask <work|town> | bye | journal | help", "system"),
     ("  cultivate | meditate <day|week|month|season> | practise <art> | open <meridian> | rest | breakthrough", "system"),
     ("  challenge | spar | strike | feint | guard | probe | flee | yield | spare | rob | cripple | kill", "system"),
-    ("  news | ask about <name> | tell | rumours", "system"),
+    ("  news | ask about <name> | tell | rumours | wear mask | remove mask", "system"),
     ("  F2 swap art side | F3 hide art | F4 character sheet | F9 report a bug | F12 debug | Esc menu", "system"),
 ]
 
 
-class Game(GossipMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
+class Game(GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
     def __init__(self, world: World, narrator: Narrator | None = None) -> None:
         self.world = world
         self.narrator = narrator or ProceduralNarrator()
@@ -314,6 +315,7 @@ class Game(GossipMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, G
 
     # --- helpers --------------------------------------------------------------
     def _commit(self, events: list[Event]) -> list[Line]:
+        events = self._stamp(list(events))
         ids = commit(self.world, events)
         self._last_ids = ids
         lines: list[Line] = []
@@ -321,6 +323,8 @@ class Game(GossipMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, G
             brief = event_brief(self.world, event_id, event)
             self.last_briefs.append(brief)
             lines += self.narrator.narrate(brief)
+        lines += self._after_commit(ids, events)
+        self._last_ids = ids  # reactions commit too; callers want their own events' ids
         return lines
 
     def _describe(self, salt: str) -> list[Line]:
@@ -432,7 +436,7 @@ class Game(GossipMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, G
             return special
         player, place = self.player, self.place
         region = region_of(self.world, place.id)
-        return f"{player.name} | {realm_title(self.body())} | {format_date(self.world.time)} | {place.name}, {region.name}"
+        return f"{player.name}{self._status_suffix()} | {realm_title(self.body())} | {format_date(self.world.time)} | {place.name}, {region.name}"
 
     def _turn(self, lines: list[Line]) -> Turn:
         lines, self._pending = self._pending + lines, []

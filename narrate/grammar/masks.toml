@@ -1,0 +1,24 @@
+[symbols]
+mask_tie = ["You tie the mask on.", "You settle the mask over your face.", "You pull the mask into place.", "You knot the mask behind your head.", "The mask goes on."]
+mask_feel = ["The world narrows to two eyeholes.", "Your breath is warm behind the cloth.", "No one here knows this face.", "You feel like someone else.", "The cloth smells of dust."]
+mask_untie = ["You untie the mask.", "You pull the mask away.", "You take the mask off.", "You fold the mask away.", "The mask comes off."]
+mask_air = ["The air is cool on your face.", "You are yourself again.", "You blink in the light.", "Your face feels bare.", "You breathe freely."]
+mask_stare = ["{npc} stops.", "{npc} stares.", "{npc}'s eyes narrow.", "{npc} goes quiet.", "{npc} tilts their head."]
+mask_knowing = ["Something in them has clicked.", "They have seen this before.", "Recognition crosses their face.", "They are sure of something now.", "Their look changes."]
+mask_buy = ["The merchant wraps a plain mask for you.", "A plain mask changes hands.", "You pick the plainest mask on the table.", "You pay for a mask of grey cloth.", "The mask is cheap and plain."]
+
+[mask_on]
+colour = "default"
+lines = ["#mask_tie# #mask_feel#", "#mask_feel# #mask_tie#"]
+
+[mask_off]
+colour = "default"
+lines = ["#mask_untie# #mask_air#", "#mask_air# #mask_untie#"]
+
+[mask_bought]
+colour = "default"
+lines = ["#mask_buy#", "#mask_buy# #mask_feel#"]
+
+[recognised]
+colour = "npc"
+lines = ["#mask_stare# #mask_knowing#", "#mask_knowing# #mask_stare#"]
