@@ -20,7 +20,7 @@ GLOBAL = {
     "spare": Action("verdict", "spare"), "rob": Action("verdict", "rob"), "cripple": Action("verdict", "cripple"), "kill": Action("verdict", "kill"),
     "spar": Action("spar"), "challenge": Action("challenge"),
     "news": Action("news"), "rumours": Action("rumours"), "rumors": Action("rumours"), "gossip": Action("rumours"),
-    "tell": Action("tell_menu"),
+    "tell": Action("tell_menu"), "standing": Action("standing"), "factions": Action("standing"),
     "wear mask": Action("wear_mask"), "mask": Action("wear_mask"), "put on mask": Action("wear_mask"),
     "remove mask": Action("remove_mask"), "unmask": Action("remove_mask"), "take off mask": Action("remove_mask"),
 }

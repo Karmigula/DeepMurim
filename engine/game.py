@@ -22,6 +22,7 @@ from engine.duties import DutiesMixin
 from engine.politics import PoliticsMixin
 from engine.leaving import LeavingMixin
 from engine.law import LawMixin
+from engine.standing_page import standing_lines
 from engine.masks import MasksMixin
 from engine.roads import RoadsMixin
 from engine.hooks import GameHooks
@@ -60,7 +61,7 @@ HELP = [
     ("  look | talk <name> | go <place or direction> | ask <work|town> | bye | journal | help", "system"),
     ("  cultivate | meditate <day|week|month|season> | practise <art> | open <meridian> | rest | breakthrough", "system"),
     ("  challenge | spar | strike | feint | guard | probe | flee | yield | spare | rob | cripple | kill", "system"),
-    ("  news | ask about <name> | tell | rumours | wear mask | remove mask", "system"),
+    ("  news | ask about <name> | tell | rumours | wear mask | remove mask | standing (F6)", "system"),
     ("  F2 swap art side | F3 hide art | F4 character sheet | F9 report a bug | F12 debug | Esc menu", "system"),
 ]
 
@@ -233,6 +234,9 @@ class Game(FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, 
         lines = [(f"Chronicle of {self.player.name}:", "heading")]
         lines += [(summarize(self.world, e), "dim") for e in entries[-15:]]
         return self._turn(lines)
+
+    def _do_standing(self, _target) -> Turn:
+        return self._turn(standing_lines(self.world, self.player.id, self.place.id))
 
     def _do_help(self, _target) -> Turn:
         return self._turn(list(HELP))

@@ -322,6 +322,8 @@ def event_brief(world: World, event_id: int, event) -> Brief:
         outcome, extra = _body_outcome(event)
         details.update(extra)
         facts = player_facts(world, player.id)
+    from engine.standing_page import faction_facts  # the page owns the wording (phase 3b)
+    facts = facts + [f for f in faction_facts(world, player.id, other) if f not in facts]
     if event.kind in OUTCOME_BUILDERS:
         more, extra = OUTCOME_BUILDERS[event.kind](world, event)
         outcome = list(outcome) + list(more)
