@@ -15,7 +15,6 @@ from systems.facts import make_variant, place_name, record_fact
 from systems.membership import left_events, set_membership
 from systems.realms import REALMS, realm_index
 from world.events import Event, commit, effect, listen
-from world.gen.materialize import people_at
 from world.gen.names import person_name
 from world.gen.npc import PORTRAIT_PARTS, TRAITS
 from world.seed import rng_for
@@ -45,8 +44,24 @@ def _role(world, person: int, faction: int) -> str | None:
     return found[1].get("role") if found else None
 
 
+def _staff_rows(world, faction: int) -> list[tuple[int, str, int | None]]:
+    """(person, role, where they are) for the faction's living staff, read from the membership relation.
+
+    One query for the faction and one per staff member; nobody's whole record is parsed.
+    The dead hold no location, so they drop out here.
+    """
+    rows = []
+    for person, _, data in world.relations_to(faction, "member_of"):
+        if data.get("status", "member") != "member" or data.get("role") in (None, "member"):
+            continue
+        where = world.targets(person, "located_in")
+        if where:
+            rows.append((person, data["role"], where[0]))
+    return rows
+
+
 def staff_of(world, faction: int) -> list[int]:
-    return [p for p in F.members_of(world, faction) if _role(world, p, faction) not in (None, "member")]
+    return [person for person, _, _ in _staff_rows(world, faction)]
 
 
 def _realm(world, person: int) -> int:
@@ -54,15 +69,11 @@ def _realm(world, person: int) -> int:
 
 
 def staff_by_town(world, faction: int) -> dict[int, list[tuple[int, str]]]:
-    """(person, role) of the living staff at each of the faction's halls, from one scan per hall."""
-    out = {}
-    for town in wars.hall_towns(world, faction):
-        here = []
-        for person in people_at(world, town):
-            found = F.membership(world, person.id, faction)
-            if found and found[1].get("status", "member") == "member" and found[1].get("role") not in (None, "member"):
-                here.append((person.id, found[1]["role"]))
-        out[town] = here
+    """(person, role) of the living staff at each of the faction's halls."""
+    out = {town: [] for town in wars.hall_towns(world, faction)}
+    for person, role, where in _staff_rows(world, faction):
+        if where in out:
+            out[where].append((person, role))
     return out
 
 
@@ -97,9 +108,9 @@ def succession_events(world, faction: int, n: int, staff: dict | None = None) ->
         return []
     table = _table(world, faction, True)
     by_role = {r: [p for p, role in staff[seat] if role == r] for r in ("leader", "elder", "keeper", "disciple")}
-    anywhere = staff_of(world, faction)  # a leader or elder away from the seat still holds the place
-    leaders = [p for p in anywhere if _role(world, p, faction) == "leader"]
-    by_role["elder"] = [p for p in anywhere if _role(world, p, faction) == "elder"]
+    anywhere = _staff_rows(world, faction)  # a leader or elder away from the seat still holds the place
+    leaders = [p for p, role, _ in anywhere if role == "leader"]
+    by_role["elder"] = [p for p, role, _ in anywhere if role == "elder"]
     events = []
     if any(r == "leader" for r, _, _ in table) and not leaders:
         for pool in ("elder", "keeper", "disciple"):

@@ -3,6 +3,7 @@
 from systems import factions as F
 from systems import halls
 from systems.facts import make_variant, place_name, record_fact
+from systems.membership import set_membership
 from world.events import Event, effect, listen
 from world.seed import rng_for
 
@@ -71,9 +72,9 @@ def clash_events(world, n: int) -> list[Event]:
                 if victims and killers:
                     victim, killer = rng.choice(victims), rng.choice(killers)
             lost = town is not None and not abstract and town != world.entity(loser).data.get("seat")                 and rng.random() < HALL_LOSS
-            events.append(Event("clash", (winner, loser), town, {"season": n, "hall_lost": lost, "abstract": abstract}))
-            if victim is not None:
+            if victim is not None:  # the dead fall before the survivors of a lost hall are let go
                 events.append(Event("died", (killer, victim), town, {"cause": "clash", "world": True}))
+            events.append(Event("clash", (winner, loser), town, {"season": n, "hall_lost": lost, "abstract": abstract}))
     return events
 
 
@@ -107,10 +108,8 @@ def _clash(world, event) -> None:
         data = world.entity(town).data
         world.update_data(town, halls=[f for f in data.get("halls", []) if f != loser])
         world.update_data(loser, branches=[t for t in world.entity(loser).data.get("branches", []) if t != town])
-        seat = halls.seat_of(world, loser)
-        for person in halls.staff_at(world, loser, town):
-            world.unrelate(person, "located_in")
-            world.relate(person, seat, "located_in")
+        for person in halls.staff_at(world, loser, town):  # a lost hall's staff are let go where they stand
+            set_membership(world, person, loser, status="released")
 
 
 @effect("stances_mended")

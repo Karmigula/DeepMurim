@@ -4,6 +4,7 @@ Checked live by the app (violations show in the log and F12 overlay) and by the
 fuzz tests, so new systems are policed from the moment they exist.
 """
 
+import json
 import re
 from collections.abc import Sequence
 
@@ -21,32 +22,50 @@ MAX_CHOICES = 9
 EPS = 1e-6
 
 
+_BODIES_CHECKED: dict = {}  # (save path, person) -> the stored body text that last checked clean
+
+
 def check_world(world) -> list[str]:
     problems = []
+    stored = dict(world._conn.execute(
+        "select id, json_extract(data, '$.body') from entities where kind = 'person'").fetchall())
     player_id = world.get_meta("player_id")
     if player_id is not None and world.entity(player_id) is None:
         problems.append(f"player_id #{player_id} points at nothing")
-    for person in world.entities("person"):
-        places = world.targets(person.id, "located_in")
+    where: dict = {}
+    for a, b, kind in world._conn.execute(
+            "select a, b, kind from relations where kind in ('located_in', 'buried_at') order by since, b"):
+        where.setdefault((a, kind), []).append(b)
+    existing = {row[0] for row in world._conn.execute("select id from entities")}
+    people = world.entities("person")
+    for person in people:
+        places = where.get((person.id, "located_in"), [])
         if person.data.get("dead"):
-            if places or len(world.targets(person.id, "buried_at")) != 1:
+            if places or len(where.get((person.id, "buried_at"), [])) != 1:
                 problems.append(f"{person.name} (#{person.id}) is dead but not properly buried")
         elif len(places) != 1:
             problems.append(f"{person.name} (#{person.id}) has {len(places)} locations")
         for place in places:
-            if world.entity(place) is None:
+            if place not in existing:
                 problems.append(f"{person.name} (#{person.id}) is located in missing entity #{place}")
         problems += check_fragments(person)
         if person.data.get("silver", 0) < 0:
             problems.append(f"{person.name} (#{person.id}) has negative silver")
         if "body" in person.data:
-            problems += check_body(person, settle(from_dict(person.data["body"]), world.time))
+            key, text = (str(world.path), person.id), stored.get(person.id)
+            if _BODIES_CHECKED.get(key) != text:  # an unchanged body that checked clean need not be rebuilt
+                found = check_body(person, settle(from_dict(person.data["body"]), world.time))
+                problems += found
+                if found:
+                    _BODIES_CHECKED.pop(key, None)
+                else:
+                    _BODIES_CHECKED[key] = text
             problems += check_arts(world, person)
     problems += check_items(world)
     problems += check_knowledge(world)
     problems += check_factions(world)
     problems += check_sect(world)
-    problems += check_life(world)
+    problems += check_life(world, people)
     times = world.recent_chronicle_times()
     for before, after in zip(times, times[1:]):
         if after < before:
@@ -215,22 +234,27 @@ def check_factions(world) -> list[str]:
     return out
 
 
-def check_life(world) -> list[str]:
+def check_life(world, people=None) -> list[str]:
     """The living world (phase 4a spec 8): clocks never ahead, families and factions consistent."""
-    from systems import factions as F
     out = []
     now = world.time // 360
     tick = world.get_meta("world_tick")
     if tick is not None and tick > now:
         out.append(f"the world clock is at season {tick}, ahead of season {now}")
     leaders: dict = {}
-    for person in world.entities("person"):
+    people = world.entities("person") if people is None else people
+    dead = {p.id for p in people if p.data.get("dead")}
+    member_rows: dict = {}
+    kin_rows: dict = {}
+    for a, b, kind, raw in world._conn.execute(
+            "select a, b, kind, data from relations where kind in ('member_of', 'kin_of') order by since, b"):
+        (member_rows if kind == "member_of" else kin_rows).setdefault(a, []).append((b, json.loads(raw)))
+    for person in people:
         d = person.data
         who = f"{person.name} (#{person.id})"
         if d.get("lived_to") is not None and d["lived_to"] > now:
             out.append(f"{who} has lived ahead to season {d['lived_to']}")
-        rows = F.memberships(world, person.id)
-        active = [(f, data) for f, _, data in rows if data.get("status", "member") == "member"]
+        active = [(f, data) for f, data in member_rows.get(person.id, []) if data.get("status", "member") == "member"]
         if d.get("dead"):
             if active:
                 out.append(f"{who} is dead but still a member of #{active[0][0]}")
@@ -239,11 +263,11 @@ def check_life(world) -> list[str]:
             if data.get("role") == "leader":
                 leaders.setdefault(f, []).append(person.id)
         spouses = []
-        for other, _, data in world.relations_from(person.id, "kin_of"):
-            if data.get("role") != "spouse" or world.entity(other).data.get("dead"):
+        for other, data in kin_rows.get(person.id, []):
+            if data.get("role") != "spouse" or other in dead:
                 continue
             spouses.append(other)
-            back = [r for b, _, r in world.relations_from(other, "kin_of") if b == person.id]
+            back = [r for b, r in kin_rows.get(other, []) if b == person.id]
             if not back or back[0].get("role") != "spouse":
                 out.append(f"{who} calls #{other} a spouse, but not the other way round")
         if len(spouses) > 1:
@@ -251,7 +275,7 @@ def check_life(world) -> list[str]:
         if float(d.get("age", 30)) < 12:
             if any(data.get("role") not in (None, "member") for _, data in active) or d.get("sworn_to"):
                 out.append(f"{who} is a child but serves a faction or a master")
-            if any(r.get("role") == "disciple" for _, _, r in world.relations_from(person.id, "kin_of")):
+            if any(r.get("role") == "disciple" for _, r in kin_rows.get(person.id, [])):
                 out.append(f"{who} is a child with a disciple")
     for faction, people in leaders.items():
         entity = world.entity(faction)

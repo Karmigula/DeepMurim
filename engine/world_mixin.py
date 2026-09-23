@@ -42,6 +42,8 @@ class WorldMixin:
         lines = super()._after_commit(ids, events)
         for event in events:
             if event.kind == "heard":
+                fact = self.world.fact(event.data["fact"]) if isinstance(event.data.get("fact"), int) else None
+                lines += self._mourn([fact] if fact is not None else [])  # a death heard as a rumour is remembered too
                 variant = event.data.get("variant", {})
                 for someone in (variant.get("actor"), variant.get("target")):
                     if isinstance(someone, int) and self.world.entity(someone) is not None:

@@ -359,6 +359,11 @@ class World:
         rows = self._conn.execute("select a from relations where b = ? and kind = ? order by a", (b, kind))
         return [row[0] for row in rows]
 
+    def relations_to(self, b: int, kind: str) -> list[tuple[int, float, dict]]:
+        """(source, value, data) for each relation of this kind pointing at `b`, by source id."""
+        rows = self._conn.execute("select a, value, data from relations where b = ? and kind = ? order by a", (b, kind))
+        return [(row[0], row[1], json.loads(row[2])) for row in rows]
+
     def relations_from(self, a: int, kind: str) -> list[tuple[int, float, dict]]:
         """(target, value, data) for each relation of this kind from `a`, oldest first."""
         rows = self._conn.execute(

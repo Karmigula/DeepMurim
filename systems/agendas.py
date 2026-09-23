@@ -89,6 +89,8 @@ def birth_events(world, person: int, n: int, rng) -> list[Event]:
     spouse = spouse_of(world, person)
     if spouse is None or spouse < person:  # the lower id of a couple rolls for both
         return []
+    if not _ready(world, spouse, n):
+        return []  # the spouse lives up to this season first (spec §2.2)
     entity, other = world.entity(person), world.entity(spouse)
     if not any(18 <= _age(e) <= 45 for e in (entity, other)) or rng.random() >= BIRTH_CHANCE:
         return []
@@ -225,7 +227,7 @@ def _feud(world, event) -> None:
     if not d["killed"]:
         loser = target if d["won"] else person
         body = load_body(world, loser)
-        add_injury(body, "torso", "cut", 2, world.time, "a feud")
+        add_injury(body, "torso", "cut", 2, min(world.time, d["season"] * lives.SEASON), "a feud")  # when it happened
         save_body(world, loser, body)
 
 

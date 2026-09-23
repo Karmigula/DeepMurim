@@ -1,6 +1,7 @@
 """Centuries of history, headless: the world keeps its rules, its great factions and a sane size."""
 
 import random
+import time
 
 import pytest
 
@@ -49,6 +50,16 @@ def history(tmp_path, years: int, step: int = 5):
             assert check_world(world) == [], f"year {(n + 1) * step}"
     assert check_world(world) == []
     assert not any(world.entity(f).data.get("dissolved") for f in F.ensure_roster(world))
+    # a long-lived world stays quick: one faction season, and the per-turn check once warm (4a minors)
+    world.set_time(world.time + lives.SEASON)
+    start = time.perf_counter()
+    clock.run_due(world)
+    season = time.perf_counter() - start
+    check_world(world)
+    start = time.perf_counter()
+    check_world(world)
+    check = time.perf_counter() - start
+    assert season < 0.1 and check < 0.3, f"season {season * 1000:.0f} ms, check {check * 1000:.0f} ms"
     game.close()
     return path
 

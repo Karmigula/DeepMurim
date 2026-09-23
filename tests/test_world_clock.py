@@ -119,8 +119,9 @@ def test_a_clash_can_kill_and_take_a_hall(game, monkeypatch):
     assert game.world.facts(predicate="lost_hall", subject=cult)
     dead = [p for p in branch_staff if game.world.entity(p).data.get("dead")]
     assert dead and all(F.membership(game.world, p, cult)[1]["status"] == "dead" for p in dead)
-    cult_seat = game.world.entity(cult).data["seat"]
-    assert all(game.world.targets(p, "located_in") == [cult_seat] for p in branch_staff if p not in dead)
+    survivors = [p for p in branch_staff if p not in dead]  # let go where they stood (4a minors)
+    assert all(game.world.targets(p, "located_in") == [town] for p in survivors)
+    assert all(F.membership(game.world, p, cult)[1]["status"] == "released" for p in survivors)
 
 
 def test_a_dead_leader_is_succeeded_and_the_hall_restaffed(game):
