@@ -9,7 +9,10 @@ Rules: no entity ids, only what the player knows, ranked facts, short.
 from dataclasses import dataclass, field
 
 from narrate.outcomes import BODY_FACT_KINDS, OUTCOME_BUILDERS
+from systems.attitude import attitude
+from systems.beliefs import apparent_to
 from systems.bodies import load_body
+from systems.reputation import reputation
 from systems.realms import REALMS, energy_words, realm_title, stage_of
 from systems.talk import conversations_with, times_asked
 from systems.techniques import compat_words
@@ -162,6 +165,10 @@ def _relationship(world: World, npc: Entity, player: Entity) -> tuple[list[str],
     if traits:
         facts.append(f"{npc.name} is {' and '.join(traits)}.")
     _patience_facts(world, npc, player, history, facts, details)
+    feeling = attitude(world, npc.id, apparent_to(world, npc.id, player.id))
+    if feeling.reason and feeling.word != "neutral":
+        details["attitude"] = feeling.word
+        facts.insert(0, f"{npc.name} is {feeling.word} toward you: {feeling.reason}.")
     return facts, details, prior
 
 
@@ -336,6 +343,11 @@ def scene_brief(world: World, place_id: int, player_id: int, salt: str) -> Brief
     known = [p.name for p in present if conversations_with(world, p.id, player_id)]
     if known:
         facts.append("You already know " + ", ".join(known) + ".")
+    fame = reputation(world, place_id, apparent_to(world, place_id, player_id))
+    if fame.epithet:
+        facts.append(f"People here know you as the {fame.epithet}.")
+    elif fame.renown > 0:
+        facts.append(f"People here have heard of you; you are {fame.word} here.")
     return Brief(
         kind="scene",
         when=format_date(world.time),

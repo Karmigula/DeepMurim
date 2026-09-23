@@ -6,6 +6,8 @@ constitution stay hidden; only what the character believes is printed.
 
 from narrate.base import Line
 from render.body_chart import SYMBOL
+from systems.beliefs import home_of
+from systems.reputation import reputation
 from systems.bodies import load_body
 from systems.realms import realm_title
 from systems.techniques import compat_words, compatibility, known_arts, mastery_stage
@@ -53,4 +55,20 @@ def sheet_lines(world: World, player_id: int) -> list[Line]:
                       "red" if injury.permanent else "default"))
     if not injuries:
         lines.append(("  none", "dim"))
+    lines += [("", "default"), ("Reputation:", "heading")]
+    town = home_of(world, player_id)
+    if town is not None:
+        lines.append((_standing(world, town, player_id, "Here"), "default"))
+        for persona in world.entities("persona"):
+            if persona.data.get("of") == player_id:  # your own masks: you know who wears them
+                lines.append((_standing(world, town, persona.id, f"As {persona.name}"), "default"))
     return lines
+
+
+def _standing(world: World, town: int, subject: int, label: str) -> str:
+    name = world.entity(town).name
+    rep = reputation(world, town, subject)
+    if rep.word == "unknown":
+        return f"  {label}: unknown in {name}"
+    known_as = f", known as the {rep.epithet}" if rep.epithet else ""
+    return f"  {label} in {name}: {rep.word}, {rep.path}{known_as}"

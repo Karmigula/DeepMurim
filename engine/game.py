@@ -23,6 +23,8 @@ from engine.journal import summarize
 from narrate.base import Line, Narrator
 from narrate.brief import event_brief, scene_brief
 from narrate.procedural import ProceduralNarrator
+from systems.attitude import attitude
+from systems.beliefs import apparent_to
 from systems.bodies import load_body
 from systems.creation import CreationChoice, apply_creation, build, wanderer_arts
 from systems.realms import MAX_REALM, REALMS, energy_words, realm_title, requirement
@@ -40,7 +42,8 @@ KEEP_SUBMENU = frozenset({
     "people", "routes", "cultivate", "practise_menu", "meridian_menu", "ambiguous",
     "use_menu", "learn_menu", "browse", "create_menu",
 })
-QUIET_KINDS = frozenset({"exchange"})  # too many to list in the journal
+QUIET_KINDS = frozenset({"exchange"})
+PATIENCE_SHIFT = {"warm": 1, "hostile": -1, "hateful": -1}  # phase 3a spec 3.2  # too many to list in the journal
 BUSY = "Finish your conversation first."
 
 HELP = [
@@ -193,7 +196,8 @@ class Game(GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, F
         return self._turn(self._commit(talk.ask_events(me, npc.id, self.place.id, topic)))
 
     def _patience(self, npc) -> int:
-        return talk.patience_of(npc)
+        feeling = attitude(self.world, npc.id, apparent_to(self.world, npc.id, self.player.id)).word
+        return max(1, talk.patience_of(npc) + PATIENCE_SHIFT.get(feeling, 0))
 
     def _lost_patience(self, npc, topic: str):
         """A Turn if this question is one too many for them, else None."""

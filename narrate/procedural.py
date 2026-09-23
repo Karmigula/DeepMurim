@@ -124,6 +124,9 @@ class ProceduralNarrator:
             if brief.details.get("asked_before") and f"{key}.again" in self.grammar.tables:
                 return f"{key}.again"
             return key
+        mood = {"hostile": "hostile", "hateful": "hostile", "warm": "warm"}.get(brief.details.get("attitude", ""))
+        if brief.kind in ("met", "conversed") and mood and f"{brief.kind}.{mood}" in self.grammar.tables:
+            return f"{brief.kind}.{mood}"
         if brief.kind == "conversed" and brief.details.get("annoyed_last_time") and "conversed.annoyed" in self.grammar.tables:
             return "conversed.annoyed"
         return brief.kind

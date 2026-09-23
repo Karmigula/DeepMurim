@@ -8,6 +8,7 @@ from narrate.gossip_text import rumour_text, who
 from systems.beliefs import apparent_to, confidence_word, knowledge_of, known_people
 from systems.facts import make_variant
 from systems.kin import ensure_kin
+from systems.reputation import reputation
 from world.events import Event, Witness
 from world.gen.materialize import people_at
 
@@ -32,9 +33,19 @@ class GossipMixin:
     def _after_arrival(self) -> list:
         lines = super()._after_arrival()
         rumours.catch_up(self.world, self.place.id)
+        lines += self._fame()
         if self.encounter is None:
             lines += self._exposures()
         return lines
+
+    def _fame(self) -> list:
+        """What arriving here feels like, given what the town has heard."""
+        rep = reputation(self.world, self.place.id, apparent_to(self.world, self.place.id, self.player.id))
+        if rep.epithet:
+            return [(f"People here know you as the {rep.epithet}.", "dim")]
+        if rep.renown >= 2.0:
+            return [("Some people here have heard of you.", "dim")]
+        return []
 
     def _exposures(self) -> list:
         events = telling.exposure_events(self.world, self.player.id, self.place.id)

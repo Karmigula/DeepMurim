@@ -1,0 +1,21 @@
+[symbols]
+social_cold = ["{npc} does not return your greeting.", "{npc} looks at you as if at something spilled.", "{npc}'s hand drifts toward a weapon.", "{npc} steps back from you.", "{npc} answers through their teeth."]
+social_cold_after = ["The air between you is thick.", "Others nearby fall silent.", "It will not be a friendly talk.", "Every word is weighed.", "They make no effort to hide it."]
+social_warm = ["{npc} brightens at the sight of you.", "{npc} greets you like an old friend.", "{npc} makes room for you.", "{npc} smiles and bows.", "{npc} waves you over."]
+social_warm_after = ["It is good to be welcome somewhere.", "They seem glad of the company.", "They pour you something to drink.", "The talk comes easily.", "They clearly think well of you."]
+
+["met.hostile"]
+colour = "npc"
+lines = ["#social_cold# #social_cold_after#", "#social_cold_after# #social_cold#"]
+
+["conversed.hostile"]
+colour = "npc"
+lines = ["#social_cold# #social_cold_after#", "#social_cold_after# #social_cold#"]
+
+["met.warm"]
+colour = "npc"
+lines = ["#social_warm# #social_warm_after#", "#social_warm_after# #social_warm#"]
+
+["conversed.warm"]
+colour = "npc"
+lines = ["#social_warm# #social_warm_after#", "#social_warm_after# #social_warm#"]
