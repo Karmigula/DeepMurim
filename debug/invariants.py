@@ -143,7 +143,9 @@ def check_knowledge(world) -> list[str]:
     out = []
     player = world.get_meta("player_id")
     facts: dict = {}
-    for belief in world.all_beliefs():
+    # Each turn checks only what was added since the last check, so long lives stay quick.
+    mark = getattr(world, "_knowledge_mark", {"beliefs": 0, "facts": 0})
+    for belief in world.all_beliefs(after=mark["beliefs"]):
         if belief.fact_id not in facts:
             facts[belief.fact_id] = world.fact(belief.fact_id)
         fact = facts[belief.fact_id]
@@ -158,6 +160,8 @@ def check_knowledge(world) -> list[str]:
         if actor is not None and actor != fact.subject:
             out.append(f"a retelling of fact #{fact.id} credited #{actor} instead of #{fact.subject}")
     for lie in world.facts(is_true=False):
+        if lie.id <= mark["facts"]:
+            continue
         if "liar" not in lie.data or lie.source_event is None:
             out.append(f"lie #{lie.id} has no liar or no telling behind it")
     for memory in world.memories_inherited():
@@ -167,6 +171,7 @@ def check_knowledge(world) -> list[str]:
     for persona in world.entities("persona"):
         if persona.data.get("of") != player:
             out.append(f"{persona.name} (#{persona.id}) is nobody's mask")
+    world._knowledge_mark = {"beliefs": world.last_rowid("beliefs"), "facts": world.last_rowid("facts")}
     return out
 
 

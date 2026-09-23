@@ -77,10 +77,9 @@ def make_roamer(world, region, kind: str, index: int, danger: float) -> int:
 
 
 def _free_roamer_slot(world, region) -> int:
-    """The next roamer seed slot whose person is not dead: the dead are never met again."""
-    index = len(roamers(world, region.id))
-    while (someone := world.entity_by_seed(f"{region.seed_path}/roamer:{index}")) is not None \
-            and someone.data.get("dead"):
+    """The first roamer seed slot never used: a new face, never the dead, never someone already met."""
+    index = 0
+    while world.entity_by_seed(f"{region.seed_path}/roamer:{index}") is not None:
         index += 1
     return index
 

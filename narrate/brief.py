@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 
 from narrate.outcomes import BODY_FACT_KINDS, OUTCOME_BUILDERS
 from systems.attitude import attitude
-from systems.beliefs import apparent_to
+from systems.beliefs import apparent_to, knows_identity
 from systems.bodies import load_body
 from systems.reputation import reputation
 from systems.realms import REALMS, energy_words, realm_title, stage_of
@@ -142,6 +142,14 @@ def _person(entity: Entity, toward: str) -> PersonBrief:
     return PersonBrief(entity.name, role, tuple(data.get("traits", ())), realm, toward)
 
 
+def _as_seen(world: World, npc: Entity, player: Entity, memories: list) -> list:
+    """The memories this person connects to the player: while masked and unrecognised, only the mask's own."""
+    persona = player.data.get("masked")
+    if persona and not knows_identity(world, npc.id, persona):
+        return [m for m in memories if m.event.data.get("as") == persona]
+    return memories
+
+
 def _relationship(world: World, npc: Entity, player: Entity) -> tuple[list[str], dict[str, str], int]:
     """Ranked facts about the player and this person, details, and the prior-conversation count.
 
@@ -150,7 +158,7 @@ def _relationship(world: World, npc: Entity, player: Entity) -> tuple[list[str],
     Every event with another person happens inside a conversation whose opening
     greeting is already committed, so that greeting never counts as "before".
     """
-    history = conversations_with(world, npc.id, player.id)
+    history = _as_seen(world, npc, player, conversations_with(world, npc.id, player.id))
     prior = max(0, len(history) - 1)
     facts: list[str] = []
     details: dict[str, str] = {}
@@ -179,7 +187,7 @@ def _patience_facts(world, npc, player, greetings, facts, details) -> None:
     current_start = greetings[-1].event.id
     previous_start = greetings[-2].event.id if len(greetings) > 1 else None
     lost = [
-        m.event.id for m in world.memories(npc.id, about=player.id)
+        m.event.id for m in _as_seen(world, npc, player, world.memories(npc.id, about=player.id))
         if m.event.kind == "lost_patience" and m.event.id < current_start
     ]
     if not lost:

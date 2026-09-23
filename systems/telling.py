@@ -2,7 +2,7 @@
 
 from systems.attitude import attitude
 from systems.beliefs import CONF_DECAY, believe, knowledge_of
-from systems.facts import FAMILY, make_variant, place_name, record_fact
+from systems.facts import FAMILY, apparent, make_variant, place_name, record_fact
 from world.db import variant_key
 from world.events import Event, Witness, listen
 from world.gen.materialize import people_at
@@ -33,7 +33,8 @@ def tell_events(world, player: int, listener: int, place: int, variant: dict, fa
     rng = rng_for(world.world_seed, f"tell:{key}:{listener}:{world.time}")
     accepted = rng.random() < acceptance(world, listener, speaker_as or player, variant)
     witness = Witness(listener, "engaged", 0.1) if accepted else Witness(listener, "annoyed", 0.3)
-    data = {"fact": fact_id, "variant": variant, "invented": fact_id is None, "accepted": accepted}
+    data = {"fact": fact_id, "variant": variant, "invented": fact_id is None, "accepted": accepted,
+            "speaker": speaker_as or player}
     return [Event("told", (player, listener), place, data, witnesses=(witness,))]
 
 
@@ -49,15 +50,16 @@ def _told(world, event, event_id: int) -> None:
                               extra={"liar": player, "spread": d["accepted"]}, spread=False)
     if not d["accepted"]:
         return
-    believe(world, listener, fact_id, d["variant"], player, CONF_DECAY, 1, "told")
+    speaker = d.get("speaker", player)  # who they took the teller to be: a persona while masked
+    believe(world, listener, fact_id, d["variant"], speaker, CONF_DECAY, 1, "told")
     town = world.entity(event.place) if event.place else None
     if town is not None and town.kind == "town":
-        believe(world, town.id, fact_id, d["variant"], player, CONF_DECAY ** 2, 2, "told")
+        believe(world, town.id, fact_id, d["variant"], speaker, CONF_DECAY ** 2, 2, "told")
 
 
 def exposure_events(world, player: int, town_id: int) -> list[Event]:
     """The player's lies that have reached, here, someone who knows the truth first-hand."""
-    done = {e.data.get("fact") for e in world.chronicle_about(player, limit=400) if e.kind == "lie_exposed"}
+    done = {f.data.get("lie") for f in world.facts(predicate="lied_about")}  # all of history, not recent pages
     here = {p.id for p in people_at(world, town_id, exclude=player)}
     pool = {b.fact_id for b in world.beliefs(town_id)}
     events = []
@@ -75,8 +77,10 @@ def exposure_events(world, player: int, town_id: int) -> list[Event]:
             continue
         heard = lie.id in pool or any(b.fact_id == lie.id for k in knowers for b in world.beliefs(k))
         if heard:
+            told = world.chronicle_entry(lie.source_event)
+            liar_as = told.data.get("as") if told is not None else None  # a lie told masked stays the mask's
             events.append(Event("lie_exposed", (player, lie.subject), town_id,
-                                {"fact": lie.id, "predicate": lie.predicate},
+                                {"fact": lie.id, "predicate": lie.predicate, "as": liar_as},
                                 witnesses=(Witness(lie.subject, "wronged", 0.9),)))
     return events
 
@@ -84,5 +88,8 @@ def exposure_events(world, player: int, town_id: int) -> list[Event]:
 @listen("lie_exposed")
 def _exposed(world, event, event_id: int) -> None:
     player, victim = event.actors
-    record_fact(world, player, "lied_about", victim, place=event.place, source_event=event_id,
-                variant=make_variant("lied_about", player, victim, place=place_name(world, event.place)))
+    liar = apparent(event, player)
+    record_fact(world, liar, "lied_about", victim, place=event.place, source_event=event_id,
+                extra={"lie": event.data["fact"]},
+                variant=make_variant("lied_about", liar, victim, place=place_name(world, event.place),
+                                     masked=liar != player))

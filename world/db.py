@@ -182,6 +182,19 @@ class World:
         self._conn = conn
         self.path = path
         self._depth = 0
+        self._cache: dict = {}
+        self._cache_mark = -1
+        self._acquainted: dict[int, tuple[int, dict[int, int]]] = {}
+
+    def _cached(self, key, compute):
+        """Reuse a read until anything in the world changes (sqlite counts every row written)."""
+        mark = self._conn.total_changes
+        if mark != self._cache_mark:
+            self._cache.clear()
+            self._cache_mark = mark
+        if key not in self._cache:
+            self._cache[key] = compute()
+        return list(self._cache[key])
 
     @classmethod
     def create(cls, path, world_seed: int) -> "World":
@@ -375,6 +388,9 @@ class World:
         )
 
     def memories(self, owner: int, about: int | None = None) -> list[Memory]:
+        return self._cached(("memories", owner, about), lambda: self._memories(owner, about))
+
+    def _memories(self, owner: int, about: int | None) -> list[Memory]:
         sql = (
             f"select {_MEMORY_COLUMNS}, {_ENTRY_COLUMNS} "
             "from memories m join chronicle c on c.id = m.event_id where m.owner = ?"
@@ -405,10 +421,16 @@ class World:
 
     def acquaintances(self, entity_id: int) -> list[int]:
         """Everyone who shares any chronicle entry with this entity, most recent first."""
+        seen_to, last = self._acquainted.get(entity_id, (0, {}))
         rows = self._conn.execute(
-            "select other.value, max(c.id) as last from chronicle c, json_each(c.actors) me, json_each(c.actors) other "
-            "where me.value = ? and other.value != ? group by other.value order by last desc", (entity_id, entity_id))
-        return [row[0] for row in rows]
+            "select other.value, max(c.id) from chronicle c, json_each(c.actors) me, json_each(c.actors) other "
+            "where c.id > ? and me.value = ? and other.value != ? group by other.value",
+            (seen_to, entity_id, entity_id))
+        last = {**last, **{row[0]: row[1] for row in rows}}  # only entries since the last call are scanned
+        top = self._conn.execute("select coalesce(max(id), 0) from chronicle").fetchone()[0]
+        if self._depth == 0:  # never remember a scan that a rollback could undo
+            self._acquainted[entity_id] = (top, last)
+        return sorted(last, key=lambda other: -last[other])
 
     def chronicle_entry(self, event_id) -> ChronicleEntry | None:
         if not isinstance(event_id, int):
@@ -483,12 +505,21 @@ class World:
             f"select {_BELIEF_COLUMNS} from beliefs b where b.fact_id = ? order by b.knower, b.variant_key", (fact_id,))
         return [_belief(row) for row in rows]
 
-    def all_beliefs(self) -> list[Belief]:
-        rows = self._conn.execute(f"select {_BELIEF_COLUMNS} from beliefs b order by b.knower, b.fact_id")
+    def all_beliefs(self, after: int = 0) -> list[Belief]:
+        """Every belief, or only those added after rowid `after` (see last_rowid)."""
+        rows = self._conn.execute(f"select {_BELIEF_COLUMNS} from beliefs b where b.rowid > ? order by b.rowid", (after,))
         return [_belief(row) for row in rows]
+
+    def last_rowid(self, table: str) -> int:
+        if table not in TABLES:
+            raise ValueError(table)
+        return self._conn.execute(f"select coalesce(max(rowid), 0) from {table}").fetchone()[0]
 
     def known_facts(self, knower: int) -> list[tuple[Belief, Fact]]:
         """Each belief this knower holds, with its fact, oldest learned first."""
+        return self._cached(("known_facts", knower), lambda: self._known_facts(knower))
+
+    def _known_facts(self, knower: int) -> list[tuple[Belief, Fact]]:
         rows = self._conn.execute(
             f"select {_BELIEF_COLUMNS}, {_FACT_COLUMNS} from beliefs b join facts f on f.id = b.fact_id "
             "where b.knower = ? order by b.learned_at, b.fact_id, b.variant_key", (knower,))
