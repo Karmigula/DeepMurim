@@ -1,0 +1,20 @@
+[symbols]
+law_grip = ["A hand closes on your arm.", "A badge is held up before your face.", "Iron manacles clink.", "The crowd draws back.", "A whistle shrills."]
+law_after = ["Onlookers whisper.", "Someone spits in the dust.", "The street goes quiet.", "A child points.", "Doors close along the street."]
+law_cell = ["Straw and damp stone.", "The days crawl by.", "A guard sings off-key at night.", "Rats scratch in the dark.", "Light comes through a single slit."]
+
+[arrest]
+colour = "default"
+lines = ["#law_grip# #law_after#", "#law_after# #law_grip#"]
+
+[fined]
+colour = "default"
+lines = ["#law_after# #law_grip#", "#law_after#"]
+
+[jailed]
+colour = "default"
+lines = ["#law_cell# #law_after#", "#law_cell#"]
+
+[escaped_arrest]
+colour = "default"
+lines = ["#law_after# #law_grip#", "#law_grip#"]

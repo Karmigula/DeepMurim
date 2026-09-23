@@ -36,8 +36,9 @@ def open_martial(world, player: int) -> int | None:
 
 
 def clean_record(world, town_id: int, player: int) -> bool:
-    """No dark name here (Task 9 replaces this with the town's bounty)."""
-    return reputation(world, town_id, apparent_to(world, town_id, player)).path != "ruthless"
+    """No price on the player's head in this town (phase 3b spec 8)."""
+    from systems.law import bounty  # the law module comes after membership in the import graph
+    return bounty(world, town_id, apparent_to(world, town_id, player)) == 0
 
 
 def refusal(world, player: int, faction: int, town: int) -> str | None:
