@@ -1,0 +1,34 @@
+[symbols]
+roadside = ["Dust hangs over the road.", "The trees crowd close here.", "No one else is in sight.", "A crow calls from a dead branch.", "The wind drops."]
+growl = ["A low growl rolls across the road.", "Its eyes catch the light.", "It circles, head low.", "Hackles rise along its back."]
+bravado = ["They grin without warmth.", "Their hand rests on their weapon.", "They spit in the dust.", "They take their time looking you over."]
+coins = ["Coins change hands.", "Silver clinks from purse to palm.", "The coins are counted twice.", "A few pieces of silver lighter, you go on."]
+grudge = ["The street goes quiet.", "Heads turn.", "Someone mutters that this was bound to happen.", "A child is pulled indoors."]
+
+["encounter.bandit"]
+colour = "default"
+lines = ["#roadside# #bravado#", "#bravado# #roadside#"]
+
+["encounter.beast"]
+colour = "default"
+lines = ["#roadside# #growl#", "#growl# #roadside#"]
+
+["encounter.wanderer"]
+colour = "default"
+lines = ["#roadside# #bravado#", "#bravado# #roadside#"]
+
+[encounter_resolved]
+colour = "default"
+lines = ["#roadside#", "You go on your way. #roadside#"]
+
+[challenge_issued]
+colour = "npc"
+lines = ["{npc} will not let it go. #grudge#", "#grudge# {npc} squares up to you."]
+
+[declined_challenge]
+colour = "npc"
+lines = ["{npc} laughs at you. #grudge#", "#grudge# {npc} turns away in disgust."]
+
+[paid]
+colour = "default"
+lines = ["#coins#", "#coins# The deal is done."]

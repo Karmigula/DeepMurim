@@ -13,6 +13,7 @@ import systems.talk as talk
 import systems.travel as travel
 from engine.actions import Action, Choice, Turn
 from engine.fight import FightMixin
+from engine.roads import RoadsMixin
 from engine.hooks import GameHooks
 from engine.journal import summarize
 from narrate.base import Line, Narrator
@@ -47,7 +48,7 @@ HELP = [
 ]
 
 
-class Game(FightMixin, GameHooks):
+class Game(RoadsMixin, FightMixin, GameHooks):
     def __init__(self, world: World, narrator: Narrator | None = None) -> None:
         self.world = world
         self.narrator = narrator or ProceduralNarrator()

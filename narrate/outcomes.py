@@ -34,3 +34,4 @@ def cap(text: str) -> str:
 
 # Feature modules register on import. Each later task appends its module here.
 import narrate.combat_text  # noqa: E402,F401
+import narrate.road_text  # noqa: E402,F401
