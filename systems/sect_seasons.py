@@ -174,11 +174,15 @@ def season_events(world, player: int, sect: int) -> list[Event] | None:
     gate = None
     power = data["power"] + 2 * len(won)
     if rng.random() < gate_chance:
-        challenger = _challenger(world, sect, hostile, rng, n)
-        if seat in world.targets(player, "located_in"):
+        waiting = world.entity(player).data.get("gate_challenger")
+        if seat in world.targets(player, "located_in") and waiting and not world.entity(waiting).data.get("dead"):
+            pass  # one challenger waits at the gate at a time
+        elif seat in world.targets(player, "located_in"):
+            challenger = _challenger(world, sect, hostile, rng, n)
             home = (world.targets(challenger, "located_in") or [region_of(world, seat).id])[0]
             gate = {"challenger": challenger, "deferred": True, "won": None, "defenders": [], "fallen": [], "home": home}
         else:
+            challenger = _challenger(world, sect, hostile, rng, n)
             standing_by = sorted((p for p in present if p not in deserters),
                                  key=lambda p: -realm_index(who(p).data.get("realm", "mortal")))
             defenders = standing_by[:2 if "walls" in has else 1]
@@ -260,7 +264,11 @@ def _season(world, event) -> None:
     for person in d["recruits"]:
         founding.enrol(world, person, sect, 50)
     visitors = {}
+    waiting = world.entity(event.actors[0]).data.get("gate_challenger")
     for person, home in data.get("visitors", {}).items():  # last season's challenger goes home
+        if int(person) == waiting:
+            visitors[person] = home  # still waiting to call the founder out
+            continue
         if not world.entity(int(person)).data.get("dead") and world.targets(int(person), "located_in") == [data["seat"]]:
             world.unrelate(int(person), "located_in")
             world.relate(int(person), home, "located_in")
@@ -280,5 +288,6 @@ def _gate_fact(world, event, event_id: int) -> None:
         return
     sect = event.data["sect"]
     predicate = "defended_gate" if gate["won"] else "gate_breached"
-    record_fact(world, sect, predicate, gate["challenger"], place=event.place, source_event=event_id, weight=1.0,
+    weight = 1.5 if sect_mod.built(world, sect, "guest_hall") else 1.0  # guests carry the tale (spec §5)
+    record_fact(world, sect, predicate, gate["challenger"], place=event.place, source_event=event_id, weight=weight,
                 variant=make_variant(predicate, sect, gate["challenger"], place=place_name(world, event.place)))

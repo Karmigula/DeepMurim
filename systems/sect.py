@@ -10,7 +10,8 @@ from systems.realms import realm_index
 from systems.standing import HARMFUL, knowledge_about
 from systems.techniques import known_arts, martial_arts, teach
 from world.events import Event, Witness, effect, listen
-from world.gen.materialize import region_of
+from world.gen.materialize import ensure_town, region_of
+from world.gen.region import region_spec
 from world.seed import rng_for
 
 MAX_DISCIPLES, MAX_ELDERS = 12, 3
@@ -226,6 +227,10 @@ def dissolve(world, sect: int) -> None:
         found = F.membership(world, person, sect)
         if found and found[1].get("status", "member") == "member":
             set_membership(world, person, sect, status="released")
+            if world.entity(person).data.get("on_duty"):  # home from the road, to a seat that is no more
+                world.update_data(person, on_duty=False)
+                world.unrelate(person, "located_in")
+                world.relate(person, world.entity(sect).data["seat"], "located_in")
     data = world.entity(sect).data
     seat = world.entity(data["seat"]).data
     world.update_data(data["seat"], halls=[f for f in seat.get("halls", []) if f != sect],
@@ -242,6 +247,29 @@ def _member_died(world, event, event_id: int) -> None:
     for fid, _, data in F.memberships(world, victim):
         if world.entity(fid).data["type"] == "player_sect" and data.get("status", "member") == "member":
             set_membership(world, victim, fid, status="dead")
+
+
+def elsewhere(world, seat: int) -> int:
+    """Another town for someone leaving the seat: the next town in its region, or the region to the east."""
+    d = world.entity(seat).data
+    count = region_spec(world.world_seed, d["x"], d["y"]).town_count
+    if count > 1:
+        return ensure_town(world, d["x"], d["y"], (d["index"] + 1) % count)
+    return ensure_town(world, d["x"] + 1, d["y"], 0)
+
+
+def _left_the_sect(world, event, event_id: int) -> None:
+    person, faction = event.actors[0], event.data["faction"]
+    sect = world.entity(faction)
+    if sect.data.get("type") != "player_sect" or person == sect.data.get("founder"):
+        return
+    world.update_data(person, on_duty=False)
+    world.unrelate(person, "located_in")
+    world.relate(person, elsewhere(world, sect.data["seat"]), "located_in")
+
+
+for _kind in ("expelled", "deserted", "released"):
+    listen(_kind)(_left_the_sect)
 
 
 @effect("sect_dissolved")

@@ -1,6 +1,7 @@
 """What the player is told about running the sect."""
 
 from narrate.gossip_text import EXTRA_PHRASES
+from systems.founding import TRIAL_TERMS
 from narrate.outcomes import cap, outcome, summary
 
 EXTRA_PHRASES.update({"allied_with": "{actor} allied with the {target}.",
@@ -14,7 +15,8 @@ def _who(world, event, i=1) -> str:
 @outcome("sect_invite", body_facts=False)
 def _invite(world, event):
     if event.data["accepted"]:
-        return [f"{_who(world, event)} accepts, and sets out for your seat."], {}
+        terms = TRIAL_TERMS.get(world.entity(event.data["sect"]).data.get("trial"), "your terms")
+        return [f"{_who(world, event)} accepts your terms, {terms}, and sets out for your seat."], {}
     return [f"{_who(world, event)} declines."], {}
 
 

@@ -31,14 +31,15 @@ def _article(text: str) -> str:
 def faction_facts(world, player: int, other) -> list[str]:
     """Up to two short facts for a brief: the player's rank, and the other person's faction."""
     facts = []
-    for fid, rank, data in F.memberships(world, player):
-        if data.get("status", "member") == "member" and data.get("role") == "leader":
+    rows = [r for r in F.memberships(world, player) if r[2].get("status", "member") == "member"]
+    rows.sort(key=lambda r: r[2].get("role") != "leader")  # your own sect first
+    if rows:
+        fid, rank, data = rows[0]
+        if data.get("role") == "leader":
             count = len([p for p in F.members_of(world, fid) if p != player])
             facts.append(f"You lead the {world.entity(fid).name}, {count} disciples strong.")
-            break
-        if data.get("status", "member") == "member":
+        else:
             facts.append(f"You are {_article(F.title(world, fid, rank))} of the {world.entity(fid).name}.")
-            break
     if other is not None and not other.data.get("is_player"):
         town = next(iter(world.targets(other.id, "located_in")), None)
         tag = halls.faction_tag(world, other.id, town) if town else None

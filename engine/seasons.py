@@ -19,6 +19,9 @@ class SeasonsMixin:
             if founding.my_sect(self.world, self.player.id) is None:
                 break
         waiting = self.player.data.get("gate_challenger")
+        if waiting and self.world.entity(waiting).data.get("dead"):
+            self.world.update_data(self.player.id, gate_challenger=None)  # the dead call no one out
+            waiting = None
         if waiting and self.combat is None and self.encounter is None and self.challenger is None \
                 and not self.world.entity(waiting).data.get("dead"):
             self.world.update_data(self.player.id, gate_challenger=None)

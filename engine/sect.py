@@ -18,7 +18,9 @@ class SectMixin:
         if sect_mod.sect_of_member(self.world, me, npc.id) is not None:
             extras.insert(0, Choice("Sect matters...", Action("sect_menu")))
         elif sect_mod.can_invite(self.world, npc.id, me):
-            extras.append(Choice("Invite them to your sect", Action("sect_invite", npc.id)))
+            trial = self.world.entity(founding.my_sect(self.world, me)).data.get("trial")
+            terms = founding.TRIAL_TERMS.get(trial, "your terms")
+            extras.append(Choice(f"Invite them to your sect ({terms})", Action("sect_invite", npc.id)))
         return extras
 
     def _general_extras(self) -> list:

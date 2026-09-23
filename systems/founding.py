@@ -21,6 +21,8 @@ PRESETS = {"orthodox": F.LADDERS["orthodox_sect"], "clan": F.LADDERS["martial_cl
            "beggars": F.LADDERS["beggars"], "cult": F.LADDERS["demonic_cult"]}
 TABOOS = ("never_kill_unarmed", "never_teach_outsiders", "never_spare_cultists", "never_rob", "never_desert_a_duel")
 TRIALS = ("spar", "service", "ears", "escort", "blood")
+TRIAL_TERMS = {"spar": "a sparring match", "service": "a season of service", "ears": "a season as your eyes and ears",
+               "escort": "an escort on the roads", "blood": "an oath sworn in blood"}
 PATH_TRAITS = {"righteous": {"kind", "honest"}, "ruthless": {"cunning", "hot-tempered"}}
 RENOWN_BANDS = {"unknown": 0, "little known": 1, "known": 2, "renowned": 3, "famous": 4}
 NAME_ENDS = ("Sect", "Hall", "Gate")
@@ -112,7 +114,8 @@ def founded_events(world, player: int, magistrate: int, town: int, choice: dict)
 
 
 def _talent(world, person: int) -> float:
-    return round(rng_for(world.world_seed, f"talent:{person}").uniform(0.5, 1.5), 2)
+    key = world.entity(person).seed_path or person  # the same recruit has the same talent in every playthrough
+    return round(rng_for(world.world_seed, f"talent:{key}").uniform(0.5, 1.5), 2)
 
 
 def enrol(world, person: int, sect: int, loyalty: int, role: str = "disciple", rank: int = 0) -> None:

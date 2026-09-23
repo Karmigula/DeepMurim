@@ -97,7 +97,7 @@ def test_one_call_or_many_give_the_same_sect(game, tmp_path):
         results.append((data["treasury"], data["power"], data["chronicle"],
                         sorted(g.world.entity(p).data["loyalty"] for p in sect_mod.members(g.world, sect))))
     other.close()
-    assert results[0][:2] == results[1][:2] and results[0][3] == results[1][3]
+    assert results[0] == results[1]  # treasury, power, chronicle and loyalty alike
 
 
 def test_deserters_leave(game, monkeypatch):
