@@ -18,7 +18,9 @@ from debug.reports import write_bug_report, write_crash_report
 from debug.session import SessionLog, stamp
 from engine.commands import parse
 from engine.game import Game, Turn
+from engine.sheet import sheet_lines
 from render.art import render_request
+from render.body_chart import body_chart
 from render.layout import Grid, View, compose
 from render.menu import compose_title
 from settings_store import save_values
@@ -77,6 +79,7 @@ class App:
         self.crash_count = 0
         self.violations: list[str] = []
         self.debug_visible = False
+        self.sheet_visible = False
         self.report_note = ""
         self._recent_narration: deque[str] = deque(maxlen=4)
 
@@ -202,6 +205,10 @@ class App:
                 self.state, self.report_note = "report", ""
         elif key == "f12":
             self.debug_visible = not self.debug_visible
+            self.sheet_visible = self.sheet_visible and not self.debug_visible
+        elif key == "f4":
+            self.sheet_visible = not self.sheet_visible
+            self.debug_visible = self.debug_visible and not self.sheet_visible
         elif key == "page up":
             self.scroll += 5
         elif key == "page down":
@@ -423,17 +430,21 @@ class App:
             note = self.message or f"Points left: {left}   (left/right adjusts, Enter on Begin starts)"
             return compose_title(cols, rows, PALETTE, options, self.points_row, note,
                                  message_key="red" if self.message else "dim")
-        status, log, command = self.status, self.log, self.command
+        status, log, command, art = self.status, self.log, self.command, self.art
         if self.state == "report":
             command = f"Describe the bug (Enter saves, Esc cancels): {self.report_note}"
         if self.debug_visible:
             seed = self.game.world.world_seed if self.game else "?"
             status = f"DEBUG (F12 closes) | seed {seed} | F9 reports a bug"
             log = self.debug_lines()
+        if self.sheet_visible and self.game is not None:
+            status = "CHARACTER SHEET (F4 closes)"
+            log = sheet_lines(self.game.world, self.game.player.id)
+            art = body_chart(self.game.body(), self.game.world.time, self.config.art_width, self.config.art_height)
         view = View(
-            status=status, log=log, art=self.art,
+            status=status, log=log, art=art,
             choices=[c.label for c in self.choices], command=command,
             art_side=self.config.art_side, show_art=self.config.show_art,
-            scroll=0 if self.debug_visible else self.scroll,
+            scroll=0 if self.debug_visible or self.sheet_visible else self.scroll,
         )
         return compose(view, cols, rows, PALETTE, self.config.art_width)

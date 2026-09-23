@@ -9,7 +9,7 @@ import pygame
 from config import Config
 from paths import bundled
 
-FALLBACK = {"│": "|", "─": "-"}
+FALLBACK = {"│": "|", "─": "-", "●": "o", "◐": "c", "◌": "o", "×": "x", "·": "."}
 
 
 class Screen:
