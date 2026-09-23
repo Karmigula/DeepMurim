@@ -74,6 +74,8 @@ def settle_town(world, town_id: int) -> None:
     with world.transaction():
         for fid in roster + minors:
             faction = world.entity(fid)
+            if faction.data.get("dissolved"):
+                continue  # a destroyed faction is never re-staffed (phase 4a ruling 8)
             kind = faction.data["type"]
             if faction.data["tier"] == "minor":
                 is_seat = faction.data["seat"] == town_id

@@ -9,5 +9,9 @@ WORLD_PHRASES = {
     "born": "{actor} had a child, {target}.",
     "moved": "{actor} moved to {target}.",
     "apprenticed": "{actor} took {target} as a disciple.",
+    "clashed_with": "The {actor} beat the {target} in a clash.",
+    "lost_hall": "The {actor} lost a hall to the {target}.",
+    "faction_destroyed": "The {actor} was destroyed.",
+    "faction_founded": "The {actor} was founded.",
 }
 EXTRA_PHRASES.update(WORLD_PHRASES)
