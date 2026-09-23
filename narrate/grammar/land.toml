@@ -1,0 +1,16 @@
+[symbols]
+land_deed = ["A seal is pressed into red wax.", "The register gains a line.", "A clerk blows on the ink.", "The deed is folded and handed over.", "Boundary stones are named aloud."]
+land_after = ["It is not much, but it is yours.", "Weeds will need clearing.", "The wind moves through the empty rooms.", "Somewhere a door bangs.", "You pace the ground once."]
+land_broken = ["Banners come down.", "The last of them slink away.", "Their gate stands open.", "A torn pennant drifts in the yard.", "The hall falls quiet."]
+
+[land_bought]
+colour = "default"
+lines = ["#land_deed# #land_after#", "#land_after# #land_deed#"]
+
+[land_claimed]
+colour = "default"
+lines = ["#land_after# #land_deed#", "#land_after#"]
+
+[seized]
+colour = "default"
+lines = ["#land_broken# #land_after#", "#land_after# #land_broken#"]
