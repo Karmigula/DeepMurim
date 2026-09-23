@@ -146,8 +146,8 @@ def recruits_for(world, npc_id: int) -> list[int]:
     town = next(iter(world.targets(npc_id, "located_in")), None)
     out = []
     for fid, _, data in F.memberships(world, npc_id):
-        if data.get("status", "member") != "member":
-            continue
+        if data.get("status", "member") != "member" or world.entity(fid).data["type"] == "player_sect":
+            continue  # the player's own sect has its own business (phase 3c)
         if data.get("role") in RECRUITERS or (town is not None and keeper_at(world, fid, town) == npc_id):
             out.append(fid)
     return out

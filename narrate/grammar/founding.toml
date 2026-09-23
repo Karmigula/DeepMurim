@@ -1,0 +1,12 @@
+[symbols]
+found_vow = ["Hands are clasped.", "A cup is shared.", "Knees touch the dust.", "An oath is spoken plainly.", "Incense is lit between you."]
+found_after = ["Something new begins.", "Eyes turn to you.", "The moment settles.", "Somewhere a bird calls.", "No one speaks for a breath."]
+found_rite = ["The charter is read aloud.", "A banner is raised for the first time.", "The magistrate's seal comes down.", "A gong sounds over the town.", "Your name is written at the head of a new ledger."]
+
+[sworn]
+colour = "npc"
+lines = ["#found_vow# #found_after#", "#found_after# #found_vow#"]
+
+[sect_founded]
+colour = "gold"
+lines = ["#found_rite# #found_after#", "#found_after# #found_rite#"]

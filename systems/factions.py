@@ -25,7 +25,7 @@ LADDERS = {
 }
 PATHS = {"orthodox_sect": "righteous", "school": "righteous", "imperial": "righteous", "alliance": "righteous",
          "demonic_cult": "ruthless", "unorthodox_clan": "ruthless", "bandit_fort": "ruthless"}
-MARTIAL = frozenset({"orthodox_sect", "school", "demonic_cult", "unorthodox_clan", "bandit_fort"})
+MARTIAL = frozenset({"orthodox_sect", "school", "demonic_cult", "unorthodox_clan", "bandit_fort", "player_sect"})
 STAFFED = frozenset({"orthodox_sect", "school", "demonic_cult", "unorthodox_clan", "martial_clan", "local_clan",
                      "bandit_fort"})
 BRANCHING = frozenset({"orthodox_sect", "demonic_cult", "unorthodox_clan", "martial_clan"})

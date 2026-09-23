@@ -23,6 +23,7 @@ from engine.politics import PoliticsMixin
 from engine.leaving import LeavingMixin
 from engine.law import LawMixin
 from engine.land import LandMixin
+from engine.founding import FoundingMixin
 from engine.standing_page import standing_lines
 from engine.masks import MasksMixin
 from engine.roads import RoadsMixin
@@ -67,7 +68,7 @@ HELP = [
 ]
 
 
-class Game(FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, LeavingMixin, LawMixin, LandMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
+class Game(FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, LeavingMixin, LawMixin, LandMixin, FoundingMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
     def __init__(self, world: World, narrator: Narrator | None = None) -> None:
         self.world = world
         self.narrator = narrator or ProceduralNarrator()
