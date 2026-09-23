@@ -28,6 +28,8 @@ class LawMixin:
     def _law_check(self) -> list:
         if self.combat is not None or self.encounter is not None or self.challenger is not None:
             return []
+        if self.player.data.get("summons") or self.player.data.get("arrest"):
+            return []  # one gated moment at a time: a summons and an arrest together would lock the game
         events = law.arrest_events(self.world, self.player.id, self.place.id)
         return self._commit(events) if events else []
 

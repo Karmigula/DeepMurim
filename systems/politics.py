@@ -12,7 +12,7 @@ from systems.duties import _hostile_member
 from systems.facts import make_variant, place_name, record_fact
 from systems.membership import left_events, set_membership
 from systems.realms import realm_index
-from systems.standing import knowledge, seen_ids
+from systems.standing import knowledge_about
 from world.events import Event, Witness, commit, effect, listen
 from world.gen.materialize import people_at
 from world.seed import rng_for
@@ -62,9 +62,9 @@ def taboo_broken(world, faction: int, predicate: str, target) -> bool:
     if kind in F.DARK:
         return predicate == "spared" and any(F.stance(world, faction, g) <= F.HOSTILE for g in theirs)
     if kind in ("martial_clan", "local_clan"):
-        return predicate in HARMFUL and faction in theirs
+        return predicate in HARMFUL - {"defeated"} and faction in theirs  # a fair win (a trial, a call-out) is no crime
     if kind == "beggars":
-        return predicate in HARMFUL and victim is not None and victim.data.get("occupation") == "beggar"
+        return predicate in HARMFUL - {"defeated"} and victim is not None and victim.data.get("occupation") == "beggar"
     if kind == "merchant_guild":
         return predicate == "robbed" and victim is not None and victim.data.get("occupation") == "merchant"
     return False
@@ -77,8 +77,7 @@ def breaches(world, player: int, faction: int) -> list:
         return []
     data = found[1]
     judged = set(data.get("judged", []))
-    know = knowledge(world, faction)
-    seen = seen_ids(world, faction, player, know)
+    know, seen = knowledge_about(world, faction, player)
     out = []
     for belief, fact in know:
         if fact.id in judged or belief.variant.get("actor") not in seen or fact.time < data.get("joined_at", 0):

@@ -58,7 +58,8 @@ class LeavingMixin:
     def _after_commit(self, ids: list, events: list) -> list:
         lines = super()._after_commit(ids, events)
         for event in events:
-            if event.kind == "duty_done" and event.data.get("release"):
+            still = F.membership(self.world, self.player.id, event.data["faction"]) if event.kind == "duty_done" else None
+            if event.kind == "duty_done" and event.data.get("release") and still and still[1].get("status") == "member":
                 lines += self._commit(left_events(self.world, self.player.id, event.data["faction"], self.place.id, "released"))
         return lines
 

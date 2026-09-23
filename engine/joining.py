@@ -14,6 +14,7 @@ class JoiningMixin:
             name = self.world.entity(fid).name
             if trial and trial["faction"] == fid:
                 if trial["kind"] == "chief":
+                    options.append(Choice("Challenge the chief", Action("chief_duel", fid)))
                     options.append(Choice(f"Pay tribute ({membership.TRIBUTE} silver)", Action("tribute", fid)))
                 continue
             found = membership.F.membership(self.world, me, fid)
@@ -41,12 +42,18 @@ class JoiningMixin:
         if kind is None:
             return self._turn(self._commit(membership.joined_events(self.world, me, npc, faction_id, town, secret)))
         lines = self._commit(membership.trial_events(self.world, me, npc, faction_id, town, secret))
-        if kind in ("spar", "chief"):
-            roles = ("disciple",) if kind == "spar" else ("leader",)
-            opponent = next(iter(halls.staff_at(self.world, faction_id, town, roles=roles)), npc)
-            mode = "test" if kind == "spar" else "duel"
-            return self._turn(lines + self._start_duel(opponent, mode, purpose={"join": faction_id}))
+        if kind == "spar":
+            opponent = next(iter(halls.staff_at(self.world, faction_id, town, roles=("disciple",))), npc)
+            return self._turn(lines + self._start_duel(opponent, "test", purpose={"join": faction_id}))
         return self._turn(lines)
+
+    def _do_chief_duel(self, faction_id):
+        trial = self.player.data.get("trial")
+        if self.focus is None or not trial or trial["faction"] != faction_id or trial["kind"] != "chief":
+            return self._turn([("There is no chief to challenge.", "system")])
+        chief = next(iter(halls.staff_at(self.world, faction_id, self.place.id, roles=("leader",))), self.focus)
+        self.submenu = None
+        return self._turn(self._start_duel(chief, "duel", purpose={"join": faction_id}))
 
     def _do_join_secret(self, faction_id):
         return self._do_join(faction_id, secret=True)

@@ -204,6 +204,8 @@ def check_factions(world) -> list[str]:
         holder = world.entity(duty.data["holder"])
         if holder is None or holder.data.get("dead") or holder.data.get("duty") != duty.id:
             out.append(f"open duty #{duty.id} has no living holder")
+        elif (F.membership(world, holder.id, duty.data["faction"]) or (0, {}))[1].get("status", "member") != "member":
+            out.append(f"open duty #{duty.id} is held by someone no longer of the faction")
         target = duty.data.get("target")
         if target is not None and world.entity(target) is None:
             out.append(f"open duty #{duty.id} points at missing #{target}")
@@ -235,7 +237,7 @@ def check_people(game, turn) -> list[str]:
     for kind in ("person", "persona"):
         for entity in world.entities(kind):
             name = entity.name.lower()
-            if name in known or len(name) < 4:
+            if name in known or len(name) < 4 or name not in text:  # cheap substring test before the regex
                 continue
             if re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])", text):
                 out.append(f"{entity.name} (#{entity.id}) is named on screen but the player never heard of them")

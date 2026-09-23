@@ -9,7 +9,7 @@ say *why*.
 from dataclasses import dataclass
 
 from systems.beliefs import appears_as, identities, knowledge_of, true_identity
-from systems.factions import HOSTILE, memberships, stance
+from systems.factions import HOSTILE, current_memberships, memberships, stance
 from systems.memory import effective_intensity
 from systems.realms import realm_index
 
@@ -129,10 +129,14 @@ def attitude(world, npc_id: int, subject_id: int) -> Attitude:
     seen = identities(world, npc_id, true_id) if subject_id == true_id else {subject_id}
     best: dict[int, tuple[float, str | None]] = {}
     mine = [fid for fid, _, d in memberships(world, npc_id) if d.get("status", "member") == "member"]
-    for belief, fact in knowledge_of(world, npc_id):
+    heard = knowledge_of(world, npc_id)
+    still_of = current_memberships(heard, seen) if mine else set()
+    for belief, fact in heard:
         if belief.variant.get("actor") not in seen or fact.object == npc_id:
             continue  # things done to them are already in their memories
         if fact.predicate == "member_of":  # enemies by association (phase 3b spec 3.4)
+            if fact.object not in still_of:
+                continue
             worst = min((stance(world, f, fact.object) for f in mine), default=0.0)
             if worst <= HOSTILE and fact.id not in best:
                 best[fact.id] = (-abs(worst) * belief.confidence, f"you are of the {world.entity(fact.object).name}")

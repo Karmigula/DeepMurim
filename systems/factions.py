@@ -212,3 +212,20 @@ def is_martial(world, faction_id: int) -> bool:
 def title(world, faction_id: int, rank: int) -> str:
     ranks = world.entity(faction_id).data["ranks"]
     return ranks[max(0, min(rank, len(ranks) - 1))]
+
+
+LEAVING = frozenset({"released", "expelled", "deserted", "spy_exposed"})
+
+
+def current_memberships(pairs, seen: set) -> set[int]:
+    """Factions these beliefs say `seen` belongs to, unless a later leaving is also believed."""
+    joined: dict[int, int] = {}
+    left: dict[int, int] = {}
+    for belief, fact in pairs:
+        if belief.variant.get("actor") not in seen:
+            continue
+        if fact.predicate == "member_of":
+            joined[fact.object] = max(joined.get(fact.object, -1), fact.id)
+        elif fact.predicate in LEAVING:
+            left[fact.object] = max(left.get(fact.object, -1), fact.id)
+    return {f for f, when in joined.items() if left.get(f, -1) < when}

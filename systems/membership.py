@@ -114,6 +114,8 @@ def trial_events(world, player: int, recruiter: int, faction: int, place: int, s
         target = _blood_target(world, player, faction)
         trial.update(target=target, deadline=world.time + BLOOD_DAYS * WATCHES_PER_DAY)
         actors = (player, recruiter, target)
+    elif kind == "ears":
+        trial["deadline"] = world.time + BLOOD_DAYS * WATCHES_PER_DAY
     elif kind in ("service", "escort"):
         town, regions = _errand(world, player, faction, place)
         trial.update(town=town, deadline=world.time + (3 * regions + 7) * WATCHES_PER_DAY)
@@ -133,6 +135,9 @@ def trial_done(world, player: int):
     if not trial:
         return None
     kind = trial["kind"]
+    recruiter = world.entity(trial["recruiter"])
+    if recruiter is None or recruiter.data.get("dead"):
+        return False  # no one left to take you in
     if kind == "blood":
         target = world.entity(trial["target"])
         if target is not None and target.data.get("dead"):
@@ -198,7 +203,12 @@ def left_events(world, person: int, faction: int, place: int, status: str) -> li
 
 
 def _left(world, event) -> None:
-    set_membership(world, event.actors[0], event.data["faction"], status=event.data["status"])
+    person, faction = event.actors[0], event.data["faction"]
+    set_membership(world, person, faction, status=event.data["status"])
+    duty = world.entity(world.entity(person).data.get("duty") or 0)
+    if duty is not None and duty.data.get("faction") == faction and duty.data.get("status") == "open":
+        world.update_data(duty.id, status="closed")  # no one to report to any more
+        world.update_data(person, duty=None)
 
 
 def _left_fact(world, event, event_id: int) -> None:

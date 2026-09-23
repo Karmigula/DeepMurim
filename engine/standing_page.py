@@ -5,7 +5,7 @@ import systems.law as law
 from narrate.base import Line
 from systems import factions as F
 from systems import halls
-from systems.beliefs import apparent_to
+from systems.beliefs import apparent_to, known_people
 from systems.standing import standing
 
 WATCHES_PER_DAY = 4
@@ -72,7 +72,8 @@ def standing_lines(world, player: int, town: int) -> list[Line]:
     lines += [("", "default"), ("Bounties:", "heading")]
     here = law.bounty(world, town, apparent_to(world, town, player))
     lines.append((f"  Here: {here} silver" if here else "  none here", "red" if here else "dim"))
-    rivals = world.entity(player).data.get("rivals") or {}
+    met = set(known_people(world, player))
+    rivals = {f: r for f, r in (world.entity(player).data.get("rivals") or {}).items() if r in met}
     if rivals:
         lines += [("", "default"), ("Rivals:", "heading")]
         for fid, rival in rivals.items():

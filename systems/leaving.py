@@ -51,8 +51,13 @@ for _kind in ("expelled", "deserted", "spy_exposed"):
 def town_hunters(world, player: int) -> set[int]:
     """Members of factions the player betrayed: in town they call the player out like avengers."""
     out: set[int] = set()
+    town = next(iter(world.targets(player, "located_in")), None)
+    here = world.entity(town).data if town is not None else None
     for faction in gone_from(world, player):
-        out |= set(F.members_of(world, faction))
+        if here is None or F.gap(world.entity(faction).data["home"], (here["x"], here["y"])) > HUNT_RANGE:
+            continue
+        out |= {p for p in F.members_of(world, faction)
+                if (F.membership(world, p, faction) or (0, {}))[1].get("role") not in (None, "member")}
     return out
 
 

@@ -8,6 +8,8 @@ from systems.beliefs import apparent_to
 from systems.membership import set_membership
 from world.events import Event, Witness, effect
 from world.gen.materialize import ensure_region, ensure_town, people_at
+from world.gen.names import person_name
+from world.gen.npc import PORTRAIT_PARTS
 from world.gen.region import region_spec
 from world.seed import rng_for
 
@@ -31,6 +33,18 @@ def open_duty(world, player: int):
 def _near(rng, here, radius: int) -> tuple[int, int, int]:
     dx, dy = rng.choice([(a, b) for a in range(-radius, radius + 1) for b in range(-radius, radius + 1) if (a, b) != (0, 0)])
     return here["x"] + dx, here["y"] + dy, max(abs(dx), abs(dy))
+
+
+def _road_days(world, here, data) -> int:
+    """Days by road to where the duty leads: roads run north, south, east and west, 3 days a region."""
+    if data.get("region"):
+        x, y = data["region"]
+    else:
+        where = data.get("town") or next(iter(world.targets(data["target"], "located_in")), None)
+        if where is None:
+            return 7
+        x, y = world.entity(where).data["x"], world.entity(where).data["y"]
+    return 3 * (abs(x - here["x"]) + abs(y - here["y"])) + 1
 
 
 def _resident(world, rng, town: int, exclude: set) -> int | None:
@@ -81,7 +95,7 @@ def issue_events(world, player: int, faction: int, keeper: int, place: int, kind
         data.update(town=halls.seat_of(world, faction), days=5 * data["difficulty"])
     if kind in ("collect", "gather") and data["target"] is None:  # nobody fitting: carry a letter instead
         return issue_events(world, player, faction, keeper, place, kind="deliver", release=release)
-    days = data["days"] + 7 if kind == "guard" else 3 * regions + 7
+    days = data["days"] + 7 if kind == "guard" else _road_days(world, here, data) + 7
     data["deadline"] = world.time + days * WATCHES_PER_DAY
     target = data["target"] if kind in ("collect", "gather") else None
     return [Event("duty_issued", (player, keeper) + ((target,) if target else ()), place, data)]
@@ -111,6 +125,8 @@ def progress(world, player: int):
                     return "done"
     if target is not None and target.data.get("dead"):
         return "failed"
+    if d["kind"] == "guard" and d["guarded"] >= d["days"]:
+        return "done"  # a watch kept longer than asked still counts
     if world.time > d["deadline"]:
         return "failed"
     if d["kind"] in ("deliver", "escort") and d["town"] in world.targets(player, "located_in"):
@@ -218,8 +234,11 @@ def raider(world, duty, town: int) -> int:
         world.unrelate(enemy, "located_in")
         world.relate(enemy, town, "located_in")
         return enemy
-    person = world.add_entity("person", "a masked raider", {"realm": world.entity(duty.data["holder"]).data.get("realm", "mortal"),
-                                                            "occupation": "raider", "traits": ["hot-tempered", "proud"]})
+    surname, given = person_name(rng)
+    person = world.add_entity("person", f"{surname} {given}", {
+        "surname": surname, "given": given, "gender": rng.choice(("man", "woman")), "age": rng.randint(18, 50),
+        "realm": world.entity(duty.data["holder"]).data.get("realm", "mortal"), "occupation": "raider",
+        "traits": ["hot-tempered", "proud"], "portrait": {p: rng.randrange(c) for p, c in PORTRAIT_PARTS.items()}})
     world.relate(person, town, "located_in")
     return person
 

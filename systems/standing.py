@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from systems import factions as F
+from systems.factions import current_memberships
 from systems.beliefs import true_identity
 from systems.reputation import path_value
 
@@ -31,6 +32,10 @@ def word_for(score: float) -> str:
 
 def knowledge(world, faction_id: int) -> list:
     """What the faction's seat and branch towns believe: the surest version of each fact."""
+    return world._cached(("faction_knowledge", faction_id), lambda: _knowledge(world, faction_id))
+
+
+def _knowledge(world, faction_id: int) -> list:
     faction = world.entity(faction_id)
     towns = [t for t in [faction.data.get("seat"), *faction.data.get("branches", [])] if t]
     best: dict = {}
@@ -39,6 +44,31 @@ def knowledge(world, faction_id: int) -> list:
             if fact.id not in best or belief.confidence > best[fact.id][0].confidence:
                 best[fact.id] = (belief, fact)
     return list(best.values())
+
+
+def _towns(world, faction_id: int) -> list[int]:
+    faction = world.entity(faction_id)
+    return [t for t in [faction.data.get("seat"), *faction.data.get("branches", [])] if t]
+
+
+def knowledge_about(world, faction_id: int, subject: int):
+    """(beliefs about `subject` and their known masks, the ids taken to be them): only what concerns them."""
+    return world._cached(("faction_knowledge_about", faction_id, subject),
+                         lambda: [_about(world, faction_id, subject)])[0]
+
+
+def _about(world, faction_id: int, subject: int):
+    towns = _towns(world, faction_id)
+    true_id = true_identity(world, subject)
+    if subject == true_id:
+        seen = {true_id} | {f.subject for _, f in world.known_facts_about(towns, predicate="is", obj=true_id)}
+    else:
+        seen = {subject}
+    best: dict = {}
+    for belief, fact in world.known_facts_about(towns, actors=seen):
+        if fact.id not in best or belief.confidence > best[fact.id][0].confidence:
+            best[fact.id] = (belief, fact)
+    return list(best.values()), seen
 
 
 def seen_ids(world, faction_id: int, subject: int, know=None) -> set[int]:
@@ -51,9 +81,12 @@ def seen_ids(world, faction_id: int, subject: int, know=None) -> set[int]:
 
 
 def believed_factions(world, faction_id: int, subject: int, know=None) -> set[int]:
-    know = knowledge(world, faction_id) if know is None else know
-    seen = seen_ids(world, faction_id, subject, know)
-    return {f.object for b, f in know if f.predicate == "member_of" and b.variant.get("actor") in seen}
+    if know is None:
+        know, seen = knowledge_about(world, faction_id, subject)
+    else:
+        seen = seen_ids(world, faction_id, subject, know)
+    return current_memberships(know, seen)
+
 
 
 def _factions_of(world, person) -> list[int]:
@@ -63,8 +96,7 @@ def _factions_of(world, person) -> list[int]:
 def standing(world, faction_id: int, subject: int) -> Standing:
     faction = world.entity(faction_id)
     path = faction.data["path"]
-    know = knowledge(world, faction_id)
-    seen = seen_ids(world, faction_id, subject, know)
+    know, seen = knowledge_about(world, faction_id, subject)
     terms: list[tuple[float, str]] = []
     for belief, fact in know:
         if belief.variant.get("actor") not in seen or fact.predicate in ("is", "member_of"):

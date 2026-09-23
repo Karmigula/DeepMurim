@@ -51,6 +51,7 @@ INDEXES = (
     "create index if not exists beliefs_fact on beliefs(fact_id)",
     "create index if not exists beliefs_knower on beliefs(knower)",
     "create index if not exists memories_feeling on memories(feeling)",
+    "create index if not exists beliefs_actor on beliefs(json_extract(variant, '$.actor'))",
 )
 SCHEMA += ";\n".join(INDEXES) + ";\n"
 
@@ -243,6 +244,9 @@ class World:
         world = cls(conn, path)
         if version != SCHEMA_VERSION:
             world._migrate(version)
+        with world.transaction():  # indexes added after a save was made (optional; no version change)
+            for statement in INDEXES:
+                conn.execute(statement)
         return world
 
     def _migrate(self, version: int) -> None:
@@ -518,6 +522,28 @@ class World:
     def known_facts(self, knower: int) -> list[tuple[Belief, Fact]]:
         """Each belief this knower holds, with its fact, oldest learned first."""
         return self._cached(("known_facts", knower), lambda: self._known_facts(knower))
+
+    def known_facts_about(self, knowers, actors=None, predicate: str | None = None,
+                          obj: int | None = None) -> list[tuple[Belief, Fact]]:
+        """Beliefs held by any of `knowers`, narrowed in SQL by the story's actor, the predicate or the object."""
+        knowers = list(knowers)
+        if not knowers:
+            return []
+        sql = (f"select {_BELIEF_COLUMNS}, {_FACT_COLUMNS} from beliefs b join facts f on f.id = b.fact_id "
+               f"where b.knower in ({','.join('?' * len(knowers))})")
+        params: list = list(knowers)
+        if actors is not None:
+            actors = list(actors)
+            sql += f" and json_extract(b.variant, '$.actor') in ({','.join('?' * len(actors))})"  # beliefs_actor index
+            params += actors
+        if predicate is not None:
+            sql += " and f.predicate = ?"
+            params.append(predicate)
+        if obj is not None:
+            sql += " and f.object = ?"
+            params.append(str(obj))
+        rows = self._conn.execute(sql + " order by b.fact_id, b.knower", params)
+        return [(_belief(row[:9]), _fact(row[9:])) for row in rows]
 
     def _known_facts(self, knower: int) -> list[tuple[Belief, Fact]]:
         rows = self._conn.execute(
