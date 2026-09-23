@@ -14,6 +14,7 @@ import systems.travel as travel
 from engine.actions import Action, Choice, Turn
 from engine.dealings import DealingsMixin
 from engine.fight import FightMixin
+from engine.factions import FactionsMixin
 from engine.gossip import GossipMixin
 from engine.masks import MasksMixin
 from engine.roads import RoadsMixin
@@ -27,6 +28,7 @@ from systems.attitude import attitude
 from systems.beliefs import apparent_to
 from systems.bodies import load_body
 from systems.factions import ensure_roster
+from systems.halls import settle_town
 from systems.creation import CreationChoice, apply_creation, build, wanderer_arts
 from systems.realms import MAX_REALM, REALMS, energy_words, realm_title, requirement
 from systems.techniques import known_arts, martial_arts, usable
@@ -57,7 +59,7 @@ HELP = [
 ]
 
 
-class Game(GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
+class Game(FactionsMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
     def __init__(self, world: World, narrator: Narrator | None = None) -> None:
         self.world = world
         self.narrator = narrator or ProceduralNarrator()
@@ -85,6 +87,7 @@ class Game(GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, F
             arts = apply_creation(world, player, made)
         populate(world, town)
         ensure_roster(world)
+        settle_town(world, town)
         game = cls(world, narrator)
         game._pending = game._commit([Event("began", (player,), town, {"origin": made.origin.title, "arts": arts})])
         return game
@@ -180,6 +183,7 @@ class Game(GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, F
         self.focus = None
         lines = self._commit(travel.travel_events(self.player.id, self.place.id, route))
         populate(self.world, self.place.id)
+        settle_town(self.world, self.place.id)
         self._last_look = (self.place.id, self.world.time)
         return self._turn(lines + self._describe("arrive") + self._presence() + self._after_arrival())
 
@@ -346,8 +350,9 @@ class Game(GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, F
         described = []
         for person in people:
             known = " (knows you)" if talk.conversations_with(self.world, person.id, self.player.id) else ""
-            described.append(f"{person.name} the {person.data.get('occupation', 'stranger')}{known}")
-        return [("Here: " + ", ".join(described) + ".", "dim")]
+            tag = self._presence_tag(person)
+            described.append(f"{person.name} the {person.data.get('occupation', 'stranger')}{tag}{known}")
+        return [("Here: " + ", ".join(described) + ".", "dim")] + self._presence_extras()
 
     # --- menus ----------------------------------------------------------------------
     def _choices(self) -> tuple[list[Choice], list[Choice]]:
@@ -435,7 +440,8 @@ class Game(GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, F
         if self.focus is not None:
             return {"type": "portrait", "parts": self.world.entity(self.focus).data["portrait"]}
         place = self.place
-        return {"type": "scene", "terrain": place.data["terrain"], "settlement": place.data["kind"], "watch": self.world.time % 4}
+        return {"type": "scene", "terrain": place.data["terrain"], "settlement": place.data["kind"],
+                "watch": self.world.time % 4, "hall": None, **self._scene_extras()}
 
     def _status(self) -> str:
         special = self._special_status()

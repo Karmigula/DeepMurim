@@ -45,6 +45,22 @@ class GameHooks:
     def _status_suffix(self) -> str:
         return ""
 
+    def _faction_options(self, npc) -> list:
+        """Choices for the Faction matters... submenu with this person (phase 3b)."""
+        return []
+
+    def _presence_tag(self, person) -> str:
+        """A short note after someone's name in the Here: line."""
+        return ""
+
+    def _presence_extras(self) -> list:
+        """Lines after the Here: line (faction halls in this town)."""
+        return []
+
+    def _scene_extras(self) -> dict:
+        """Extra keys for the town scene art (a hall overlay)."""
+        return {}
+
     def _practise_extras(self, body) -> list:
         return []
 

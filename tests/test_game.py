@@ -98,10 +98,12 @@ def test_busy_town_keeps_every_way_out_reachable(tmp_path):
     assert {"look", "journal"} <= set(verbs)
     assert sum("road" in c.label for c in turn.all_choices) == 4
     people = [c for c in turn.all_choices if c.action.verb == "talk"]
-    assert len(people) == g.world.entity(g.place.id).data["npc_count"]
+    from systems.halls import halls_here, staff_at
+    staff = sum(len(staff_at(g.world, fid, g.place.id)) for fid in halls_here(g.world, g.place.id))
+    assert len(people) == g.world.entity(g.place.id).data["npc_count"] + staff
     if "people" in verbs:
         sub = g.perform(next(c.action for c in turn.choices if c.action.verb == "people"))
-        assert [c.action for c in sub.choices if c.action.verb == "talk"] == [c.action for c in people]
+        assert [c.action for c in sub.choices if c.action.verb == "talk"] == [c.action for c in people][:8]
         assert sub.choices[-1].action.verb == "back" and len(sub.choices) <= 9
         assert "road" in " ".join(c.label for c in g.perform(sub.choices[-1].action).all_choices)
     g.close()

@@ -64,12 +64,15 @@ def stamp(canvas: Art, art: Art, top: int, left: int) -> None:
                 canvas[y][x] = cell
 
 
-def compose_scene(terrain: str, settlement: str, watch: int, w: int, h: int) -> Art:
+def compose_scene(terrain: str, settlement: str, watch: int, w: int, h: int, hall: str | None = None) -> Art:
     canvas = blank(w, h)
     sky = load_art(f"sky_{watch}")
     stamp(canvas, sky, 0, (w - art_width(sky)) // 2)
     for layer in (load_art(f"terrain_{terrain}"), load_art(f"settlement_{settlement}")):
         stamp(canvas, layer, h - len(layer), (w - art_width(layer)) // 2)
+    if hall:
+        overlay = load_art(hall)
+        stamp(canvas, overlay, max(0, h - len(overlay) - 5), 1)
     return canvas
 
 
@@ -111,7 +114,7 @@ def render_request(request: dict, w: int, h: int) -> Art:
     if kind == "duel":
         return compose_duel(request, w, h)
     if kind == "scene":
-        return compose_scene(request["terrain"], request["settlement"], request["watch"], w, h)
+        return compose_scene(request["terrain"], request["settlement"], request["watch"], w, h, request.get("hall"))
     if kind == "portrait":
         return compose_portrait(request["parts"], w, h)
     return blank(w, h)
