@@ -1,0 +1,26 @@
+[symbols]
+duty_order = ["The keeper runs a finger down the ledger.", "A slip of paper is pressed into your hand.", "The keeper lowers their voice.", "It is written, sealed and handed over.", "The keeper does not look up from the ledger."]
+duty_charge = ["Do not dawdle.", "The hall is counting on you.", "Come back with it done.", "Mind the roads.", "Do it quietly."]
+duty_well = ["The ledger is marked.", "A nod of approval.", "Word of it will reach the elders.", "The keeper almost smiles.", "It is noted."]
+duty_ill = ["The ledger is marked in red.", "The keeper sighs.", "Word of it will reach the elders.", "A cold silence.", "It is noted, and not kindly."]
+duty_alarm = ["A shout goes up at the gate.", "Steel rings in the courtyard.", "Someone is on the wall.", "The bell clangs wildly.", "Dust rises at the gate."]
+
+[duty_issued]
+colour = "npc"
+lines = ["#duty_order# #duty_charge#", "#duty_charge# #duty_order#"]
+
+[duty_done]
+colour = "gold"
+lines = ["#duty_well# #duty_charge#", "#duty_well#"]
+
+[duty_failed]
+colour = "default"
+lines = ["#duty_ill# #duty_charge#", "#duty_ill#"]
+
+[debt_paid]
+colour = "npc"
+lines = ["#duty_well# #duty_charge#", "#duty_well#"]
+
+[raid]
+colour = "default"
+lines = ["#duty_alarm# #duty_charge#", "#duty_alarm#"]
