@@ -1,0 +1,35 @@
+[symbols]
+clash = ["Steel rings on steel.", "Dust kicks up around your feet.", "Qi snaps through the air between you.", "Someone in the crowd gasps.", "A sleeve tears."]
+footing = ["You shift your weight.", "They circle to your left.", "Neither of you blinks.", "Your breath comes hard.", "Sweat runs into your eyes."]
+tension = ["The crowd draws back.", "The air goes still.", "Somewhere a dog stops barking.", "A merchant drags his stall out of the way.", "Your pulse slows as you settle."]
+victory = ["The fight is yours.", "It is over, and you are still standing.", "Silence falls; you have won.", "You lower your hands, victorious."]
+defeat = ["The ground rushes up to meet you.", "Your knees give way.", "You taste dirt and defeat.", "The world narrows to pain."]
+parting = ["The fight ends without a victor.", "Both of you step back, breathing hard.", "It ends as suddenly as it began.", "Neither of you can claim the day."]
+refusal = ["waves the idea away.", "shakes their head.", "laughs and declines.", "will not be drawn."]
+
+[duel_started]
+colour = "gold"
+lines = [
+  "You and {npc} square off. #tension#",
+  "{npc} steps into the open to face you. #tension#",
+]
+
+[exchange]
+colour = "default"
+lines = ["#clash# #footing#", "#footing# #clash#"]
+
+["duel_ended.won"]
+colour = "gold"
+lines = ["#victory# {npc} will remember this.", "#victory#"]
+
+["duel_ended.lost"]
+colour = "default"
+lines = ["#defeat# {npc} stands over you.", "#defeat#"]
+
+["duel_ended.even"]
+colour = "default"
+lines = ["#parting#", "#parting# {npc} watches you warily."]
+
+[refused_duel]
+colour = "npc"
+lines = ["{npc} #refusal#", "{npc} considers it, then #refusal#"]

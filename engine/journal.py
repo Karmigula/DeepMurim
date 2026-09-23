@@ -1,5 +1,6 @@
 """One-line summaries of chronicle entries for the player's journal."""
 
+from narrate.outcomes import SUMMARIES
 from systems.time import days_word, format_date
 from world.db import ChronicleEntry, World
 from world.gen.town import town_path
@@ -10,6 +11,8 @@ def summarize(world: World, entry: ChronicleEntry) -> str:
     place = world.entity(entry.place).name if entry.place else "the road"
     other = names[1] if len(names) > 1 else "someone"
     data = entry.data
+    if entry.kind in SUMMARIES:
+        return f"{format_date(entry.time)} - {SUMMARIES[entry.kind](world, entry, names, place, other)}"
     match entry.kind:
         case "began":
             text = f"{names[0]} set out from {place}."

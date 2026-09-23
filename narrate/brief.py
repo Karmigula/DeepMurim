@@ -8,6 +8,7 @@ Rules: no entity ids, only what the player knows, ranked facts, short.
 
 from dataclasses import dataclass, field
 
+from narrate.outcomes import BODY_FACT_KINDS, OUTCOME_BUILDERS
 from systems.bodies import load_body
 from systems.realms import REALMS, energy_words, realm_title, stage_of
 from systems.talk import conversations_with, times_asked
@@ -302,6 +303,12 @@ def event_brief(world: World, event_id: int, event) -> Brief:
         outcome, extra = _body_outcome(event)
         details.update(extra)
         facts = player_facts(world, player.id)
+    if event.kind in OUTCOME_BUILDERS:
+        more, extra = OUTCOME_BUILDERS[event.kind](world, event)
+        outcome = list(outcome) + list(more)
+        details.update(extra)
+        if event.kind in BODY_FACT_KINDS:
+            facts = player_facts(world, player.id)[:3] + facts
     return Brief(
         kind=event.kind,
         when=format_date(world.time),

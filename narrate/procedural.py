@@ -111,6 +111,9 @@ class ProceduralNarrator:
         return [(text, colour)] + outcome
 
     def _key(self, brief: Brief) -> str:
+        wanted = brief.details.get("grammar_key")
+        if wanted and wanted in self.grammar.tables:
+            return wanted
         if brief.kind == "scene":
             return f"scene.{brief.place.terrain}"
         if brief.kind == "breakthrough":
