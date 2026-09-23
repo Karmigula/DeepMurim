@@ -53,7 +53,8 @@ def _encounter_line(world, entry, names, place, other):
 @summary("encounter_resolved")
 def _resolved_line(world, entry, names, place, other):
     return {"paid": f"Paid {other} to pass.", "talked": f"Talked past {other}.",
-            "fled": f"Fled from {other}.", "fight": f"Fought {other} on the road."}[entry.data["how"]]
+            "fled": f"Fled from {other}.", "fight": f"Fought {other} on the road.",
+            "backed_off": f"{cap(other)} backed off from you on the road."}.get(entry.data["how"], f"Met {other} on the road.")
 
 
 @summary("challenge_issued")

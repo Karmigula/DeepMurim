@@ -26,6 +26,7 @@ from narrate.procedural import ProceduralNarrator
 from systems.attitude import attitude
 from systems.beliefs import apparent_to
 from systems.bodies import load_body
+from systems.factions import ensure_roster
 from systems.creation import CreationChoice, apply_creation, build, wanderer_arts
 from systems.realms import MAX_REALM, REALMS, energy_words, realm_title, requirement
 from systems.techniques import known_arts, martial_arts, usable
@@ -83,6 +84,7 @@ class Game(GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, F
             world.set_meta("player_id", player)
             arts = apply_creation(world, player, made)
         populate(world, town)
+        ensure_roster(world)
         game = cls(world, narrator)
         game._pending = game._commit([Event("began", (player,), town, {"origin": made.origin.title, "arts": arts})])
         return game
@@ -104,6 +106,7 @@ class Game(GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, F
             world.close()
             raise SaveError(f"{world.path.name} is damaged ({exc})") from exc
         game = cls(world, narrator)
+        ensure_roster(world)  # a save from before factions (phase 3b)
         if "body" not in player.data:  # a save from before bodies existed
             place = travel.location_of(world, player.id).id
             data = {"origin": "Wanderer", "arts": wanderer_arts(world.world_seed)}
