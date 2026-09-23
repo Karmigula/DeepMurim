@@ -15,8 +15,10 @@ TYPED = ["look", "journal", "help", "talk li", "talk zzz", "go north", "go south
          "ask town", "bye", "²", "", "   ", "x" * 300, "go", "talk", "back", "9", "0",
          "cultivate", "meditate week", "meditate month", "meditate season", "rest", "breakthrough",
          "practise", "open governing", "open conception",
-         "challenge", "spar", "strike", "feint", "guard", "probe", "flee", "yield", "spare", "rob", "cripple"]
-FIGHTING = ["strike", "feint", "guard", "probe", "strike", "guard", "flee", "yield", "spare", "rob", "cripple", "1", "2", "3", "4"]
+         "challenge", "spar", "strike", "feint", "guard", "probe", "flee", "yield", "spare", "rob", "cripple",
+         "kill", "news", "rumours", "tell", "wear mask", "remove mask", "ask about li", "ask news"]
+FIGHTING = ["strike", "feint", "guard", "probe", "strike", "guard", "flee", "yield", "spare", "rob", "cripple", "kill",
+            "1", "2", "3", "4"]
 HOTKEYS = ["f2", "f3", "f4", "f12", "page up", "page down"]
 
 
@@ -75,6 +77,34 @@ def test_a_violent_life_stays_clean(tmp_path, seed, monkeypatch):
             app.submit(str(rng.randint(1, len(app.choices))))
         else:
             app.submit(rng.choice(["challenge", "go north", "go east", "go south", "go west", "1", "look", "rest"]))
+        assert app.state == "game", f"left the game at step {step}"
+    assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
+    assert app.violations == [], app.violations[:5]
+    app.shutdown()
+
+
+@pytest.mark.parametrize("seed", [5, 13])
+def test_a_life_of_rumours_and_masks(tmp_path, seed, monkeypatch):
+    """Killing, lying, masks and travel: every knowledge rule must hold throughout."""
+    monkeypatch.setattr(encounters, "ENCOUNTER_CHANCE", 2.0)
+    rng = random.Random(seed)
+    app = App(Config(), tmp_path / "saves", tmp_path / "settings.json")
+    app.start_new(f"Gossip{seed}", world_seed=seed)
+    world, me = app.game.world, app.game.player.id
+    with world.transaction():
+        mask = world.add_entity("mask", "plain mask", {"persona": None})
+        world.relate(me, mask, "owns")
+    for step in range(300):
+        game = app.game
+        if game.combat is not None or game.encounter is not None or game.challenger is not None:
+            app.submit(rng.choice(FIGHTING + ["kill", "kill", "1", "2"]))
+        elif game.focus is not None:
+            app.submit(rng.choice(["news", "tell", "1", "2", "3", "4", "5", "6", "ask about li", "challenge", "bye"]))
+        elif rng.random() < 0.3 and app.choices:
+            app.submit(str(rng.randint(1, len(app.choices))))
+        else:
+            app.submit(rng.choice(["1", "2", "look", "rumours", "wear mask", "remove mask", "go north", "go east",
+                                   "go south", "go west", "rest", "journal"]))
         assert app.state == "game", f"left the game at step {step}"
     assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
     assert app.violations == [], app.violations[:5]

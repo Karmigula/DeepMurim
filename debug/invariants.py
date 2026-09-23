@@ -8,6 +8,8 @@ import re
 from collections.abc import Sequence
 
 from narrate.brief import MAX_FACTS, MAX_PROMPT
+from systems.beliefs import known_people
+from world.gen.materialize import people_at
 from systems.realms import MAX_REALM, REALMS, next_threshold
 from world.body import INJURY_KINDS, LOCATIONS, MERIDIANS, STATES, from_dict, max_qi, settle
 
@@ -41,6 +43,7 @@ def check_world(world) -> list[str]:
             problems += check_body(person, settle(from_dict(person.data["body"]), world.time))
             problems += check_arts(world, person)
     problems += check_items(world)
+    problems += check_knowledge(world)
     times = world.recent_chronicle_times()
     for before, after in zip(times, times[1:]):
         if after < before:
@@ -135,8 +138,72 @@ def check_combat(game) -> list[str]:
     return out
 
 
+def check_knowledge(world) -> list[str]:
+    """Beliefs point at facts, lies name their liar, grief passes only from the dead, masks hide faces."""
+    out = []
+    player = world.get_meta("player_id")
+    facts: dict = {}
+    for belief in world.all_beliefs():
+        if belief.fact_id not in facts:
+            facts[belief.fact_id] = world.fact(belief.fact_id)
+        fact = facts[belief.fact_id]
+        if fact is None:
+            out.append(f"#{belief.knower} believes missing fact #{belief.fact_id}")
+            continue
+        if not 0 <= belief.confidence <= 1 or belief.hops < 0:
+            out.append(f"#{belief.knower} holds fact #{fact.id} at confidence {belief.confidence}, hops {belief.hops}")
+        if belief.channel == "witness" and belief.hops != 0:
+            out.append(f"#{belief.knower} witnessed fact #{fact.id} at {belief.hops} retellings")
+        actor = belief.variant.get("actor")
+        if actor is not None and actor != fact.subject:
+            out.append(f"a retelling of fact #{fact.id} credited #{actor} instead of #{fact.subject}")
+    for lie in world.facts(is_true=False):
+        if "liar" not in lie.data or lie.source_event is None:
+            out.append(f"lie #{lie.id} has no liar or no telling behind it")
+    for memory in world.memories_inherited():
+        source = world.entity(memory.inherited_from)
+        if source is None or not source.data.get("dead"):
+            out.append(f"#{memory.owner} inherited a memory from #{memory.inherited_from}, who is not dead")
+    for persona in world.entities("persona"):
+        if persona.data.get("of") != player:
+            out.append(f"{persona.name} (#{persona.id}) is nobody's mask")
+    return out
+
+
+def check_people(game, turn) -> list[str]:
+    """No one the player never met or heard of is named on screen; the dead never talk or fight."""
+    world = game.world
+    player_id = world.get_meta("player_id")
+    player = world.entity(player_id) if player_id is not None else None
+    if player is None:
+        return []
+    out = []
+    for who, role in ((getattr(game, "focus", None), "conversation partner"),
+                      (getattr(game, "challenger", None), "challenger")):
+        if who is not None and world.entity(who).data.get("dead"):
+            out.append(f"the dead #{who} is a {role}")
+    encounter = getattr(game, "encounter", None)
+    if encounter is not None and world.entity(encounter["person"]).data.get("dead"):
+        out.append("a road encounter with the dead")
+    text = "\n".join([t for t, _ in turn.lines] + [c.label for c in turn.all_choices]).lower()
+    known = {player.name.lower()}
+    known |= {world.entity(p).name.lower() for p in known_people(world, player_id)}
+    here = world.targets(player_id, "located_in")
+    if here:
+        known |= {p.name.lower() for p in people_at(world, here[0])}
+    known |= {p.name.lower() for p in world.entities("persona") if p.data.get("of") == player_id}
+    for kind in ("person", "persona"):
+        for entity in world.entities(kind):
+            name = entity.name.lower()
+            if name in known or len(name) < 4:
+                continue
+            if re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])", text):
+                out.append(f"{entity.name} (#{entity.id}) is named on screen but the player never heard of them")
+    return out
+
+
 def check_turn(game, turn, recent_narration: Sequence[str]) -> list[str]:
-    problems = check_combat(game)
+    problems = check_combat(game) + check_people(game, turn)
     for text, key in turn.lines:
         if LEFTOVER.search(text):
             problems.append(f"leftover template slot in: {text[:80]}")

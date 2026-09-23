@@ -38,6 +38,9 @@ This rebuilds the starting world and re-enters every command. It either prints `
 - **Arts:** every known art is a technique, and mastery never exceeds completeness. No breakthrough skips a realm. Belief never falls below truth (`known_completeness >= completeness`).
 - **Items:** every manual has exactly one owner and a real technique, and never claims less than it holds.
 - **Fights:** a live duel has real participants, harm between 0 and 100, and a valid stage. An encounter has a real person. Fragment lists are well-formed and hold at most 12.
+- **The dead:** are buried (no location, one grave). They are never a conversation partner, a challenger or a road encounter.
+- **Knowledge (phase 3a):** every belief points at a real fact, with confidence 0-1 and a first-hand witness at 0 retellings. A retelling never credits a deed to a different person (so a mask can't leak the face behind it). Every lie names its liar and the telling that started it. Inherited memories come only from the dead. Every persona is the player's.
+- **Names on screen:** no person or persona is named in a turn unless the player has met them, heard of them, or they are standing here.
 
 ## The standing bug-catcher
 
