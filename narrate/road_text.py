@@ -34,6 +34,8 @@ def _resolved(world, event):
 
 @outcome("challenge_issued", body_facts=False)
 def _challenge(world, event):
+    if event.data.get("gate"):  # a stranger calling out a sect's founder (phase 3c)
+        return [f"{cap(_name(world, event))} stands at the gate of your sect and calls you out."], {}
     return [f"{cap(_name(world, event))} blocks your way: they have not forgotten you."], {}
 
 

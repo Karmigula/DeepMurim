@@ -1,0 +1,7 @@
+[symbols]
+season_turn = ["The season turns.", "Leaves fall and grow again.", "Rain comes and goes.", "The yard's stones wear a little smoother.", "Time has passed at the seat."]
+season_news = ["The ledger has news.", "Your elders report.", "There is much to hear.", "The treasurer clears their throat.", "A disciple hurries to meet you."]
+
+[sect_season]
+colour = "default"
+lines = ["#season_turn# #season_news#", "#season_news# #season_turn#"]
