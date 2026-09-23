@@ -21,6 +21,8 @@ def _encounter(world, event):
         "beast": f"{cap(name)} stalks out onto the road, hungry.",
         "wanderer": f"{cap(name)}, a wandering swordsman, bars the road and looks you over.",
         "avenger": f'{cap(name)} steps into the road. "You killed my {d.get("role") or "kin"}."',
+        "sect_hunter": f"{cap(name)}, sent by the {d.get('faction_name', 'sect')}, steps into the road.",
+        "bounty_hunter": f"{cap(name)}, a bounty hunter, blocks the road. There is a price on your head.",
     }[d["kind"]]
     return [line], {"grammar_key": f"encounter.{d['kind']}"}
 

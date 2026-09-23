@@ -36,3 +36,11 @@ lines = ["#coins#", "#coins# The deal is done."]
 ["encounter.avenger"]
 colour = "default"
 lines = ["#roadside# #bravado#", "#bravado# #roadside#"]
+
+["encounter.sect_hunter"]
+colour = "default"
+lines = ["#roadside# #bravado#", "#bravado# #roadside#"]
+
+["encounter.bounty_hunter"]
+colour = "default"
+lines = ["#roadside# #bravado#", "#bravado# #roadside#"]

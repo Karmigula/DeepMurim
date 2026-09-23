@@ -29,6 +29,8 @@ RIVAL_CHANCE = 0.2          # a proud, stronger fighter calls out a renowned one
 AVENGER_ROAD_CHANCE = 0.25  # an avenger from elsewhere finds you on the road
 AVENGER_RANGE = 3           # regions from their home
 ROAD_HOOKS: list = []       # fn(world, player, town, rng) -> events or None; tried before the normal roll (phase 3b)
+HUNTER_HOOKS: list = []     # fn(world, player) -> ids who, in town, call the player out like avengers (phase 3b)
+UNTALKABLE = frozenset({"sect_hunter", "bounty_hunter"})
 BEASTS = {"forest": ("grey wolf", "wild boar"), "mountains": ("mountain tiger", "grey wolf"), "marsh": ("marsh crocodile",)}
 FRIENDLY = frozenset({"kind", "lazy", "cheerful", "honest"})
 
@@ -157,7 +159,7 @@ def resolved_events(player: int, person: int, place: int, how: str, kind: str) -
 
 def talk_succeeds(world, person: int, player: int, kind: str | None = None) -> bool:
     entity = world.entity(person)
-    if entity.data.get("beast"):
+    if entity.data.get("beast") or kind in UNTALKABLE:
         return False
     rng = rng_for(world.world_seed, f"roadtalk:{person}:{world.time}")
     if kind == "avenger":
@@ -178,7 +180,7 @@ def challenge_from(world, player: int, place: int) -> int | None:
     rng = rng_for(world.world_seed, f"challenge:{player}:{place}:{world.time}")
     settled = {e.actors[1] for e in world.chronicle_about(player, limit=20)
                if e.kind in ("challenge_issued", "declined_challenge") and e.time == world.time}
-    avengers = set(avengers_for(world, player))
+    avengers = set(avengers_for(world, player)).union(*(hook(world, player) for hook in HUNTER_HOOKS))
     my_realm = realm_index(world.entity(player).data.get("realm", "mortal"))
     renowned = None
     for person in people_at(world, place, exclude=player):
