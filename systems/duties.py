@@ -50,7 +50,8 @@ def _road_days(world, here, data) -> int:
 def _resident(world, rng, town: int, exclude: set) -> int | None:
     halls.settle_town(world, town)
     people = sorted(p.id for p in people_at(world, town) if p.id not in exclude and not p.data.get("is_player")
-                    and not p.data.get("dead") and not p.data.get("beast") and not F.memberships(world, p.id))
+                    and not p.data.get("dead") and not p.data.get("beast") and not F.memberships(world, p.id)
+                    and float(p.data.get("age", 30)) >= 12)  # no child owes a debt (phase 4a)
     return rng.choice(people) if people else None
 
 

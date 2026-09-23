@@ -11,7 +11,7 @@ from world.events import Event
 from world.gen.materialize import people_at
 
 CHILD_AGE = 12
-CHILD_BARRED = frozenset({"challenge", "spar", "ask_follow", "sect_invite"})
+CHILD_BARRED = frozenset({"challenge", "spar", "ask_follow", "sect_invite", "demand"})
 MAX_NEWS = 3
 
 
@@ -103,7 +103,7 @@ class WorldMixin:
 
     def _gate(self, action: Action):
         if action.verb in CHILD_BARRED:
-            target = action.target if isinstance(action.target, int) else self.focus
-            if isinstance(target, int) and _child(self.world.entity(target)):
-                return self._turn([("They are only a child.", "system")])
+            for target in (action.target, self.focus):  # "demand" names the duty; the child is who you face
+                if isinstance(target, int) and _child(self.world.entity(target)):
+                    return self._turn([("They are only a child.", "system")])
         return super()._gate(action)

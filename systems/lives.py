@@ -42,10 +42,15 @@ def simulated(entity) -> bool:
 
 
 def lived_to(world, person: int) -> int:
-    """The last season this person has lived. Someone never simulated starts in the present (spec §6)."""
-    found = world.entity(person).data.get("lived_to")
+    """The last season this person has lived.
+
+    Someone never stamped starts at the season they came into the world (spec §2.1);
+    an old save's people were all stamped when its world clock first started (spec §6).
+    """
+    entity = world.entity(person)
+    found = entity.data.get("lived_to")
     if found is None:
-        found = current_season(world)
+        found = min(entity.created_at // SEASON, current_season(world))
         world.update_data(person, lived_to=found)
     return found
 

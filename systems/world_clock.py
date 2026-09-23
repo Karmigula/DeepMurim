@@ -12,7 +12,7 @@ import systems.lives as lives
 from systems import factions as F
 from systems import halls, wars
 from systems.facts import make_variant, place_name, record_fact
-from systems.membership import set_membership
+from systems.membership import left_events, set_membership
 from systems.realms import REALMS, realm_index
 from world.events import Event, commit, effect, listen
 from world.gen.materialize import people_at
@@ -32,7 +32,11 @@ def world_tick(world) -> int:
     found = world.get_meta("world_tick")
     if found is None:
         found = lives.current_season(world)
-        world.set_meta("world_tick", found)
+        with world.transaction():
+            for person in world.entities("person"):  # an old save: everyone starts living now
+                if person.data.get("lived_to") is None and not person.data.get("is_player"):
+                    world.update_data(person.id, lived_to=found)
+            world.set_meta("world_tick", found)
     return found
 
 
@@ -152,10 +156,16 @@ def power_events(world, faction: int, n: int, staff: dict | None = None) -> list
     data = world.entity(faction).data
     rng = rng_for(world.world_seed, f"world:{n}:{faction}")
     power = data.get("power", 50)
-    target = power_target(world, faction, staff)
+    staff = staff_by_town(world, faction) if staff is None else staff
+    # unseen halls have no staff to count; level of detail must not starve them (phase 4a review)
+    target = power_target(world, faction, staff) if staff else data.get("base_power", 60)
     new = max(0, min(100, round(power + DRIFT * (target - power) + rng.uniform(-NOISE, NOISE))))
     events = [Event("faction_season", (faction,), data.get("seat"), {"season": n, "power": new})]
     if data["tier"] == "minor" and new < DESTROY_BELOW:
+        player = world.get_meta("player_id")
+        mine = F.membership(world, player, faction) if isinstance(player, int) else None
+        if mine and mine[1].get("status", "member") == "member":  # 3b's leaving closes the player's duty
+            events += left_events(world, player, faction, data.get("seat") or lives.home(world, player), "released")
         events.append(Event("faction_destroyed", (faction,), data.get("seat"), {"season": n}))
     return events
 

@@ -125,6 +125,8 @@ def move_events(world, person: int, n: int, rng) -> list[Event]:
 
 def grudge(world, person: int, n: int) -> tuple[int, int] | None:
     """(someone this person means to strike back at, the event they remember), or None."""
+    if _age(world.entity(person)) < 12:
+        return None  # children carry grudges but do not act on them
     rest = world.entity(person).data.get("revenge_rest", {})
     for memory in world.memories(person):
         if memory.feeling not in GRUDGES or not memory.event.actors:
@@ -135,8 +137,8 @@ def grudge(world, person: int, n: int) -> tuple[int, int] | None:
         if memory.feeling == "grief" and (memory.event.kind != "died" or memory.event.actors[-1] == doer):
             continue  # grief over a natural death blames no one
         target = world.entity(doer)
-        if target is None or not lives.simulated(target):
-            continue  # never the player, the dead or a beast (spec §4.4)
+        if target is None or not lives.simulated(target) or _age(target) < 12:
+            continue  # never the player, the dead, a beast or a child (spec §4.4)
         if n - rest.get(str(memory.event.id), -REVENGE_REST) < REVENGE_REST:
             continue
         return doer, memory.event.id

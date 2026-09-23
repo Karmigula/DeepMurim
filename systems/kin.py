@@ -59,7 +59,8 @@ def _make_kin(world, npc, slot: dict, path: str, home: int) -> int:
         realm = REALMS[min(realm_index(npc.data.get("realm", "mortal")) + 1, 3)].label
     data = {"surname": surname, "given": given, "gender": rng.choice(("man", "woman")), "age": age,
             "occupation": rng.choice(OCCUPATIONS), "traits": rng.sample(TRAITS, 2), "realm": realm,
-            "portrait": {part: rng.randrange(count) for part, count in PORTRAIT_PARTS.items()}}
+            "portrait": {part: rng.randrange(count) for part, count in PORTRAIT_PARTS.items()},
+            "kin_ready": True}  # a relative brings no relatives of their own (phase 4a review)
     person = world.add_entity("person", f"{surname} {given}", data, path)
     world.relate(person, home, "located_in")
     return person
@@ -107,7 +108,10 @@ def _died(world, event) -> None:
 @listen("died")
 def _inherit(world, event, event_id: int) -> None:
     killer, victim = event.actors
-    for relative, _role in ensure_kin(world, victim, origin=event.place):
+    # the living world's deaths grieve only the family already in the world; conjuring
+    # new relatives at every natural death made the population explode (phase 4a review)
+    family = kin_of(world, victim) if event.data.get("world") else ensure_kin(world, victim, origin=event.place)
+    for relative, _role in family:
         if relative == killer:
             continue
         for memory in world.memories(victim):
@@ -141,6 +145,8 @@ def avengers_for(world, player_id: int) -> list[int]:
         person = world.entity(memory.owner)
         if person is None or person.kind != "person" or person.data.get("dead"):
             continue
+        if float(person.data.get("age", 30)) < 12:
+            continue  # a child grieves but does not hunt (phase 4a review)
         if person.data.get("pursuit_paused_until", -1) > now:
             continue
         if appears_as(world, memory.owner, memory.event, player_id) != player_id:

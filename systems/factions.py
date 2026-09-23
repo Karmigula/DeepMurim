@@ -109,6 +109,7 @@ def _make(world, rng, kind: str, tier: str, home, path: str, used: set) -> int:
     data = {"type": kind, "tier": tier, "home": list(home), "seat": None, "path": PATHS.get(kind, "neutral"),
             "ranks": list(LADDERS[kind]), "power": rng.randint(40, 90), "wealth": wealth, "treasury": wealth * 10,
             "forms": [f for f in FAVOURED[kind] if f in FORMS] or list(FORMS[:1]), "arts": [], "branches": []}
+    data["base_power"] = data["power"]  # what the world clock drifts back to while its halls are unseen
     return world.add_entity("faction", _name(rng, kind, used), data, path)
 
 
