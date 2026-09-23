@@ -1,0 +1,25 @@
+[symbols]
+ranks_rite = ["A bell rings three times.", "Incense is lit before the founders' tablets.", "Your new sash is tied for you.", "The elders nod as one.", "Your name is read aloud."]
+ranks_after = ["Some of the disciples bow a little lower now.", "A rival looks away.", "The hall feels a little smaller.", "Someone murmurs congratulations.", "You feel the weight of the rank."]
+ranks_coin = ["A small purse changes hands.", "The keeper counts the coins twice.", "Silver clinks into your palm.", "The ledger is signed.", "It is not much, but it is yours."]
+ranks_lesson = ["They show you the opening stance.", "The first form is slow and exact.", "They correct your elbow twice.", "Breath and step, breath and step.", "You repeat it until it is yours."]
+
+[promoted]
+colour = "gold"
+lines = ["#ranks_rite# #ranks_after#", "#ranks_after# #ranks_rite#"]
+
+[stipend]
+colour = "default"
+lines = ["#ranks_coin# #ranks_after#", "#ranks_coin#"]
+
+[sect_taught]
+colour = "default"
+lines = ["#ranks_lesson# #ranks_after#", "#ranks_lesson#"]
+
+[library_lent]
+colour = "default"
+lines = ["#ranks_lesson# #ranks_coin#", "#ranks_lesson#"]
+
+[gift]
+colour = "default"
+lines = ["#ranks_coin# #ranks_after#", "#ranks_after# #ranks_coin#"]

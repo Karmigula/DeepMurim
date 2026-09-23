@@ -41,3 +41,4 @@ import narrate.gossip_text  # noqa: E402,F401
 import narrate.mask_text  # noqa: E402,F401
 import narrate.social_text  # noqa: E402,F401
 import narrate.faction_text  # noqa: E402,F401
+import narrate.ranks_text  # noqa: E402,F401
