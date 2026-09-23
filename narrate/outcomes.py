@@ -49,3 +49,4 @@ import narrate.land_text  # noqa: E402,F401
 import narrate.founding_text  # noqa: E402,F401
 import narrate.sect_text  # noqa: E402,F401
 import narrate.season_text  # noqa: E402,F401
+import narrate.world_text  # noqa: E402,F401
