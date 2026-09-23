@@ -1,0 +1,40 @@
+[symbols]
+sect_yard = ["Disciples drill in the yard.", "Someone sweeps the steps.", "Water boils for tea.", "A wooden sword clacks against another.", "The sect's banner stirs."]
+sect_mood = ["It feels like home.", "There is much to do.", "Eyes follow you.", "The seat is quieter than you'd like.", "You feel the weight of leading."]
+sect_coin = ["Coins go into the chest.", "The ledger is updated.", "A key turns in the strongbox.", "The treasurer counts twice.", "Silver changes hands."]
+
+[sect_invite]
+colour = "npc"
+lines = ["#sect_mood# #sect_yard#", "#sect_yard# #sect_mood#"]
+
+[sect_teach]
+colour = "default"
+lines = ["#sect_yard# #sect_mood#", "#sect_mood# #sect_yard#"]
+
+[sect_elder]
+colour = "gold"
+lines = ["#sect_yard# #sect_mood#", "#sect_mood# #sect_yard#"]
+
+[sect_duty]
+colour = "default"
+lines = ["#sect_yard# #sect_mood#", "#sect_mood# #sect_yard#"]
+
+[sect_expel]
+colour = "default"
+lines = ["#sect_mood# #sect_yard#", "#sect_yard# #sect_mood#"]
+
+[sect_build]
+colour = "default"
+lines = ["#sect_coin# #sect_yard#", "#sect_yard# #sect_coin#"]
+
+[sect_treasury]
+colour = "default"
+lines = ["#sect_coin# #sect_mood#", "#sect_coin#"]
+
+[allied_with]
+colour = "gold"
+lines = ["#sect_mood# #sect_coin#", "#sect_yard# #sect_mood#"]
+
+[sect_dissolved]
+colour = "default"
+lines = ["#sect_mood# #sect_yard#", "#sect_yard# #sect_mood#"]

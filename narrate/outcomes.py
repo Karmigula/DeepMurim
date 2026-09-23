@@ -47,3 +47,4 @@ import narrate.politics_text  # noqa: E402,F401
 import narrate.law_text  # noqa: E402,F401
 import narrate.land_text  # noqa: E402,F401
 import narrate.founding_text  # noqa: E402,F401
+import narrate.sect_text  # noqa: E402,F401
