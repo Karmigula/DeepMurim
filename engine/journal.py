@@ -23,7 +23,8 @@ def summarize(world: World, entry: ChronicleEntry) -> str:
         case "conversed":
             text = f"Spoke again with {other} in {place}."
         case "asked":
-            text = f"Asked {other} about {data.get('topic', 'things')}."
+            topic = str(data.get("topic", "things"))
+            text = f"Asked {other} {topic}." if topic.startswith("about ") else f"Asked {other} about {topic}."
         case "parted":
             text = f"Took leave of {other}."
         case "lost_patience":

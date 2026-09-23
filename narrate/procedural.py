@@ -119,7 +119,8 @@ class ProceduralNarrator:
         if brief.kind == "breakthrough":
             return f"breakthrough.{'success' if brief.details.get('success') == 'yes' else 'failure'}"
         if brief.kind == "asked":
-            key = f"asked.{brief.details.get('topic', '')}"
+            topic = brief.details.get("topic", "")
+            key = f"asked.{'about' if topic.startswith('about ') else topic}"
             if brief.details.get("asked_before") and f"{key}.again" in self.grammar.tables:
                 return f"{key}.again"
             return key

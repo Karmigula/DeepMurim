@@ -26,6 +26,14 @@ class GameHooks:
     def _conversation_extras(self, npc) -> list:
         return []
 
+    def _conversation_hidden(self, npc) -> list:
+        """Choices valid in conversation but reached only by typing (ask about <name>)."""
+        return []
+
+    def _general_extras(self) -> list:
+        """Extra entries for the main menu's general group (rumours, masks)."""
+        return []
+
     def _practise_extras(self, body) -> list:
         return []
 

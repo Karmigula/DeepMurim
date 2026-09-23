@@ -290,7 +290,9 @@ def event_brief(world: World, event_id: int, event) -> Brief:
             repeats = times_asked(world, other.id, player.id, details["topic"]) - 1  # this question is committed
             if repeats > 0:
                 details["asked_before"] = str(repeats)
-                about = "their work" if details["topic"] == "work" else world.entity(event.place).name
+                topic = details["topic"]
+                about = {"work": "their work", "news": "the news"}.get(topic) \
+                    or (topic[len("about "):] if topic.startswith("about ") else world.entity(event.place).name)
                 plural = "s" if repeats != 1 else ""
                 facts.insert(0, f"You have already asked {other.name} about {about} {repeats} time{plural} before.")
     place_id = event.place

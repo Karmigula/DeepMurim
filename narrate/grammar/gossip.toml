@@ -1,0 +1,44 @@
+[symbols]
+gossip_ask_open = ["You ask {npc} what news there is.", "You ask {npc} what people are saying.", "\"Any news?\" you ask {npc}.", "You ask {npc} whether anything has happened lately.", "You ask {npc} for the latest talk."]
+gossip_ask_again = ["You press {npc} for more news.", "You ask {npc} again what people are saying.", "\"Anything else?\" you ask {npc}.", "You try {npc} once more for news."]
+gossip_ask_who = ["You ask {npc} {topic}.", "You ask {npc} what they know {topic}.", "You ask {npc} what they have heard {topic}.", "You bring up a name with {npc}, asking {topic}."]
+gossip_lean = ["They lean closer.", "They glance around first.", "They lower their voice.", "They take a moment to remember.", "They wipe their hands and think."]
+gossip_murmur = ["\"Listen to this.\"", "\"You didn't hear it from me.\"", "\"People are saying things.\"", "\"Have you heard?\"", "\"It is all anyone talks about.\""]
+gossip_shrug = ["They shrug.", "They shake their head.", "They spread their hands.", "They frown, then give up."]
+gossip_nothing = ["Nothing comes to mind.", "It has been quiet.", "They have nothing for you.", "No one has said much of anything."]
+gossip_confide = ["You lower your voice.", "You pick your words carefully.", "You lean in close.", "You glance around before speaking."]
+gossip_listen = ["{npc} listens.", "{npc} raises an eyebrow.", "{npc} says nothing for a moment.", "{npc} rubs their chin."]
+gossip_cold = ["{npc}'s face hardens.", "{npc} will not meet your eyes.", "{npc} goes very still.", "{npc}'s jaw tightens."]
+gossip_cold_after = ["The words you spread have come home.", "Someone has told them everything.", "There is no taking it back.", "They know what you said."]
+
+["asked.news"]
+colour = "npc"
+lines = ["#gossip_ask_open#", "#gossip_ask_open# #gossip_lean#"]
+
+["asked.news.again"]
+colour = "npc"
+lines = ["#gossip_ask_again#", "#gossip_ask_again# #gossip_lean#"]
+
+["asked.about"]
+colour = "npc"
+lines = ["#gossip_ask_who#", "#gossip_ask_who# #gossip_lean#"]
+
+["asked.about.again"]
+colour = "npc"
+lines = ["#gossip_ask_who# #gossip_lean#", "#gossip_ask_again#"]
+
+[heard]
+colour = "npc"
+lines = ["#gossip_lean# #gossip_murmur#", "#gossip_murmur# #gossip_lean#"]
+
+[no_news]
+colour = "npc"
+lines = ["#gossip_shrug# #gossip_nothing#", "#gossip_nothing# #gossip_shrug#"]
+
+[told]
+colour = "npc"
+lines = ["#gossip_confide# #gossip_listen#", "#gossip_listen# #gossip_confide#"]
+
+[lie_exposed]
+colour = "npc"
+lines = ["#gossip_cold# #gossip_cold_after#", "#gossip_cold_after# #gossip_cold#"]

@@ -14,6 +14,7 @@ import systems.travel as travel
 from engine.actions import Action, Choice, Turn
 from engine.dealings import DealingsMixin
 from engine.fight import FightMixin
+from engine.gossip import GossipMixin
 from engine.roads import RoadsMixin
 from engine.hooks import GameHooks
 from engine.inventing import InventingMixin
@@ -46,11 +47,12 @@ HELP = [
     ("  look | talk <name> | go <place or direction> | ask <work|town> | bye | journal | help", "system"),
     ("  cultivate | meditate <day|week|month|season> | practise <art> | open <meridian> | rest | breakthrough", "system"),
     ("  challenge | spar | strike | feint | guard | probe | flee | yield | spare | rob | cripple | kill", "system"),
+    ("  news | ask about <name> | tell | rumours", "system"),
     ("  F2 swap art side | F3 hide art | F4 character sheet | F9 report a bug | F12 debug | Esc menu", "system"),
 ]
 
 
-class Game(InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
+class Game(GossipMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
     def __init__(self, world: World, narrator: Narrator | None = None) -> None:
         self.world = world
         self.narrator = narrator or ProceduralNarrator()
@@ -185,11 +187,21 @@ class Game(InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
         if self.focus is None or topic not in talk.TOPICS:
             return self._turn([("Ask whom, about what?", "system")])
         npc, me = self.world.entity(self.focus), self.player.id
-        if talk.repeats_if_asked(self.world, npc.id, me, topic) > talk.patience_of(npc):
-            lines = self._commit(talk.lost_patience_events(me, npc.id, self.place.id, topic))
-            self.focus = None
-            return self._turn(lines)
+        if (lost := self._lost_patience(npc, topic)) is not None:
+            return lost
         return self._turn(self._commit(talk.ask_events(me, npc.id, self.place.id, topic)))
+
+    def _patience(self, npc) -> int:
+        return talk.patience_of(npc)
+
+    def _lost_patience(self, npc, topic: str):
+        """A Turn if this question is one too many for them, else None."""
+        me = self.player.id
+        if talk.repeats_if_asked(self.world, npc.id, me, topic) <= self._patience(npc):
+            return None
+        lines = self._commit(talk.lost_patience_events(me, npc.id, self.place.id, topic))
+        self.focus = None
+        return self._turn(lines)
 
     def _do_farewell(self, _target) -> Turn:
         if self.focus is None:
@@ -339,12 +351,13 @@ class Game(InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
                 options, back = feature_menus[self.submenu]
                 return options[: MAX_SHOWN - 1] + [Choice("Back", back)], []
             npc = self.world.entity(self.focus)
-            return [
+            options = [
                 Choice("Ask about their work", Action("ask", "work")),
                 Choice(f"Ask about {self.place.name}", Action("ask", "town")),
                 *self._conversation_extras(npc),
-                Choice("Say farewell", Action("farewell")),
-            ], []
+            ]
+            shown = options[: MAX_SHOWN - 1] + [Choice("Say farewell", Action("farewell"))]
+            return shown, options[MAX_SHOWN - 1:] + self._conversation_hidden(npc)
         body = self.body()
         people = [
             Choice(f"Talk to {p.name} ({p.data.get('occupation', 'stranger')})", Action("talk", p.id))
@@ -352,6 +365,7 @@ class Game(InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
         ]
         routes = [Choice(r.label, Action("travel", r.dest)) for r in travel.routes_from(self.world, self.place)]
         general = [Choice("Look around", Action("look")), Choice("Read your journal", Action("journal"))]
+        general += self._general_extras()
         practise = [Choice(f"Practise the {a.name} for a week", Action("practise", a.technique.id))
                     for a in martial_arts(self.world, self.player.id)] + self._practise_extras(body)
         cultivate = self._cultivation_choices(body, bool(practise))

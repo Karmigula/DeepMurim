@@ -19,9 +19,11 @@ GLOBAL = {
     "flee": Action("flee"), "run": Action("flee"), "yield": Action("yield_duel"), "surrender": Action("yield_duel"),
     "spare": Action("verdict", "spare"), "rob": Action("verdict", "rob"), "cripple": Action("verdict", "cripple"), "kill": Action("verdict", "kill"),
     "spar": Action("spar"), "challenge": Action("challenge"),
+    "news": Action("news"), "rumours": Action("rumours"), "rumors": Action("rumours"), "gossip": Action("rumours"),
+    "tell": Action("tell_menu"),
 }
 PREFIX_VERBS = {
-    "talk": "talk", "speak": "talk", "go": "travel", "travel": "travel", "walk": "travel", "ask": "ask",
+    "talk": "talk", "speak": "talk", "go": "travel", "travel": "travel", "walk": "travel", "ask": ("ask", "ask_about", "news"),
     "meditate": "meditate", "practise": "practise", "practice": "practise", "train": "practise",
     "open": "open_meridian", "use": "use",
 }
@@ -45,11 +47,12 @@ def parse(text: str, choices: list[Choice], extra: list[Choice] = ()) -> Action 
     if lowered in GLOBAL:
         return GLOBAL[lowered]
     head, _, rest = lowered.partition(" ")
-    verb = PREFIX_VERBS.get(head)
+    verbs = PREFIX_VERBS.get(head)
+    verbs = (verbs,) if isinstance(verbs, str) else verbs
     wanted = [w for w in _words(rest) if w not in FILLER]
-    if verb is None or not wanted:
+    if verbs is None or not wanted:
         return Action("unknown", cleaned)
-    pool = [c for c in [*choices, *extra] if c.action.verb == verb]
+    pool = [c for c in [*choices, *extra] if c.action.verb in verbs]
     pool = list({c.action: c for c in pool}.values())  # a choice may be both visible and extra
     exact = [c for c in pool if all(w in _words(c.label) for w in wanted)]
     prefix = [c for c in pool if all(any(lw.startswith(w) for lw in _words(c.label)) for w in wanted)]
