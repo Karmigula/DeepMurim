@@ -36,3 +36,4 @@ def cap(text: str) -> str:
 import narrate.combat_text  # noqa: E402,F401
 import narrate.road_text  # noqa: E402,F401
 import narrate.learning_text  # noqa: E402,F401
+import narrate.invent_text  # noqa: E402,F401

@@ -1,0 +1,7 @@
+[symbols]
+insight = ["The pieces click together all at once.", "You see how the fragments want to flow.", "For a week you barely eat.", "You draw the route on the wall in charcoal.", "The last form comes to you in a dream."]
+proof = ["When you finally move, the art moves with you.", "It is rough, but it is yours.", "The air hums as you run it through once.", "You laugh aloud, alone."]
+
+[created_technique]
+colour = "gold"
+lines = ["#insight# #proof#", "#proof# #insight#"]

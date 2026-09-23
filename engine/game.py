@@ -16,6 +16,7 @@ from engine.dealings import DealingsMixin
 from engine.fight import FightMixin
 from engine.roads import RoadsMixin
 from engine.hooks import GameHooks
+from engine.inventing import InventingMixin
 from engine.journal import summarize
 from narrate.base import Line, Narrator
 from narrate.brief import event_brief, scene_brief
@@ -49,7 +50,7 @@ HELP = [
 ]
 
 
-class Game(DealingsMixin, RoadsMixin, FightMixin, GameHooks):
+class Game(InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
     def __init__(self, world: World, narrator: Narrator | None = None) -> None:
         self.world = world
         self.narrator = narrator or ProceduralNarrator()
