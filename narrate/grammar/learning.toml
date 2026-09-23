@@ -1,0 +1,16 @@
+[symbols]
+lesson = ["They correct your stance with two fingers.", "They make you repeat the first form a hundred times.", "They speak little and demonstrate much.", "By the end your arms are shaking.", "They nod, once, when you finally get it right."]
+bargain = ["The price is argued, then paid.", "They wrap it in oilcloth for you.", "They wet a thumb and count the silver.", "They insist it is a rare copy."]
+pages = ["The ink is faded in places.", "Someone has scribbled notes in the margins.", "The diagrams are exquisite.", "The binding smells of camphor.", "Half the characters are in an old style."]
+
+[learned]
+colour = "npc"
+lines = ["#lesson#", "{npc} takes you through the art. #lesson#"]
+
+[handed_over]
+colour = "default"
+lines = ["#bargain#", "#bargain# The manual is yours."]
+
+[studied_manual]
+colour = "default"
+lines = ["You pore over the manual for {days}. #pages#", "#pages# You read until the forms swim before your eyes."]

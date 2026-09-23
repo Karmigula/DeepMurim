@@ -12,6 +12,7 @@ import systems.cultivation as cultivation
 import systems.talk as talk
 import systems.travel as travel
 from engine.actions import Action, Choice, Turn
+from engine.dealings import DealingsMixin
 from engine.fight import FightMixin
 from engine.roads import RoadsMixin
 from engine.hooks import GameHooks
@@ -48,7 +49,7 @@ HELP = [
 ]
 
 
-class Game(RoadsMixin, FightMixin, GameHooks):
+class Game(DealingsMixin, RoadsMixin, FightMixin, GameHooks):
     def __init__(self, world: World, narrator: Narrator | None = None) -> None:
         self.world = world
         self.narrator = narrator or ProceduralNarrator()

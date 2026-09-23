@@ -166,3 +166,12 @@ def mastery_stage(mastery: float) -> str:
 
 def practise_gain(days: float, comprehension: float, compat: float, grade: int) -> float:
     return days * 0.004 * (comprehension / 10) * compat / grade_mult(grade)
+
+
+def set_known_completeness(world: World, person_id: int, technique_id: int) -> None:
+    """The knower learns the truth: belief becomes the real completeness."""
+    for tech_id, mastery, data in world.relations_from(person_id, "knows"):
+        if tech_id == technique_id:
+            truth = {**data, "known_completeness": data.get("completeness", 1.0)}
+            world.relate(person_id, technique_id, "knows", value=mastery, data=truth)
+            return

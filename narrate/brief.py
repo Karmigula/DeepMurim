@@ -262,6 +262,8 @@ def _body_outcome(event) -> tuple[list[str], dict[str, str]]:
     elif kind == "deviation":
         details["cause"] = d["cause"]
         out.append(f"Your qi deviated: {d['cause']}.")
+        if d.get("reveal"):
+            out.append("You realise the manual was never complete.")
         for name, _before, after in d.get("changes", [])[:2]:
             out.append(f"Your {name} meridian is scarred for good." if after == "scarred" else f"It damaged your {name} meridian.")
         if d.get("energy_lost", 0) > 1e-9:

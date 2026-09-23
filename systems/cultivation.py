@@ -7,7 +7,7 @@ replay, the journal and the narrator's brief all see the same result.
 
 from systems import realms
 from systems.bodies import load_body, save_body
-from systems.techniques import compatibility, grade_mult, heart_method, known_arts, mastery_stage, practise_gain, set_mastery
+from systems.techniques import compatibility, grade_mult, heart_method, known_arts, mastery_stage, practise_gain, set_known_completeness, set_mastery
 from systems.time import advance
 from world.body import EXTRAORDINARY, REGULAR, WATCHES_PER_DAY, add_injury, clone, max_qi, settle, unhealed
 from world.events import Event, effect
@@ -80,7 +80,7 @@ def _at_end(body, now: int, days: float):
     return settle(body, now + round(days * WATCHES_PER_DAY))
 
 
-def _deviation_event(world, pid: int, place: int, end, added: float, route, cause: str) -> list[Event]:
+def _deviation_event(world, pid: int, place: int, end, added: float, route, cause: str, reveal: int | None = None) -> list[Event]:
     """`end` is the body as it will stand once the triggering action is applied (see _at_end)."""
     if end.deviation + added < DEVIATION_LIMIT:
         return []
@@ -92,7 +92,7 @@ def _deviation_event(world, pid: int, place: int, end, added: float, route, caus
     after = max(realms.REALMS[end.realm].threshold, before * 0.9)
     data = {"cause": cause, "damaged": damaged, "changes": changes,
             "energy_before": round(before, 6), "energy_after": round(after, 6), "energy_lost": round(before - after, 6),
-            "discovered": _discovers(end, "deviation")}
+            "discovered": _discovers(end, "deviation"), "reveal": reveal}
     return [Event("deviation", (pid,), place, data)]
 
 
@@ -163,11 +163,17 @@ def practise_events(world, pid: int, place: int, technique_id: int, days: int = 
         "insight_gained": round(days * 0.05 * body.physique["comprehension"] / 10, 4),
         "discovered": _discovers(body, "practise", art, after),
     }
-    cause = (f"forcing the {known.name} beyond what it can give" if at_cap
-             else f"practising the {known.name} against your body's grain")
+    manual_lie = at_cap and known.source == "manual" and known.known_completeness > known.completeness + 1e-9
+    if manual_lie:
+        cause = f"following a manual of the {known.name} whose instructions are wrong"
+    elif at_cap:
+        cause = f"forcing the {known.name} beyond what it can give"
+    else:
+        cause = f"practising the {known.name} against your body's grain"
     end = _at_end(body, world.time, days)
     end.constitution_known = end.constitution_known or bool(data["discovered"])
-    return [Event("practised", (pid,), place, data)] + _deviation_event(world, pid, place, end, deviation, art["route"], cause)
+    reveal = technique_id if manual_lie else None
+    return [Event("practised", (pid,), place, data)] + _deviation_event(world, pid, place, end, deviation, art["route"], cause, reveal)
 
 
 @effect("practised")
@@ -331,6 +337,8 @@ def _deviation(world, event: Event) -> None:
     body.energy_years = data["energy_after"]
     _floor_energy(body)
     body.deviation = float(DEVIATION_AFTER)
+    if data.get("reveal"):
+        set_known_completeness(world, pid, data["reveal"])
     if data["discovered"]:
         body.constitution_known = True
     save_body(world, pid, body)
