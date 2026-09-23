@@ -46,6 +46,7 @@ def check_world(world) -> list[str]:
     problems += check_knowledge(world)
     problems += check_factions(world)
     problems += check_sect(world)
+    problems += check_life(world)
     times = world.recent_chronicle_times()
     for before, after in zip(times, times[1:]):
         if after < before:
@@ -211,6 +212,56 @@ def check_factions(world) -> list[str]:
         target = duty.data.get("target")
         if target is not None and world.entity(target) is None:
             out.append(f"open duty #{duty.id} points at missing #{target}")
+    return out
+
+
+def check_life(world) -> list[str]:
+    """The living world (phase 4a spec 8): clocks never ahead, families and factions consistent."""
+    from systems import factions as F
+    out = []
+    now = world.time // 360
+    tick = world.get_meta("world_tick")
+    if tick is not None and tick > now:
+        out.append(f"the world clock is at season {tick}, ahead of season {now}")
+    leaders: dict = {}
+    for person in world.entities("person"):
+        d = person.data
+        who = f"{person.name} (#{person.id})"
+        if d.get("lived_to") is not None and d["lived_to"] > now:
+            out.append(f"{who} has lived ahead to season {d['lived_to']}")
+        rows = F.memberships(world, person.id)
+        active = [(f, data) for f, _, data in rows if data.get("status", "member") == "member"]
+        if d.get("dead"):
+            if active:
+                out.append(f"{who} is dead but still a member of #{active[0][0]}")
+            continue
+        for f, data in active:
+            if data.get("role") == "leader":
+                leaders.setdefault(f, []).append(person.id)
+        spouses = []
+        for other, _, data in world.relations_from(person.id, "kin_of"):
+            if data.get("role") != "spouse" or world.entity(other).data.get("dead"):
+                continue
+            spouses.append(other)
+            back = [r for b, _, r in world.relations_from(other, "kin_of") if b == person.id]
+            if not back or back[0].get("role") != "spouse":
+                out.append(f"{who} calls #{other} a spouse, but not the other way round")
+        if len(spouses) > 1:
+            out.append(f"{who} has {len(spouses)} living spouses")
+        if float(d.get("age", 30)) < 12:
+            if any(data.get("role") not in (None, "member") for _, data in active) or d.get("sworn_to"):
+                out.append(f"{who} is a child but serves a faction or a master")
+            if any(r.get("role") == "disciple" for _, _, r in world.relations_from(person.id, "kin_of")):
+                out.append(f"{who} is a child with a disciple")
+    for faction, people in leaders.items():
+        entity = world.entity(faction)
+        if len(people) > 1 and not entity.data.get("dissolved") and entity.data.get("type") != "player_sect":
+            out.append(f"{entity.name} has {len(people)} living leaders")
+    for fact in world.facts(predicate="born"):
+        town = world.entity(fact.place) if fact.place else None
+        cap = 1.5 * town.data.get("npc_count", 10) if town is not None else 0
+        if fact.data.get("population", 0) >= cap:
+            out.append(f"a child was born in a full town ({fact.data.get('population')} >= {cap})")
     return out
 
 

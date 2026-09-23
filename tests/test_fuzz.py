@@ -171,3 +171,24 @@ def test_a_sect_founder(tmp_path, seed, monkeypatch):
     assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
     assert app.violations == [], app.violations[:5]
     app.shutdown()
+
+
+@pytest.mark.parametrize("seed", [3, 8])
+def test_a_long_lived_wanderer(tmp_path, seed):
+    """Seclusions by the season and long roads: the world ages around the player and every rule holds."""
+    rng = random.Random(seed)
+    app = App(Config(), tmp_path / "saves", tmp_path / "settings.json")
+    app.start_new(f"Wanderer{seed}", world_seed=seed)
+    for step in range(250):
+        game = app.game
+        if game.combat is not None or game.encounter is not None or game.challenger is not None:
+            app.submit(rng.choice(FIGHTING + ["1", "2", "3"]))
+        elif game.focus is not None:
+            app.submit(rng.choice(["1", "2", "3", "4", "5", "bye"]))
+        else:
+            app.submit(rng.choice(["meditate season", "meditate season", "meditate month", "look", "journal",
+                                   "rumours", "go north", "go south", "go east", "go west", "1", "2", "3"]))
+        assert app.state == "game", f"left the game at step {step}"
+    assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
+    assert app.violations == [], app.violations[:5]
+    app.shutdown()
