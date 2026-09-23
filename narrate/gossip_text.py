@@ -10,6 +10,8 @@ VERBS = {
 }
 COUNT_WORDS = {2: "one other", 3: "two others"}
 REALM_DEEDS = frozenset({"defeated", "killed", "crippled", "robbed", "spared", "left_for_dead"})
+# Later systems add their own story shapes here: {actor}, {target} and {be} ("are" for you, else "is").
+EXTRA_PHRASES = {"member_of": "{actor} {be} of the {target}."}
 
 
 def who(world, entity_id, viewer: int) -> str:
@@ -28,6 +30,9 @@ def rumour_text(world, variant: dict, viewer: int) -> str:
     target = who(world, variant["target"], viewer) if variant.get("target") is not None else None
     if predicate == "is":
         return cap(f"{actor} is really {target}.")
+    if predicate in EXTRA_PHRASES:
+        be = "are" if actor == "you" else "is"
+        return cap(EXTRA_PHRASES[predicate].format(actor=actor, target=target or "someone", be=be))
     if predicate == "owns_manual":
         has = "have" if actor == "you" else "has"
         return cap(f"{actor} {has} the {variant['art']}.") if variant.get("art") else cap(f"{actor} {has} a secret manual.")
