@@ -68,6 +68,12 @@ class GameHooks:
         """name -> (options, back action) for feature submenus."""
         return {}
 
+    def _before_scene(self) -> None:
+        """Bring the place up to date before it is described (phase 4a: people live their missed seasons)."""
+
+    def _before_talk(self, npc_id) -> None:
+        """Bring someone up to date before a conversation with them starts (phase 4a)."""
+
     def _after_arrival(self) -> list:
         return []
 

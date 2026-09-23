@@ -1,0 +1,7 @@
+[symbols]
+world_loss = ["A cold feeling settles in your chest.", "You stand still for a moment.", "The news lands heavily.", "You think of the last time you spoke.", "Somewhere a bell tolls.", "The wind feels colder."]
+world_after = ["Life goes on around you.", "No one else seems to notice.", "The town carries on.", "Someone lights incense.", "Tea goes cold in a cup nearby.", "A dog barks in the distance."]
+
+[heard_death]
+colour = "default"
+lines = ["#world_loss# #world_after#", "#world_after# #world_loss#"]

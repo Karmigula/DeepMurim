@@ -324,6 +324,9 @@ def event_brief(world: World, event_id: int, event) -> Brief:
         facts = player_facts(world, player.id)
     from engine.standing_page import faction_facts  # the page owns the wording (phase 3b)
     facts = facts + [f for f in faction_facts(world, player.id, other) if f not in facts]
+    if other is not None and not other.data.get("is_player"):
+        from narrate.world_text import life_facts  # age and family (phase 4a)
+        facts = facts + [f for f in life_facts(world, other) if f not in facts]
     if event.kind in OUTCOME_BUILDERS:
         more, extra = OUTCOME_BUILDERS[event.kind](world, event)
         outcome = list(outcome) + list(more)
@@ -353,6 +356,10 @@ def scene_brief(world: World, place_id: int, player_id: int, salt: str) -> Brief
     known = [p.name for p in present if conversations_with(world, p.id, player_id)]
     if known:
         facts.append("You already know " + ", ".join(known) + ".")
+    from narrate.world_text import town_news  # the newest change here the player believes (phase 4a)
+    news = town_news(world, place_id, player_id)
+    if news:
+        facts.append(f"Lately here: {news}")
     fame = reputation(world, place_id, apparent_to(world, place_id, player_id))
     if fame.epithet:
         facts.append(f"People here know you as the {fame.epithet}.")

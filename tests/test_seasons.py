@@ -149,6 +149,9 @@ def test_eight_seasons_for_fifteen_members_are_quick(game):
     for i in range(12):
         founding.enrol(game.world, founding.make_person(game.world, f"test:extra:{i}", town), sect, 70)
     advance(game, 8)
+    import systems.world_clock as world_clock
+    while world_clock.run_due(game.world):
+        pass  # the world's own seasons are not what this test measures (phase 4a ruling 11)
     start = time.perf_counter()
     for _ in range(8):
         game._commit(seasons.season_events(game.world, game.player.id, sect))

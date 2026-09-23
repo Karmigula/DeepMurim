@@ -26,6 +26,7 @@ from engine.land import LandMixin
 from engine.founding import FoundingMixin
 from engine.sect import SectMixin
 from engine.seasons import SeasonsMixin
+from engine.world_mixin import WorldMixin
 from engine.standing_page import standing_lines
 from engine.ledger import ledger_lines
 from engine.masks import MasksMixin
@@ -71,7 +72,7 @@ HELP = [
 ]
 
 
-class Game(FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, LeavingMixin, LawMixin, LandMixin, FoundingMixin, SectMixin, SeasonsMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
+class Game(WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, LeavingMixin, LawMixin, LandMixin, FoundingMixin, SectMixin, SeasonsMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
     def __init__(self, world: World, narrator: Narrator | None = None) -> None:
         self.world = world
         self.narrator = narrator or ProceduralNarrator()
@@ -181,6 +182,7 @@ class Game(FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, 
 
     def _do_look(self, _target) -> Turn:
         self.focus = None
+        self._before_scene()
         here = (self.place.id, self.world.time)
         if here == self._last_look:
             return self._turn([("Nothing has changed since you last looked.", "dim")] + self._presence() + self._after_look())
@@ -196,10 +198,12 @@ class Game(FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, 
         lines = self._commit(travel.travel_events(self.player.id, self.place.id, route))
         populate(self.world, self.place.id)
         settle_town(self.world, self.place.id)
+        self._before_scene()
         self._last_look = (self.place.id, self.world.time)
         return self._turn(lines + self._describe("arrive") + self._presence() + self._after_arrival())
 
     def _do_talk(self, npc_id) -> Turn:
+        self._before_talk(npc_id)
         present = {p.id for p in people_at(self.world, self.place.id, exclude=self.player.id)}
         if npc_id not in present:
             return self._turn([("There is no one like that here.", "system")])
