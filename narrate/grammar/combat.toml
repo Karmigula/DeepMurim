@@ -33,3 +33,7 @@ lines = ["#parting#", "#parting# {npc} watches you warily."]
 [refused_duel]
 colour = "npc"
 lines = ["{npc} #refusal#", "{npc} considers it, then #refusal#"]
+
+[died]
+colour = "default"
+lines = ["The body goes still.", "It is over; the dust settles on the body.", "Silence falls where the fight was.", "The last breath goes out of them.", "Somewhere a door closes, and then nothing.", "No one moves for a long moment."]

@@ -42,6 +42,9 @@ FORM_BY_OCCUPATION = {
 }
 TEACHER_CHANCE = {"wandering swordsman": 0.6, "monk": 0.5, "hunter": 0.2}
 LEGS = ("left leg", "right leg")
+VERDICTS = ("spare", "rob", "cripple", "kill")
+BEAST_VERDICTS = ("spare", "kill")
+HATEFUL = frozenset({"hatred", "grief", "wronged"})  # a foe who feels this leaves you for dead
 
 
 @dataclass
@@ -303,13 +306,15 @@ def _cripple(rng) -> list:
     return rng.choice(options)
 
 
-def npc_verdict(rng, opponent, player_silver: int) -> tuple[str, int, list | None]:
+def npc_verdict(rng, opponent, player_silver: int, hateful: bool = False) -> tuple[str, int, list | None]:
     if opponent.data.get("beast"):
         return "spare", 0, None  # a beast only wants you gone
     traits = set(opponent.data.get("traits", ()))
     ruthless = opponent.data.get("occupation") == "bandit" or {"cunning", "greedy"} <= traits
     greedy = ruthless or "greedy" in traits
     amount = int(player_silver * rng.uniform(0.3, 1.0)) if greedy else 0
+    if hateful:
+        return "leave_for_dead", amount, None  # a grudge wants you broken (phase 3a spec 6.2)
     crippled = _cripple(rng) if ruthless and rng.random() < 0.25 else None
     return ("cripple" if crippled else "rob" if amount else "spare"), amount, crippled
 
@@ -322,18 +327,19 @@ def _end_event(world, d: Duel, result: str, reason: str, rng, harm: dict, exchan
     data = {
         "duel": d.duel_id, "mode": d.mode, "result": result, "reason": reason, "verdict": verdict, "by": None,
         "silver": 0, "crippled": None, "loot": [], "insight": 0.0, "life_and_death": False,
-        "fragment": None, "purpose": d.purpose,
+        "fragment": None, "purpose": d.purpose, "killed": False, "left_for_dead": False,
     }
     witnesses = []
     if result == "lost":
-        chosen, amount, crippled = npc_verdict(rng, opponent, silver_of(world, d.player))
+        hateful = any(m.feeling in HATEFUL for m in world.memories(d.opponent, about=d.player))
+        chosen, amount, crippled = npc_verdict(rng, opponent, silver_of(world, d.player), hateful)
         data.update(verdict=chosen, by="opponent", silver=amount, crippled=crippled,
-                    insight=5.0 * gap if gap > 0 else 0.0)
+                    insight=5.0 * gap if gap > 0 else 0.0, left_for_dead=chosen == "leave_for_dead")
         feeling = "respect" if exchanges >= 4 or gap <= 0 else "contempt"
         witnesses.append(Witness(d.opponent, feeling, 0.5))
     elif result == "won":
         data["by"] = "player"
-        if verdict == "rob":
+        if verdict in ("rob", "kill"):
             data["silver"] = silver_of(world, d.opponent)
             data["loot"] = [m.item.id for m in manuals_of(world, d.opponent)]
         if verdict == "cripple":
@@ -344,8 +350,10 @@ def _end_event(world, d: Duel, result: str, reason: str, rng, harm: dict, exchan
             "spare": ("grateful" if gap < 0 else "humiliated", 0.6, False),
             "rob": ("humiliated", 0.8, False),
             "cripple": ("hatred", 1.0, True),
+            "kill": ("hatred", 1.0, True),
         }[verdict]
         witnesses.append(Witness(d.opponent, feeling, weight, lasting))
+        data["killed"] = verdict == "kill"
     elif result.startswith("spar_"):
         data["insight"] = 3.0
         if d.opponent_technique is not None and rng.random() < FRAGMENT_CHANCE_SPAR:
@@ -360,11 +368,17 @@ def _end_event(world, d: Duel, result: str, reason: str, rng, harm: dict, exchan
 
 
 def verdict_events(world, d: Duel, choice: str) -> list[Event]:
-    if d.stage != "verdict" or choice not in ("spare", "rob", "cripple"):
+    beast = bool(world.entity(d.opponent).data.get("beast"))
+    if d.stage != "verdict" or choice not in (BEAST_VERDICTS if beast else VERDICTS):
+        return []
+    if choice == "kill" and d.mode not in ("duel", "encounter"):
         return []
     rng = rng_for(world.world_seed, f"duel:{d.duel_id}:verdict")
     reason = "broken" if d.harm["opponent"] >= BROKEN else "yielded"
-    return [_end_event(world, d, "won", reason, rng, d.harm, d.exchange, verdict=choice)]
+    events = [_end_event(world, d, "won", reason, rng, d.harm, d.exchange, verdict=choice)]
+    if choice == "kill":
+        events.append(Event("died", (d.player, d.opponent), d.place, {"cause": "killed"}))
+    return events
 
 
 def yield_events(world, d: Duel) -> list[Event]:
@@ -417,6 +431,10 @@ def _ended(world, event: Event) -> None:
         location, kind = data["crippled"]
         add_injury(body, location, kind, 5, world.time, f"being crippled by {world.entity(culprit).name}", permanent=True)
         save_body(world, victim, body)
+    if data.get("left_for_dead"):
+        body = load_body(world, player)
+        add_injury(body, "torso", "internal", 4, world.time, f"being left for dead by {world.entity(opponent).name}")
+        save_body(world, player, body)
     for item in data["loot"]:
         world.unrelate(opponent, "owns", item)
         world.relate(player, item, "owns")

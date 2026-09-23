@@ -45,7 +45,7 @@ HELP = [
     ("Type a number, or a command:", "system"),
     ("  look | talk <name> | go <place or direction> | ask <work|town> | bye | journal | help", "system"),
     ("  cultivate | meditate <day|week|month|season> | practise <art> | open <meridian> | rest | breakthrough", "system"),
-    ("  challenge | spar | strike | feint | guard | probe | flee | yield | spare | rob | cripple", "system"),
+    ("  challenge | spar | strike | feint | guard | probe | flee | yield | spare | rob | cripple | kill", "system"),
     ("  F2 swap art side | F3 hide art | F4 character sheet | F9 report a bug | F12 debug | Esc menu", "system"),
 ]
 

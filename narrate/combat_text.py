@@ -82,6 +82,8 @@ def _ended(world, event):
     if d["by"] == "player":
         if d["verdict"] == "spare":
             lines.append("You let them go.")
+        if d["verdict"] == "kill":
+            lines.append(f"You kill {name}.")
         if d["silver"] or d["loot"]:
             loot = f" and {len(d['loot'])} manual{'s' if len(d['loot']) != 1 else ''}" if d["loot"] else ""
             lines.append(f"You take {d['silver']} silver{loot}.")
@@ -90,6 +92,8 @@ def _ended(world, event):
     elif d["by"] == "opponent":
         if d["verdict"] == "spare":
             lines.append("They let you go.")
+        if d["verdict"] == "leave_for_dead":
+            lines.append("They leave you for dead.")
         if d["silver"]:
             lines.append(f"They take {d['silver']} silver from you.")
         if d["crippled"]:
@@ -129,7 +133,19 @@ def _exchange_line(world, entry, names, place, other):
 
 @summary("duel_ended")
 def _ended_line(world, entry, names, place, other):
+    if entry.data.get("killed"):
+        return f"Killed {other}."
     return cap(RESULT_WORDS[entry.data["result"]].format(other=other))
+
+
+@outcome("died", body_facts=False)
+def _died(world, event):
+    return [f"{cap(_name(world, event))} is dead."], {}
+
+
+@summary("died")
+def _died_line(world, entry, names, place, other):
+    return f"{cap(other)} died by your hand."
 
 
 @summary("refused_duel")

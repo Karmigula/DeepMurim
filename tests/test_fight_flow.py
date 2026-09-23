@@ -72,7 +72,7 @@ def test_fighting_to_a_verdict_and_sparing(game):
         if game.combat is None or game.combat.stage == "verdict":
             break
     assert game.combat.stage == "verdict"
-    assert [c.action for c in turn.choices] == [Action("verdict", "spare"), Action("verdict", "rob"), Action("verdict", "cripple")]
+    assert [c.action for c in turn.choices] == [Action("verdict", "spare"), Action("verdict", "rob"), Action("verdict", "cripple"), Action("verdict", "kill")]
     turn = game.perform(Action("verdict", "spare"))
     assert game.combat is None and any("You have beaten Rival Kang." == t for t, _ in turn.lines)
 

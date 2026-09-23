@@ -17,7 +17,7 @@ GLOBAL = {
     "strike": Action("intent", "strike"), "feint": Action("intent", "feint"),
     "guard": Action("intent", "guard"), "probe": Action("intent", "probe"),
     "flee": Action("flee"), "run": Action("flee"), "yield": Action("yield_duel"), "surrender": Action("yield_duel"),
-    "spare": Action("verdict", "spare"), "rob": Action("verdict", "rob"), "cripple": Action("verdict", "cripple"),
+    "spare": Action("verdict", "spare"), "rob": Action("verdict", "rob"), "cripple": Action("verdict", "cripple"), "kill": Action("verdict", "kill"),
     "spar": Action("spar"), "challenge": Action("challenge"),
 }
 PREFIX_VERBS = {

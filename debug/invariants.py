@@ -26,7 +26,10 @@ def check_world(world) -> list[str]:
         problems.append(f"player_id #{player_id} points at nothing")
     for person in world.entities("person"):
         places = world.targets(person.id, "located_in")
-        if len(places) != 1:
+        if person.data.get("dead"):
+            if places or len(world.targets(person.id, "buried_at")) != 1:
+                problems.append(f"{person.name} (#{person.id}) is dead but not properly buried")
+        elif len(places) != 1:
             problems.append(f"{person.name} (#{person.id}) has {len(places)} locations")
         for place in places:
             if world.entity(place) is None:

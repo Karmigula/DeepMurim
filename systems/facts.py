@@ -128,3 +128,4 @@ def _paid_off(world: World, event, event_id: int) -> None:
 
 # Channels register themselves on import (like narrate/outcomes.py). Later tasks add theirs here.
 import systems.rumours  # noqa: E402,F401
+import systems.kin  # noqa: E402,F401

@@ -59,11 +59,13 @@ class FightMixin:
     def _verdict_choices(self) -> list[Choice]:
         opponent = self.world.entity(self.combat.opponent)
         if opponent.data.get("beast"):
-            return [Choice(f"Let {opponent.name} limp away", Action("verdict", "spare"))]
+            return [Choice(f"Let {opponent.name} limp away", Action("verdict", "spare")),
+                    Choice(f"Kill {opponent.name}", Action("verdict", "kill"))]
         return [
             Choice(f"Spare {opponent.name}", Action("verdict", "spare")),
             Choice(f"Rob {opponent.name}", Action("verdict", "rob")),
             Choice(f"Cripple {opponent.name}", Action("verdict", "cripple")),
+            Choice(f"Kill {opponent.name}", Action("verdict", "kill")),
         ]
 
     def _conversation_extras(self, npc) -> list:
@@ -136,9 +138,9 @@ class FightMixin:
             return self._turn([("There is no one at your mercy.", "system")])
         events = duel.verdict_events(self.world, self.combat, choice)
         if not events:
-            return self._turn([("Spare, rob or cripple?", "system")])
+            return self._turn([("Spare, rob, cripple or kill?", "system")])
         lines = self._commit(events)
-        return self._turn(lines + self._finish_duel(events[-1].data))
+        return self._turn(lines + self._finish_duel(events[0].data))  # a kill adds a `died` event after it
 
     def _do_use_menu(self, _target):
         if self.combat is None:

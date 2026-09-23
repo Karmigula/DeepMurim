@@ -69,6 +69,15 @@ def make_roamer(world, region, kind: str, index: int, danger: float) -> int:
     return person
 
 
+def _free_roamer_slot(world, region) -> int:
+    """The next roamer seed slot whose person is not dead: the dead are never met again."""
+    index = len(roamers(world, region.id))
+    while (someone := world.entity_by_seed(f"{region.seed_path}/roamer:{index}")) is not None \
+            and someone.data.get("dead"):
+        index += 1
+    return index
+
+
 def encounter_events(player: int, person: int, place: int, kind: str, toll: int) -> list[Event]:
     return [Event("encounter", (player, person), place, {"kind": kind, "toll": int(toll)})]
 
@@ -85,7 +94,7 @@ def road_encounter_events(world, player: int, town) -> list[Event]:
     if known and rng.random() < 0.5:
         person = rng.choice(known)
     else:
-        person = make_roamer(world, region, kind, len(roamers(world, region.id)), danger)
+        person = make_roamer(world, region, kind, _free_roamer_slot(world, region), danger)
     toll = max(5, int(silver_of(world, player) * 0.2)) if kind == "bandit" else 0
     return encounter_events(player, person, town.id, kind, toll)
 
