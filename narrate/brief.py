@@ -231,7 +231,9 @@ def _body_outcome(event) -> tuple[list[str], dict[str, str]]:
         out.append(f"You practised the {d['technique']} for {details['days']}.")
         if d["stage_after"] != d["stage_before"]:
             out.append(f"Your {d['technique']} reached {d['stage_after']}.")
-        if d["stalled"]:
+        if d.get("mastered"):
+            out.append(f"You have taken all the {d['technique']} can teach; practice now only keeps it sharp.")
+        elif d["stalled"]:
             out.append(f"Your progress in the {d['technique']} has stalled; something in it feels wrong.")
         elif d["compat"] < 0.7:
             out.append(f"The {d['technique']} {compat_words(d['compat'])}.")
@@ -259,8 +261,10 @@ def _body_outcome(event) -> tuple[list[str], dict[str, str]]:
     elif kind == "deviation":
         details["cause"] = d["cause"]
         out.append(f"Your qi deviated: {d['cause']}.")
-        out += [f"It damaged your {m} meridian." for m in d["damaged"][:2]]
-        out.append("You lost some of your internal energy.")
+        for name, _before, after in d.get("changes", [])[:2]:
+            out.append(f"Your {name} meridian is scarred for good." if after == "scarred" else f"It damaged your {name} meridian.")
+        if d.get("energy_lost", 0) > 1e-9:
+            out.append("You lost some of your internal energy.")
     if d.get("discovered"):
         out.insert(1, f"You discover that you have a {d['discovered']}.")
     return out, details

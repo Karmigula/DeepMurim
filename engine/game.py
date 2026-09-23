@@ -13,8 +13,8 @@ from narrate.brief import event_brief, scene_brief
 from narrate.procedural import ProceduralNarrator
 from systems.bodies import load_body
 from systems.creation import CreationChoice, apply_creation, build, wanderer_arts
-from systems.realms import MAX_REALM, REALMS, energy_words, realm_title
-from systems.techniques import martial_arts, usable
+from systems.realms import MAX_REALM, REALMS, energy_words, realm_title, requirement
+from systems.techniques import known_arts, martial_arts, usable
 from systems.time import format_date
 from world.body import EXTRAORDINARY, Body, unhealed
 from world.db import Entity, SaveError, World
@@ -285,6 +285,9 @@ class Game:
         lines = [(f"You are {who}, with {energy_words(body.energy_years)}.", "dim")]
         if body.bottleneck and body.realm < MAX_REALM:
             lines.append((f"Your qi presses against a bottleneck. Only a breakthrough to {REALMS[body.realm + 1].name} will let it grow.", "dim"))
+            ready, needed = requirement(body, known_arts(self.world, self.player.id))
+            if not ready:
+                lines.append((f"You are not ready to break through: {needed}", "dim"))
         if body.deviation > 60:
             lines.append(("Your qi feels unruly; a deviation may be near.", "dim"))
         hurt = sorted({i.location for i in unhealed(body, self.world.time)})

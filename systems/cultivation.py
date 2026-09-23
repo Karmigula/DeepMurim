@@ -9,7 +9,7 @@ from systems import realms
 from systems.bodies import load_body, save_body
 from systems.techniques import compatibility, grade_mult, heart_method, known_arts, mastery_stage, practise_gain, set_mastery
 from systems.time import advance
-from world.body import EXTRAORDINARY, REGULAR, WATCHES_PER_DAY, add_injury, clone, max_qi, unhealed
+from world.body import EXTRAORDINARY, REGULAR, WATCHES_PER_DAY, add_injury, clone, max_qi, settle, unhealed
 from world.events import Event, effect
 from world.seed import rng_for
 
@@ -75,14 +75,24 @@ def _discovers(body, trigger: str, data: dict | None = None, mastery_after: floa
     return None
 
 
-def _deviation_event(world, pid: int, place: int, body, deviation_now: float, route, cause: str) -> list[Event]:
-    if deviation_now < DEVIATION_LIMIT:
+def _at_end(body, now: int, days: float):
+    """The body as it will be when an action of `days` ends, before the action's own changes."""
+    return settle(body, now + round(days * WATCHES_PER_DAY))
+
+
+def _deviation_event(world, pid: int, place: int, end, added: float, route, cause: str) -> list[Event]:
+    """`end` is the body as it will stand once the triggering action is applied (see _at_end)."""
+    if end.deviation + added < DEVIATION_LIMIT:
         return []
     rng = _rng(world, pid, "deviation")
-    candidates = [m for m in route if m in body.meridians and body.meridians[m].state in ("open", "damaged")]
+    candidates = [m for m in route if m in end.meridians and end.meridians[m].state in ("open", "damaged")]
     damaged = rng.sample(candidates, min(len(candidates), rng.randint(1, 2))) if candidates else []
-    data = {"cause": cause, "damaged": damaged, "energy_lost": round(body.energy_years * 0.1, 5),
-            "discovered": _discovers(body, "deviation")}
+    changes = [[m, end.meridians[m].state, "damaged" if end.meridians[m].state == "open" else "scarred"] for m in damaged]
+    before = end.energy_years
+    after = max(realms.REALMS[end.realm].threshold, before * 0.9)
+    data = {"cause": cause, "damaged": damaged, "changes": changes,
+            "energy_before": round(before, 6), "energy_after": round(after, 6), "energy_lost": round(before - after, 6),
+            "discovered": _discovers(end, "deviation")}
     return [Event("deviation", (pid,), place, data)]
 
 
@@ -110,7 +120,9 @@ def meditate_events(world, pid: int, place: int, days: int) -> list[Event]:
     }
     route = heart_data["route"] if heart_data else list(REGULAR)
     cause = f"cultivating the {heart.name} against your body's grain" if heart else "breathing without a method"
-    return [Event("cultivated", (pid,), place, data)] + _deviation_event(world, pid, place, body, body.deviation + deviation, route, cause)
+    end = _at_end(body, world.time, days)
+    realms.add_energy(end, gained)
+    return [Event("cultivated", (pid,), place, data)] + _deviation_event(world, pid, place, end, deviation, route, cause)
 
 
 @effect("cultivated")
@@ -139,20 +151,23 @@ def practise_events(world, pid: int, place: int, technique_id: int, days: int = 
     gain = practise_gain(days, body.physique["comprehension"], compat, art["grade"])
     if CONSTITUTION_FORM.get(body.constitution) == art["form"]:
         gain *= 1.5
-    at_cap = known.mastery >= known.completeness - 1e-9
+    mastered = known.mastery >= 1.0 - 1e-9  # everything the art holds is learned
+    at_cap = not mastered and known.mastery >= known.completeness - 1e-9  # a flawed art stops short
     after = min(known.completeness, known.mastery + gain)
     deviation = _deviation_from(body, art, days) + (days * 1.5 if at_cap else 0.0)
     data = {
         "technique": known.name, "technique_id": technique_id, "days": days,
         "mastery_before": round(known.mastery, 6), "mastery_after": round(after, 6),
         "stage_before": mastery_stage(known.mastery), "stage_after": mastery_stage(after),
-        "compat": compat, "stalled": at_cap, "deviation_added": round(deviation, 3),
+        "compat": compat, "stalled": at_cap, "mastered": mastered, "deviation_added": round(deviation, 3),
         "insight_gained": round(days * 0.05 * body.physique["comprehension"] / 10, 4),
         "discovered": _discovers(body, "practise", art, after),
     }
     cause = (f"forcing the {known.name} beyond what it can give" if at_cap
              else f"practising the {known.name} against your body's grain")
-    return [Event("practised", (pid,), place, data)] + _deviation_event(world, pid, place, body, body.deviation + deviation, art["route"], cause)
+    end = _at_end(body, world.time, days)
+    end.constitution_known = end.constitution_known or bool(data["discovered"])
+    return [Event("practised", (pid,), place, data)] + _deviation_event(world, pid, place, end, deviation, art["route"], cause)
 
 
 @effect("practised")
@@ -200,8 +215,11 @@ def open_meridian_events(world, pid: int, place: int, name: str, days: int = OPE
         "meridian": name, "days": days, "progress_before": round(before, 6), "progress_after": round(after, 6),
         "opened": after >= 1.0, "forced": forced, "forced_damage": victim, "deviation_added": deviation,
     }
+    end = _at_end(body, world.time, days)
+    if victim and end.meridians[victim].state == "open":
+        end.meridians[victim].state = "damaged"
     return [Event("opening_meridian", (pid,), place, data)] + _deviation_event(
-        world, pid, place, body, body.deviation + deviation, list(REGULAR), "forcing qi into a sealed meridian")
+        world, pid, place, end, deviation, list(REGULAR), "forcing qi into a sealed meridian")
 
 
 @effect("opening_meridian")
@@ -224,7 +242,8 @@ def _opening(world, event: Event) -> None:
 def rest_events(world, pid: int, place: int, days: int = REST_DAYS) -> list[Event]:
     body = load_body(world, pid)
     now, end = world.time, world.time + days * WATCHES_PER_DAY
-    healed = [i.location for i in unhealed(body, now) if not i.permanent and now + (i.heals_at - now) // 2 <= end]
+    step = days * WATCHES_PER_DAY  # resting heals twice as fast: each rested day counts as two
+    healed = [i.location for i in unhealed(body, now) if not i.permanent and i.heals_at - step <= end]
     return [Event("rested", (pid,), place, {"days": days, "healed": healed})]
 
 
@@ -232,12 +251,13 @@ def rest_events(world, pid: int, place: int, days: int = REST_DAYS) -> list[Even
 def _rested(world, event: Event) -> None:
     pid, days, now = event.actors[0], event.data["days"], world.time
     body = load_body(world, pid)
+    step = days * WATCHES_PER_DAY  # the rested days count twice
     for injury in body.injuries:
         if not injury.permanent and injury.heals_at is not None:
-            injury.heals_at = now + (injury.heals_at - now) // 2
+            injury.heals_at = max(now, injury.heals_at - step)
     for meridian in body.meridians.values():
         if meridian.state == "damaged" and meridian.heals_at is not None:
-            meridian.heals_at = now + (meridian.heals_at - now) // 2
+            meridian.heals_at = max(now, meridian.heals_at - step)
     body.deviation = max(0.0, body.deviation - 0.5 * days)  # on top of the usual fading
     save_body(world, pid, body)
     advance(world, days * WATCHES_PER_DAY)
@@ -267,7 +287,14 @@ def breakthrough_events(world, pid: int, place: int) -> list[Event]:
     }
     events = [Event("breakthrough", (pid,), place, data)]
     if not success:
-        events += _deviation_event(world, pid, place, body, body.deviation + 30, damaged or list(REGULAR), "a failed breakthrough")
+        end = _at_end(body, world.time, BREAKTHROUGH_DAYS)
+        for name in damaged:
+            if end.meridians[name].state == "open":
+                end.meridians[name].state = "damaged"
+        end.energy_years *= 0.95
+        _floor_energy(end)
+        end.constitution_known = end.constitution_known or bool(data["discovered"])
+        events += _deviation_event(world, pid, place, end, 30.0, damaged or list(REGULAR), "a failed breakthrough")
     return events
 
 
@@ -296,12 +323,12 @@ def _breakthrough(world, event: Event) -> None:
 def _deviation(world, event: Event) -> None:
     pid, data = event.actors[0], event.data
     body = load_body(world, pid)
-    for name in data["damaged"]:
-        if body.meridians[name].state == "open":
+    for name, _before, after in data["changes"]:
+        if after == "damaged":
             add_injury(body, name, "meridian", 3, world.time, data["cause"])
-        elif body.meridians[name].state == "damaged":
+        else:
             body.meridians[name].state, body.meridians[name].heals_at = "scarred", None
-    body.energy_years -= data["energy_lost"]
+    body.energy_years = data["energy_after"]
     _floor_energy(body)
     body.deviation = float(DEVIATION_AFTER)
     if data["discovered"]:
