@@ -33,7 +33,9 @@ This rebuilds the starting world and re-enters every command. It either prints `
 - **Time:** the chronicle never goes back in time.
 - **Prose:** has no leftover template slots (`{npc}`, `#greeting#`), no "no grammar" fallbacks, and doesn't repeat a line shown in the last 4 lines of prose.
 - **Choices:** at most 9 are shown, and each one has a handler.
-- **Narrator fact sheets:** at most 6 facts, and at most 1,200 characters.
+- **Narrator fact sheets:** at most 6 facts, and at most 1,200 characters. They never contain an undiscovered constitution or a completeness value, and prose never starts a sentence in lowercase.
+- **Bodies:** qi is between 0 and max; energy is within the realm's bounds, with the bottleneck set at the cap; deviation is between 0 and 100; every meridian state and injury is valid; the realm label matches the body; silver is at least 0.
+- **Arts:** every known art is a technique, and mastery never exceeds completeness. No breakthrough skips a realm.
 
 ## The standing bug-catcher
 

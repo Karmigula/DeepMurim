@@ -154,10 +154,10 @@ A **Cultivate…** menu with these choices:
 5. **Attempt breakthrough:** only offered at a bottleneck.
 6. **Back.**
 
-Each action is one Event (`cultivated`, `practised`, `opening_meridian`, `rested`, `breakthrough`), plus a `deviation` or `discovery` event when triggered. Time advances accordingly. All randomness comes from `rng_for(world_seed, f"cultivate:{event-count}")`, so replay is exact.
+Each action is one Event (`cultivated`, `practised`, `opening_meridian`, `rested`, `breakthrough`), plus a `deviation` event when triggered. A discovered constitution is recorded as `discovered` on the event that revealed it. Time advances accordingly. All randomness comes from `rng_for(world_seed, f"cultivate:{event-count}")`, so replay is exact.
 
 - **Energy per day of meditation:**
-  - Formula: `0.01 × grade_mult(heart_method) × (comprehension/10) × purity_factor × route_flow × seclusion × injury_penalty`.
+  - Formula: `0.015 × grade_mult(heart_method) × (comprehension/10) × purity_factor × route_flow × seclusion × injury_penalty`.
   - `purity_factor` = 0.5 + purity.
   - `route_flow` = the mean flow of the heart method's route meridians, with blocked, damaged and severed counting 0.
   - `seclusion` = 1.2 when the stretch is at least 30 days.
@@ -314,7 +314,8 @@ The player's choices are `1 Strike · 2 Feint · 3 Guard · 4 Probe · 5 Change 
 
 ## 12. Briefs
 
-- **New kinds:** `cultivated`, `practised`, `opening_meridian`, `rested`, `breakthrough` (with success or failure), `deviation`, `discovery`, `exchange`, `duel_started`, `duel_ended`, `encounter`, `learned`, `studied_manual`, `created_technique`.
+- **Outcome:** `Brief.outcome` (at most 4 lines) says plainly what happened. Every narrator must convey it; the procedural narrator shows it as dim lines under the prose.
+- **New kinds:** `cultivated`, `practised`, `opening_meridian`, `rested`, `breakthrough` (with success or failure), `deviation`, `exchange`, `duel_started`, `duel_ended`, `encounter`, `learned`, `studied_manual`, `created_technique`.
 - **Player facts, ranked:**
   1. Permanent injuries and severed meridians ("Your right arm never healed straight after the fight with Peng Haoming.").
   2. Current unhealed injuries.

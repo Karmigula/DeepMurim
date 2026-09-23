@@ -1,19 +1,22 @@
 """Rules that must hold after every turn. A broken rule is a bug caught early.
 
 Checked live by the app (violations show in the log and F12 overlay) and by the
-fuzz test, so new systems are policed from the moment they exist.
+fuzz tests, so new systems are policed from the moment they exist.
 """
 
 import re
 from collections.abc import Sequence
 
 from narrate.brief import MAX_FACTS, MAX_PROMPT
+from systems.realms import MAX_REALM, REALMS, next_threshold
+from world.body import INJURY_KINDS, LOCATIONS, MERIDIANS, STATES, from_dict, max_qi, settle
 
 LEFTOVER = re.compile(r"\{\w+\}|#\w+#")
 FALLBACK = re.compile(r"^\[\w+\]$")
 LOWER_START = re.compile(r"(^|[.?!]\s+)[\"']?[a-z]")
 NARRATIVE = {"npc", "default", "gold"}  # prose colours; dim/system lines may repeat legitimately
 MAX_CHOICES = 9
+EPS = 1e-6
 
 
 def check_world(world) -> list[str]:
@@ -28,11 +31,57 @@ def check_world(world) -> list[str]:
         for place in places:
             if world.entity(place) is None:
                 problems.append(f"{person.name} (#{person.id}) is located in missing entity #{place}")
+        if person.data.get("silver", 0) < 0:
+            problems.append(f"{person.name} (#{person.id}) has negative silver")
+        if "body" in person.data:
+            problems += check_body(person, settle(from_dict(person.data["body"]), world.time))
+            problems += check_arts(world, person)
     times = world.recent_chronicle_times()
     for before, after in zip(times, times[1:]):
         if after < before:
             problems.append(f"chronicle time went backwards ({before} -> {after})")
     return problems
+
+
+def check_body(person, body) -> list[str]:
+    who = f"{person.name} (#{person.id})"
+    out = []
+    if not -EPS <= body.qi <= max_qi(body) + EPS:
+        out.append(f"{who} qi {body.qi:.2f} outside 0..{max_qi(body):.2f}")
+    if body.energy_years < 0:
+        out.append(f"{who} has negative energy")
+    if not 0 <= body.deviation <= 100:
+        out.append(f"{who} deviation {body.deviation:.1f} outside 0..100")
+    if not 0 <= body.realm <= MAX_REALM:
+        return out + [f"{who} realm {body.realm} out of range"]
+    low, high = REALMS[body.realm].threshold, next_threshold(body.realm)
+    if body.energy_years < low - EPS or (high is not None and body.energy_years > high + EPS):
+        out.append(f"{who} energy {body.energy_years:.3f} outside {REALMS[body.realm].name} bounds")
+    elif high is not None and body.energy_years >= high - EPS and not body.bottleneck:
+        out.append(f"{who} energy at {high} without a bottleneck")
+    if person.data.get("realm") != REALMS[body.realm].label:
+        out.append(f"{who} realm label {person.data.get('realm')!r} does not match body realm {REALMS[body.realm].label!r}")
+    if set(body.meridians) != set(MERIDIANS):
+        out.append(f"{who} is missing meridians")
+    for name, meridian in body.meridians.items():
+        if meridian.state not in STATES or not 0 <= meridian.flow <= 1:
+            out.append(f"{who} {name} meridian state {meridian.state!r} flow {meridian.flow}")
+    for injury in body.injuries:
+        if (injury.location not in LOCATIONS or injury.kind not in INJURY_KINDS
+                or not 1 <= injury.severity <= 5 or (injury.permanent and injury.heals_at is not None)):
+            out.append(f"{who} has an invalid injury: {injury.location} {injury.kind} severity {injury.severity}")
+    return out
+
+
+def check_arts(world, person) -> list[str]:
+    out = []
+    for technique_id, mastery, data in world.relations_from(person.id, "knows"):
+        technique = world.entity(technique_id)
+        if technique is None or technique.kind != "technique":
+            out.append(f"{person.name} knows #{technique_id}, which is not a technique")
+        if mastery > data.get("completeness", 1.0) + EPS:
+            out.append(f"{person.name} mastery {mastery:.2f} above completeness {data.get('completeness')}")
+    return out
 
 
 def check_turn(game, turn, recent_narration: Sequence[str]) -> list[str]:
@@ -51,6 +100,13 @@ def check_turn(game, turn, recent_narration: Sequence[str]) -> list[str]:
     for choice in turn.all_choices:
         if not hasattr(game, f"_do_{choice.action.verb}"):
             problems.append(f"choice {choice.label!r} has no handler for verb {choice.action.verb!r}")
+    hidden = None
+    player_id = game.world.get_meta("player_id")
+    player = game.world.entity(player_id) if player_id is not None else None
+    if player is not None and "body" in player.data:
+        body = from_dict(player.data["body"])
+        if body.constitution and not body.constitution_known:
+            hidden = body.constitution
     for brief in getattr(game, "last_briefs", []):
         prompt = brief.to_prompt()
         if len(brief.facts) > MAX_FACTS:
@@ -59,4 +115,12 @@ def check_turn(game, turn, recent_narration: Sequence[str]) -> list[str]:
             problems.append(f"brief for {brief.kind} is {len(prompt)} chars (max {MAX_PROMPT})")
         if LEFTOVER.search(prompt):
             problems.append(f"leftover template slot in {brief.kind} brief")
+        if hidden and hidden in prompt:
+            problems.append(f"undiscovered constitution leaked into a {brief.kind} brief")
+        if any("completeness" in key for key in brief.details):
+            problems.append(f"completeness leaked into a {brief.kind} brief")
+    if player is not None:
+        for entry in game.world.chronicle_about(player.id, limit=3):
+            if entry.kind == "breakthrough" and entry.data.get("realm_after", 0) - entry.data.get("realm_before", 0) > 1:
+                problems.append("a breakthrough skipped a realm")
     return problems
