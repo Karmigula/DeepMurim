@@ -19,6 +19,7 @@ from engine.gossip import GossipMixin
 from engine.joining import JoiningMixin
 from engine.ranks import RanksMixin
 from engine.duties import DutiesMixin
+from engine.politics import PoliticsMixin
 from engine.masks import MasksMixin
 from engine.roads import RoadsMixin
 from engine.hooks import GameHooks
@@ -62,7 +63,7 @@ HELP = [
 ]
 
 
-class Game(FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
+class Game(FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
     def __init__(self, world: World, narrator: Narrator | None = None) -> None:
         self.world = world
         self.narrator = narrator or ProceduralNarrator()

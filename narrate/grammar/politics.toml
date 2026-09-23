@@ -1,0 +1,16 @@
+[symbols]
+politics_court = ["The hall falls silent.", "Elders sit in a hard row.", "Every eye is on you.", "Incense smoke hangs still.", "A gong sounds once."]
+politics_weigh = ["Words are weighed.", "Someone coughs.", "A rival watches from the side.", "A brush waits over the ledger.", "The accuser does not blink."]
+politics_close = ["The matter is closed.", "It is done.", "The elders rise.", "The ledger is shut.", "No one speaks after."]
+
+[summoned]
+colour = "npc"
+lines = ["#politics_court# #politics_weigh#", "#politics_weigh# #politics_court#"]
+
+[judged]
+colour = "default"
+lines = ["#politics_weigh# #politics_close#", "#politics_close# #politics_court#"]
+
+[rival_exposed]
+colour = "gold"
+lines = ["#politics_court# #politics_close#", "#politics_close# #politics_weigh#"]
