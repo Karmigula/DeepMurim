@@ -71,8 +71,9 @@ def found_block(world, player: int, town: int) -> str | None:
         return "You must be renowned in this town."
     if realm_index(me.data.get("realm", "mortal")) < MIN_REALM:
         return "You must be at least Second-rate."
-    if open_martial(world, player) is not None:
-        return "You must leave your martial faction first."
+    if any(world.entity(f).data["type"] in F.MARTIAL and world.entity(f).data["type"] != "player_sect"
+           for f, _, d in F.memberships(world, player) if d.get("status", "member") == "member"):
+        return "You must leave your martial faction first."  # a secret membership counts too
     if len(followers(world, player)) < FOLLOWERS_NEEDED:
         return f"You need {FOLLOWERS_NEEDED} sworn followers."
     if silver_of(world, player) < CHARTER:

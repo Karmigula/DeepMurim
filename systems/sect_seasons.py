@@ -20,8 +20,10 @@ from systems.membership import left_events
 from systems.realms import add_energy, breakthrough_chance, realm_index
 from systems.reputation import reputation
 from systems.time import format_season_year
-from world.body import add_injury, from_dict, to_dict
+from world.body import add_injury
+from systems.techniques import teach
 from world.events import Event, effect, listen
+from world.gen.materialize import region_of
 from world.seed import rng_for
 
 SEASON = 360
@@ -40,13 +42,22 @@ def _knows_sect_art(world, person: int, arts: list[int]) -> bool:
     return bool(set(arts) & {t for t, _, _ in world.relations_from(person, "knows")})
 
 
+def _hostile(world, sect: int, people: list[int] | None = None) -> list[int]:
+    if people is None:
+        people = sect_mod.members(world, sect)
+    # only the founder (who may wear masks) and members who did harm can move a stance
+    roster = [world.entity(sect).data["founder"],
+              *(p for p in people if any(f.predicate in sect_mod.HARM for f in world.facts(subject=p)))]
+    return [f for f in F.ensure_roster(world) if sect_mod.sect_stance(world, f, sect, roster) <= -0.5]
+
+
 def _challenger(world, sect: int, hostile: list[int], rng, n: int) -> int:
     for other in hostile:
         staff = halls.staff_at(world, other, halls.seat_of(world, other), roles=("disciple",))
         if staff:
             return rng.choice(sorted(staff))
-    seat = world.entity(sect).data["seat"]
-    return founding.make_person(world, f"sect:{sect}:gate:{n}", seat, occupation="wandering swordsman",
+    seat = world.entity(sect).data["seat"]  # a wanderer lives on the roads, not at your seat
+    return founding.make_person(world, f"sect:{sect}:gate:{n}", region_of(world, seat).id, occupation="wandering swordsman",
                                 realm=world.entity(world.entity(sect).data["founder"]).data.get("realm", "mortal"))
 
 
@@ -66,18 +77,25 @@ def season_events(world, player: int, sect: int) -> list[Event] | None:
     n = data["last_tick"] // SEASON
     rng = rng_for(world.world_seed, f"sect:{sect}:season:{n}")
     seat, end = data["seat"], data["last_tick"] + SEASON
-    people = sect_mod.members(world, sect)
-    disciples = sect_mod.members(world, sect, ("disciple",))
-    elders = sect_mod.members(world, sect, ("elder",))
+    roles = {p: F.membership(world, p, sect)[1].get("role") for p in F.members_of(world, sect)}
+    people = sorted(p for p, r in roles.items() if r in ("disciple", "elder"))
+    disciples = [p for p in people if roles[p] == "disciple"]
+    elders = [p for p in people if roles[p] == "elder"]
+    cache: dict = {}
+
+    def who(person: int):  # one read per person per season; the season changes nothing until it commits
+        if person not in cache:
+            cache[person] = world.entity(person)
+        return cache[person]
     built_now = [b for b, v in sorted(data.get("buildings", {}).items()) if not v["built"] and v["done_at"] <= end]
     has = {b for b, v in data.get("buildings", {}).items() if v["built"]} | set(built_now)
 
     # duties
     won, duty_hurt, died = [], [], []
     for person in people:
-        if not world.entity(person).data.get("on_duty"):
+        if not who(person).data.get("on_duty"):
             continue
-        realm = realm_index(world.entity(person).data.get("realm", "mortal"))
+        realm = realm_index(who(person).data.get("realm", "mortal"))
         if rng.random() < 0.5 + 0.1 * realm:
             won.append(person)
         else:
@@ -98,16 +116,28 @@ def season_events(world, player: int, sect: int) -> list[Event] | None:
     treasury = max(0, treasury)
 
     # growth
-    present = [p for p in people if p not in died and not world.entity(p).data.get("on_duty")]
+    present = [p for p in people if p not in died and not who(p).data.get("on_duty")]
     growth = {}
     for person in present:
-        talent = world.entity(person).data.get("talent", 1.0)
+        talent = who(person).data.get("talent", 1.0)
         years = 0.25 * talent * (1.5 if "training_yard" in has else 1.0) \
             * (1.2 if _knows_sect_art(world, person, data.get("arts", [])) else 1.0)
-        body = from_dict(to_dict(load_body(world, person)))
+        body = load_body(world, person)  # a fresh copy; nothing is saved here
         add_energy(body, years)
         breakthrough = body.bottleneck and rng.random() < breakthrough_chance(body, True)
         growth[str(person)] = {"years": round(years, 4), "breakthrough": bool(breakthrough)}
+
+    # the library: present elders teach each present disciple one sect art they lack
+    taught = {}
+    if "library" in has:
+        teachers = [e for e in elders if e in present]
+        for person in (p for p in disciples if p in present):
+            mine = {t for t, _, _ in world.relations_from(person, "knows")}
+            for art in data.get("arts", []):
+                elder = next((e for e in teachers if art in {t for t, _, _ in world.relations_from(e, "knows")}), None)
+                if art not in mine and elder is not None:
+                    taught[str(person)] = [art, elder]
+                    break
 
     # injuries
     chance = INJURY * (0.5 if "infirmary" in has else 1.0)
@@ -118,7 +148,7 @@ def season_events(world, player: int, sect: int) -> list[Event] | None:
     for person in people:
         if person in died:
             continue
-        entity = world.entity(person)
+        entity = who(person)
         value = entity.data.get("loyalty", 50) + (-15 if unpaid else 5)
         wanted = PATH_TRAITS.get(data["path"])
         if wanted is not None:
@@ -139,17 +169,18 @@ def season_events(world, player: int, sect: int) -> list[Event] | None:
                 for path in paths]  # made now, so the season's event can name them as actors
 
     # the gate
-    hostile = [f for f in F.ensure_roster(world) if sect_mod.sect_stance(world, f, sect) <= -0.5]
+    hostile = _hostile(world, sect, people)
     gate_chance = (GATE_BASE + (GATE_HOSTILE if hostile else 0.0)) * (0.5 if "walls" in has else 1.0)
     gate = None
     power = data["power"] + 2 * len(won)
     if rng.random() < gate_chance:
         challenger = _challenger(world, sect, hostile, rng, n)
         if seat in world.targets(player, "located_in"):
-            gate = {"challenger": challenger, "deferred": True, "won": None, "defenders": [], "fallen": []}
+            home = (world.targets(challenger, "located_in") or [region_of(world, seat).id])[0]
+            gate = {"challenger": challenger, "deferred": True, "won": None, "defenders": [], "fallen": [], "home": home}
         else:
             standing_by = sorted((p for p in present if p not in deserters),
-                                 key=lambda p: -realm_index(world.entity(p).data.get("realm", "mortal")))
+                                 key=lambda p: -realm_index(who(p).data.get("realm", "mortal")))
             defenders = standing_by[:2 if "walls" in has else 1]
             fallen, won_gate = [], False
             for defender in defenders:
@@ -167,6 +198,8 @@ def season_events(world, player: int, sect: int) -> list[Event] | None:
     rises = [p for p, g in growth.items() if g["breakthrough"]]
     if rises:
         parts.append(f"{names([int(p) for p in rises])} broke through")
+    if taught:
+        parts.append(f"{len(taught)} learned the sect's arts from the elders")
     if recruits:
         parts.append(f"{len(recruits)} recruit{'s' if len(recruits) > 1 else ''} arrived")
     if deserters:
@@ -180,7 +213,7 @@ def season_events(world, player: int, sect: int) -> list[Event] | None:
     summary = {"sect": sect, "season": n, "end": end, "income": income, "upkeep": upkeep, "unpaid": unpaid,
                "treasury_after": treasury, "built": built_now, "growth": growth, "injured": sorted(set(injured)),
                "loyalty": loyalty, "recruits": recruits, "gate": gate, "power_after": max(0, power),
-               "duties_won": won, "line": line, "infirmary": "infirmary" in has}
+               "duties_won": won, "line": line, "taught": taught, "infirmary": "infirmary" in has}
     # the founder hears of everyone the season touched, so the ledger never names a stranger
     events = [Event("sect_season", tuple(dict.fromkeys((player, *people, *recruits))), seat, summary)]
     events += [Event("died", (p, p), seat, {"cause": "duty" if p not in (gate or {}).get("fallen", []) else "gate"})
@@ -222,8 +255,18 @@ def _season(world, event) -> None:
         body = load_body(world, person)
         add_injury(body, "torso", "cut", 3, world.time, f"defending the gate against {world.entity(gate['challenger']).name}")
         save_body(world, person, body)
+    for person, (art, elder) in d.get("taught", {}).items():
+        teach(world, int(person), art, source="sect", teacher=elder)
     for person in d["recruits"]:
         founding.enrol(world, person, sect, 50)
+    visitors = {}
+    for person, home in data.get("visitors", {}).items():  # last season's challenger goes home
+        if not world.entity(int(person)).data.get("dead") and world.targets(int(person), "located_in") == [data["seat"]]:
+            world.unrelate(int(person), "located_in")
+            world.relate(int(person), home, "located_in")
+    if gate.get("deferred"):
+        visitors[str(gate["challenger"])] = gate["home"]
+    world.update_data(sect, visitors=visitors)
     if gate.get("deferred"):
         world.unrelate(gate["challenger"], "located_in")
         world.relate(gate["challenger"], data["seat"], "located_in")

@@ -163,12 +163,13 @@ def has_pact(world, sect: int, other: int) -> bool:
     return other in world.targets(sect, "pact")
 
 
-def sect_stance(world, other: int, sect: int) -> float:
+def sect_stance(world, other: int, sect: int, roster: list[int] | None = None) -> float:
     """How another faction regards your sect: the founding stance, moved by what its towns heard your people do."""
     value = F.stance(world, other, sect)
     harm = help_ = 0
-    founder = world.entity(sect).data["founder"]
-    for person in [founder, *members(world, sect)]:
+    if roster is None:
+        roster = [world.entity(sect).data["founder"], *members(world, sect)]
+    for person in roster:
         know, _ = knowledge_about(world, other, person)
         for belief, fact in know:
             target = belief.variant.get("target")
@@ -232,6 +233,15 @@ def dissolve(world, sect: int) -> None:
     world.update_data(sect, dissolved=True)
     if world.entity(data["founder"]).data.get("sect") == sect:
         world.update_data(data["founder"], sect=None)
+
+
+@listen("died")
+def _member_died(world, event, event_id: int) -> None:
+    """A dead disciple is no longer a member (phase 3c spec 9.2)."""
+    victim = event.actors[-1]
+    for fid, _, data in F.memberships(world, victim):
+        if world.entity(fid).data["type"] == "player_sect" and data.get("status", "member") == "member":
+            set_membership(world, victim, fid, status="dead")
 
 
 @effect("sect_dissolved")

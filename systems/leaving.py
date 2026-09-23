@@ -86,6 +86,8 @@ def spy_checks(world, player: int, place: int) -> list:
         kind = world.entity(faction).data["type"]
         if kind not in F.MARTIAL and kind != "imperial":
             continue
+        if kind == "player_sect" and F.membership(world, player, faction)[1].get("role") == "leader":
+            continue  # no one casts a founder out of their own sect (phase 3c)
         heard = believed_factions(world, faction, player)
         for other in mine:
             if other == faction or other not in heard:

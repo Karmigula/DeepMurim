@@ -244,6 +244,8 @@ def check_sect(world) -> list[str]:
         region = region_of(world, seat).id
         for person in living:
             entity = world.entity(person)
+            if entity.data.get("dead"):
+                out.append(f"{entity.name} of {sect.name} is dead but still a member")
             if person == founder or entity.data.get("dead"):
                 continue
             where = world.targets(person, "located_in")

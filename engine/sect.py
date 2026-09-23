@@ -21,6 +21,22 @@ class SectMixin:
             extras.append(Choice("Invite them to your sect", Action("sect_invite", npc.id)))
         return extras
 
+    def _general_extras(self) -> list:
+        extras = super()._general_extras()
+        sect = founding.my_sect(self.world, self.player.id)
+        if sect is not None and self.world.entity(sect).data["seat"] == self.place.id \
+                and any(self.world.entity(p).data.get("on_duty") for p in sect_mod.members(self.world, sect)):
+            extras.append(Choice("Call your disciples home", Action("sect_recall")))
+        return extras
+
+    def _do_sect_recall(self, _target):
+        sect = founding.my_sect(self.world, self.player.id)
+        if sect is None or self.world.entity(sect).data["seat"] != self.place.id:
+            return self._turn([("You can only call them home from your seat.", "system")])
+        away = [p for p in sect_mod.members(self.world, sect) if self.world.entity(p).data.get("on_duty")]
+        events = [e for p in away for e in sect_mod.duty_events(self.world, self.player.id, p, self.place.id, False)]
+        return self._turn(self._commit(events) if events else [("No one is away.", "system")])
+
     def _faction_options(self, npc) -> list:
         options = super()._faction_options(npc)
         sect = founding.my_sect(self.world, self.player.id)

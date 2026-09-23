@@ -153,4 +153,4 @@ def test_eight_seasons_for_fifteen_members_are_quick(game):
     for _ in range(8):
         game._commit(seasons.season_events(game.world, game.player.id, sect))
     elapsed = time.perf_counter() - start
-    assert elapsed < 2.0, f"8 seasons took {elapsed * 1000:.0f} ms"
+    assert elapsed < 0.2, f"8 seasons took {elapsed * 1000:.0f} ms"
