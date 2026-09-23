@@ -67,7 +67,7 @@ The Kill verdict extends the existing `systems/duel.py`, `engine/fight.py` and `
 ### 3.1 Fading
 - `effective_intensity(m, now) = m.intensity * 0.5 ** ((now - m.event.time) / HALF_LIFE)`, where `HALF_LIFE = 360` watches, which is 90 days or one season.
 - Indelible memories never fade.
-- `INDELIBLE = {"hatred", "grief", "saved", "betrayed"}`. A witness memory with one of these feelings is always written with `indelible=True`, `commit` forces `indelible=True` for any witness whose feeling is in `INDELIBLE`.
+- `INDELIBLE = {"hatred", "grief", "saved", "betrayed"}`. `commit` forces `indelible=True` for any witness whose feeling is in `INDELIBLE`.
 - Memories are never deleted. The existing `talk` behaviour, such as "met before" and patience, keeps using raw memories, so a faded memory still means "we have met".
 
 ### 3.2 Attitude
