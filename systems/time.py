@@ -31,3 +31,10 @@ def format_season_year(t: int) -> str:
 
 def advance(world: World, watches: int) -> None:
     world.set_time(world.time + watches)
+
+
+DAY_WORDS = {1: "a day", 7: "a week", 30: "a month", 90: "a season"}
+
+
+def days_word(days: int) -> str:
+    return DAY_WORDS.get(days, f"{days} days")
