@@ -4,24 +4,32 @@ import random
 import sqlite3
 from dataclasses import dataclass, field
 
+import systems.cultivation as cultivation
 import systems.talk as talk
 import systems.travel as travel
 from engine.journal import summarize
 from narrate.base import Line, Narrator
 from narrate.brief import event_brief, scene_brief
 from narrate.procedural import ProceduralNarrator
+from systems.bodies import load_body
 from systems.creation import CreationChoice, apply_creation, build, wanderer_arts
+from systems.realms import MAX_REALM, REALMS, energy_words, realm_title
+from systems.techniques import martial_arts, usable
 from systems.time import format_date
+from world.body import EXTRAORDINARY, Body, unhealed
 from world.db import Entity, SaveError, World
 from world.events import Event, commit
 from world.gen.materialize import ensure_town, people_at, populate, region_of
 
 MAX_SHOWN = 9  # digits 1-9 pick a choice with one key
+KEEP_SUBMENU = frozenset({"people", "routes", "cultivate", "practise_menu", "meridian_menu", "ambiguous"})
+BUSY = "Finish your conversation first."
 
 HELP = [
     ("Type a number, or a command:", "system"),
     ("  look | talk <name> | go <place or direction> | ask <work|town> | bye | journal | help", "system"),
-    ("  F2 swap art side | F3 hide art | PgUp/PgDn scroll | F11 fullscreen | Esc menu", "system"),
+    ("  cultivate | meditate <day|week|month|season> | practise <art> | open <meridian> | rest | breakthrough", "system"),
+    ("  F2 swap art side | F3 hide art | F4 character sheet | F9 report a bug | F12 debug | Esc menu", "system"),
 ]
 
 
@@ -111,6 +119,9 @@ class Game:
     def place(self) -> Entity:
         return travel.location_of(self.world, self.player.id)
 
+    def body(self) -> Body:
+        return load_body(self.world, self.player.id)
+
     # --- turns ----------------------------------------------------------------
     def start(self) -> Turn:
         return self.look()
@@ -124,13 +135,17 @@ class Game:
         handler = getattr(self, f"_do_{action.verb}", None)
         if handler is None:
             return self._turn([(f"You can't do that ({action.verb}).", "system")])
-        if action.verb not in ("people", "ambiguous"):
+        if action.verb not in KEEP_SUBMENU:
             self.submenu = None
         return handler(action.target)
 
     def _do_people(self, _target) -> Turn:
         self.submenu = "people"
         return self._turn([("Who do you approach?", "system")])
+
+    def _do_routes(self, _target) -> Turn:
+        self.submenu = "routes"
+        return self._turn([("Where to?", "system")])
 
     def _do_back(self, _target) -> Turn:
         return self._turn([])
@@ -195,6 +210,88 @@ class Game:
         turn.choices = list(options)
         return turn
 
+    # --- cultivation ----------------------------------------------------------------
+    def _busy(self) -> Turn | None:
+        return self._turn([(BUSY, "system")]) if self.focus is not None else None
+
+    def _cultivated(self, events: list[Event], reason: str) -> Turn:
+        if not events:
+            return self._turn([(reason, "system")])
+        lines = self._commit(events)
+        self.submenu = "cultivate"
+        return self._turn(lines)
+
+    def _do_cultivate(self, _target) -> Turn:
+        if busy := self._busy():
+            return busy
+        self.submenu = "cultivate"
+        return self._turn(self._cultivation_status())
+
+    def _do_practise_menu(self, _target) -> Turn:
+        if busy := self._busy():
+            return busy
+        self.submenu = "practise_menu"
+        return self._turn([("Which art will you drill?", "system")])
+
+    def _do_meridian_menu(self, _target) -> Turn:
+        if busy := self._busy():
+            return busy
+        self.submenu = "meridian_menu"
+        return self._turn([("Which sealed meridian will you work on?", "system")])
+
+    def _do_meditate(self, days) -> Turn:
+        if busy := self._busy():
+            return busy
+        days = days if days in cultivation.MEDITATE_OPTIONS.values() else 7
+        events = cultivation.meditate_events(self.world, self.player.id, self.place.id, days)
+        return self._cultivated(events, "You cannot meditate now.")
+
+    def _do_practise(self, technique_id) -> Turn:
+        if busy := self._busy():
+            return busy
+        art = next((a for a in martial_arts(self.world, self.player.id) if a.technique.id == technique_id), None)
+        if art is None:
+            return self._turn([("You don't know that art.", "system")])
+        if not usable(self.body(), art.technique.data):
+            return self._turn([(f"A severed meridian puts the {art.name} beyond you now.", "system")])
+        events = cultivation.practise_events(self.world, self.player.id, self.place.id, technique_id)
+        return self._cultivated(events, "You cannot practise that now.")
+
+    def _do_open_meridian(self, name) -> Turn:
+        if busy := self._busy():
+            return busy
+        reason = cultivation.why_not_open(self.body(), name)
+        if reason:
+            return self._turn([(reason, "system")])
+        events = cultivation.open_meridian_events(self.world, self.player.id, self.place.id, name)
+        return self._cultivated(events, "Nothing happens.")
+
+    def _do_rest(self, days) -> Turn:
+        if busy := self._busy():
+            return busy
+        days = days if isinstance(days, int) and 0 < days <= 90 else cultivation.REST_DAYS
+        events = cultivation.rest_events(self.world, self.player.id, self.place.id, days)
+        return self._cultivated(events, "You cannot rest now.")
+
+    def _do_breakthrough(self, _target) -> Turn:
+        if busy := self._busy():
+            return busy
+        events = cultivation.breakthrough_events(self.world, self.player.id, self.place.id)
+        return self._cultivated(events, "Your qi has not yet reached a bottleneck.")
+
+    def _cultivation_status(self) -> list[Line]:
+        body = self.body()
+        who = "a mortal" if body.realm == 0 else f"a {realm_title(body)} warrior"
+        lines = [(f"You are {who}, with {energy_words(body.energy_years)}.", "dim")]
+        if body.bottleneck and body.realm < MAX_REALM:
+            lines.append((f"Your qi presses against a bottleneck. Only a breakthrough to {REALMS[body.realm + 1].name} will let it grow.", "dim"))
+        if body.deviation > 60:
+            lines.append(("Your qi feels unruly; a deviation may be near.", "dim"))
+        hurt = sorted({i.location for i in unhealed(body, self.world.time)})
+        if hurt:
+            lines.append(("Still healing: " + ", ".join(hurt) + ".", "dim"))
+        return lines
+
     # --- helpers --------------------------------------------------------------
     def _commit(self, events: list[Event]) -> list[Line]:
         ids = commit(self.world, events)
@@ -220,31 +317,70 @@ class Game:
             described.append(f"{person.name} the {person.data.get('occupation', 'stranger')}{known}")
         return [("Here: " + ", ".join(described) + ".", "dim")]
 
+    # --- menus ----------------------------------------------------------------------
     def _choices(self) -> tuple[list[Choice], list[Choice]]:
-        """(shown, extra). At most MAX_SHOWN are shown, so every one has a single-key number.
-
-        When a town is too busy, its people fold into one "Talk to someone here"
-        entry; the ways out, look and journal always stay on the first screen.
-        Folded choices go in `extra` so typed commands like `talk li` still reach them.
-        """
+        """(shown, extra). At most MAX_SHOWN are shown, so each has a single-key number.
+        Everything valid but not shown goes in `extra`, so typed commands still reach it."""
         if self.focus is not None:
             return [
                 Choice("Ask about their work", Action("ask", "work")),
                 Choice(f"Ask about {self.place.name}", Action("ask", "town")),
                 Choice("Say farewell", Action("farewell")),
             ], []
+        body = self.body()
         people = [
             Choice(f"Talk to {p.name} ({p.data.get('occupation', 'stranger')})", Action("talk", p.id))
             for p in people_at(self.world, self.place.id, exclude=self.player.id)
         ]
         routes = [Choice(r.label, Action("travel", r.dest)) for r in travel.routes_from(self.world, self.place)]
         general = [Choice("Look around", Action("look")), Choice("Read your journal", Action("journal"))]
-        if self.submenu == "people":
-            return people[: MAX_SHOWN - 1] + [Choice("Back", Action("back"))], people[MAX_SHOWN - 1:] + routes + general
-        if len(people) + len(routes) + len(general) <= MAX_SHOWN:
-            return people + routes + general, []
-        group = Choice(f"Talk to someone here ({len(people)})", Action("people"))
-        return [group] + routes + general, people
+        cultivate = self._cultivation_choices(body)
+        practise = [Choice(f"Practise the {a.name} for a week", Action("practise", a.technique.id))
+                    for a in martial_arts(self.world, self.player.id)]
+        meridians = [Choice(f"Work on the {m} meridian for a week", Action("open_meridian", m))
+                     for m in EXTRAORDINARY if body.meridians[m].state == "blocked"]
+        everything = people + routes + cultivate + practise + meridians + general
+        submenus = {
+            "people": (people, Action("back")), "routes": (routes, Action("back")),
+            "cultivate": (cultivate, Action("back")),
+            "practise_menu": (practise, Action("cultivate")), "meridian_menu": (meridians, Action("cultivate")),
+        }
+        if self.submenu in submenus:
+            options, back = submenus[self.submenu]
+            shown = options[: MAX_SHOWN - 1] + [Choice("Back", back)]
+        else:
+            shown = self._main_menu(people, routes, general)
+        return shown, [c for c in everything if c not in shown]
+
+    def _main_menu(self, people: list[Choice], routes: list[Choice], general: list[Choice]) -> list[Choice]:
+        entry = Choice("Cultivate...", Action("cultivate"))
+        fold = {"people": False, "routes": False}
+
+        def menu() -> list[Choice]:
+            items = [Choice(f"Talk to someone here ({len(people)})", Action("people"))] if fold["people"] else list(people)
+            items += [Choice(f"Travel ({len(routes)} routes)", Action("routes"))] if fold["routes"] else list(routes)
+            return items + [entry] + general
+
+        for name, group in (("people", people), ("routes", routes)):
+            if len(menu()) > MAX_SHOWN and len(group) > 1:
+                fold[name] = True
+        return menu()
+
+    def _cultivation_choices(self, body: Body) -> list[Choice]:
+        options = [
+            Choice("Meditate for a day", Action("meditate", 1)),
+            Choice("Meditate for a week", Action("meditate", 7)),
+            Choice("Meditate for a month", Action("meditate", 30)),
+            Choice("Seclusion for a season (90 days)", Action("meditate", 90)),
+        ]
+        if martial_arts(self.world, self.player.id):
+            options.append(Choice("Practise an art...", Action("practise_menu")))
+        if any(body.meridians[m].state == "blocked" for m in EXTRAORDINARY):
+            options.append(Choice("Work on opening a meridian...", Action("meridian_menu")))
+        options.append(Choice("Rest for a week", Action("rest", 7)))
+        if body.bottleneck and body.realm < MAX_REALM:
+            options.append(Choice(f"Attempt breakthrough to {REALMS[body.realm + 1].name}", Action("breakthrough")))
+        return options
 
     def _art(self) -> dict:
         if self.focus is not None:
@@ -255,7 +391,7 @@ class Game:
     def _status(self) -> str:
         player, place = self.player, self.place
         region = region_of(self.world, place.id)
-        return f"{player.name} | {player.data.get('realm', 'mortal')} | {format_date(self.world.time)} | {place.name}, {region.name}"
+        return f"{player.name} | {realm_title(self.body())} | {format_date(self.world.time)} | {place.name}, {region.name}"
 
     def _turn(self, lines: list[Line]) -> Turn:
         lines, self._pending = self._pending + lines, []

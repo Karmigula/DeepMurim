@@ -1,7 +1,7 @@
 """Typed commands to Actions, matched against what the player can do right now.
 
-The parser knows only global words and the current choices, so every command
-the engine can take also has a number to press.
+The parser knows only global words and the current choices (shown and folded),
+so every command the engine can take also has a number to press somewhere.
 """
 
 import re
@@ -11,8 +11,13 @@ from engine.game import Action, Choice
 GLOBAL = {
     "look": "look", "l": "look", "journal": "journal", "j": "journal", "chronicle": "journal",
     "help": "help", "?": "help", "bye": "farewell", "farewell": "farewell", "leave": "farewell",
+    "cultivate": "cultivate", "meditate": "meditate", "rest": "rest", "breakthrough": "breakthrough",
 }
-PREFIX_VERBS = {"talk": "talk", "speak": "talk", "go": "travel", "travel": "travel", "walk": "travel", "ask": "ask"}
+PREFIX_VERBS = {
+    "talk": "talk", "speak": "talk", "go": "travel", "travel": "travel", "walk": "travel", "ask": "ask",
+    "meditate": "meditate", "practise": "practise", "practice": "practise", "train": "practise",
+    "open": "open_meridian",
+}
 FILLER = {"to", "about", "with", "the"}
 WORD = re.compile(r"[a-z0-9']+")
 
@@ -22,7 +27,7 @@ def _words(text: str) -> list[str]:
 
 
 def parse(text: str, choices: list[Choice], extra: list[Choice] = ()) -> Action | None:
-    """Numbers index the visible `choices`; words also search `extra` (grouped-away choices)."""
+    """Numbers index the visible `choices`; words also search `extra` (folded-away choices)."""
     cleaned = " ".join(text.split())[:200]
     if not cleaned:
         return None

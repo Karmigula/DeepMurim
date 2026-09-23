@@ -18,8 +18,8 @@ def verbs(turn):
 def test_start_shows_opening_scene_and_choices(game):
     turn = game.start()
     assert any("Hero" in text for text, _ in turn.lines)  # the 'began' narration
-    assert {"travel", "look", "journal"} <= set(verbs(turn))
-    assert any(c.action.verb == "talk" for c in turn.all_choices)
+    assert {"cultivate", "look", "journal"} <= set(verbs(turn))
+    assert {"talk", "travel"} <= {c.action.verb for c in turn.all_choices}
     assert turn.art["type"] == "scene"
     assert "Hero" in turn.status and "Year 1" in turn.status
 
@@ -44,7 +44,7 @@ def test_talk_to_someone_absent_commits_nothing(game):
 
 def test_travel_changes_place_and_time(game):
     start = game.place.id
-    road = next(c for c in game.start().choices if c.action.verb == "travel" and "north" in c.label)
+    road = next(c for c in game.start().all_choices if c.action.verb == "travel" and "north" in c.label)
     turn = game.perform(road.action)
     assert game.place.id != start
     assert "Year 1, Spring day 4" in turn.status
@@ -96,12 +96,12 @@ def test_busy_town_keeps_every_way_out_reachable(tmp_path):
     assert len(turn.choices) <= 9
     verbs = [c.action.verb for c in turn.choices]
     assert {"look", "journal"} <= set(verbs)
-    assert sum("road" in c.label for c in turn.choices) == 4
+    assert sum("road" in c.label for c in turn.all_choices) == 4
     people = [c for c in turn.all_choices if c.action.verb == "talk"]
     assert len(people) == g.world.entity(g.place.id).data["npc_count"]
     if "people" in verbs:
         sub = g.perform(next(c.action for c in turn.choices if c.action.verb == "people"))
         assert [c.action for c in sub.choices if c.action.verb == "talk"] == [c.action for c in people]
         assert sub.choices[-1].action.verb == "back" and len(sub.choices) <= 9
-        assert "road" in " ".join(c.label for c in g.perform(sub.choices[-1].action).choices)
+        assert "road" in " ".join(c.label for c in g.perform(sub.choices[-1].action).all_choices)
     g.close()

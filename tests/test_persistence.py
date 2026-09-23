@@ -38,9 +38,9 @@ def test_there_and_back_again(tmp_path):
     game = Game.new(tmp_path / "w.world", "Tester", world_seed=42)
     home = game.place.id
     residents = {c.action.target for c in game.start().all_choices if c.action.verb == "talk"}
-    north = next(c for c in game.look().choices if "north road" in c.label)
+    north = next(c for c in game.look().all_choices if "north road" in c.label)
     game.perform(north.action)
-    south = next(c for c in game.look().choices if "south road" in c.label)
+    south = next(c for c in game.look().all_choices if "south road" in c.label)
     turn = game.perform(south.action)
     assert game.place.id == home
     assert residents and {c.action.target for c in turn.all_choices if c.action.verb == "talk"} == residents
