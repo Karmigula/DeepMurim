@@ -10,6 +10,7 @@ from engine.journal import summarize
 from narrate.base import Line, Narrator
 from narrate.brief import event_brief, scene_brief
 from narrate.procedural import ProceduralNarrator
+from systems.creation import CreationChoice, apply_creation, build, wanderer_arts
 from systems.time import format_date
 from world.db import Entity, SaveError, World
 from world.events import Event, commit
@@ -60,17 +61,20 @@ class Game:
         self._pending: list[Line] = []
 
     @classmethod
-    def new(cls, path, player_name: str, world_seed: int | None = None, narrator=None) -> "Game":
+    def new(cls, path, player_name: str, world_seed: int | None = None, narrator=None,
+            creation: CreationChoice | None = None) -> "Game":
         seed = world_seed if world_seed is not None else random.SystemRandom().randrange(2**31)
         world = World.create(path, seed)
         town = ensure_town(world, 0, 0, 0)
+        made = build(seed, creation or CreationChoice())
         with world.transaction():
             player = world.add_entity("person", player_name, {"is_player": True, "age": 18, "realm": "mortal"})
             world.relate(player, town, "located_in")
             world.set_meta("player_id", player)
+            arts = apply_creation(world, player, made)
         populate(world, town)
         game = cls(world, narrator)
-        game._pending = game._commit([Event("began", (player,), town)])
+        game._pending = game._commit([Event("began", (player,), town, {"origin": made.origin.title, "arts": arts})])
         return game
 
     @classmethod
@@ -89,7 +93,12 @@ class Game:
         except (sqlite3.DatabaseError, ValueError, KeyError, TypeError) as exc:
             world.close()
             raise SaveError(f"{world.path.name} is damaged ({exc})") from exc
-        return cls(world, narrator)
+        game = cls(world, narrator)
+        if "body" not in player.data:  # a save from before bodies existed
+            place = travel.location_of(world, player.id).id
+            data = {"origin": "Wanderer", "arts": wanderer_arts(world.world_seed)}
+            game._pending = game._commit([Event("body_awakened", (player.id,), place, data)])
+        return game
 
     def close(self) -> None:
         self.world.close()
