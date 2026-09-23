@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SCHEMA = """
 create table if not exists meta(key text primary key, value text not null);
@@ -30,19 +30,54 @@ create table if not exists chronicle(
     weight real not null default 1);
 create table if not exists memories(
     owner integer not null, event_id integer not null, feeling text not null,
-    intensity real not null, indelible integer not null default 0,
+    intensity real not null, indelible integer not null default 0, inherited_from integer,
     primary key(owner, event_id));
 create table if not exists facts(
     id integer primary key, subject integer not null, predicate text not null,
-    object text not null, time integer not null, source_event integer);
+    object text not null, time integer not null, source_event integer,
+    place integer, weight real not null default 1, is_true integer not null default 1,
+    data text not null default '{}');
 create table if not exists beliefs(
-    knower integer not null, fact_id integer not null, variant text not null default '{}',
-    source integer, confidence real not null, learned_at integer not null,
-    primary key(knower, fact_id));
+    knower integer not null, fact_id integer not null, variant_key text not null,
+    variant text not null default '{}', source integer, confidence real not null,
+    learned_at integer not null, hops integer not null default 0, channel text not null default 'witness',
+    primary key(knower, fact_id, variant_key));
 """
+
+INDEXES = (
+    "create index if not exists facts_subject on facts(subject)",
+    "create index if not exists facts_time on facts(time)",
+    "create index if not exists facts_place on facts(place)",
+    "create index if not exists beliefs_fact on beliefs(fact_id)",
+    "create index if not exists beliefs_knower on beliefs(knower)",
+    "create index if not exists memories_feeling on memories(feeling)",
+)
+SCHEMA += ";\n".join(INDEXES) + ";\n"
+
+# Statements that turn version N into N + 1, run in one transaction by World.open.
+MIGRATIONS: dict[int, tuple[str, ...]] = {
+    1: (
+        "alter table memories add column inherited_from integer",
+        "alter table facts add column place integer",
+        "alter table facts add column weight real not null default 1",
+        "alter table facts add column is_true integer not null default 1",
+        "alter table facts add column data text not null default '{}'",
+        "create table beliefs_v2(knower integer not null, fact_id integer not null, variant_key text not null, "
+        "variant text not null default '{}', source integer, confidence real not null, learned_at integer not null, "
+        "hops integer not null default 0, channel text not null default 'witness', "
+        "primary key(knower, fact_id, variant_key))",
+        "insert into beliefs_v2(knower, fact_id, variant_key, variant, source, confidence, learned_at) "
+        "select knower, fact_id, '', variant, source, confidence, learned_at from beliefs",
+        "drop table beliefs",
+        "alter table beliefs_v2 rename to beliefs",
+    ) + INDEXES,
+}
 
 TABLES = ("meta", "entities", "relations", "chronicle", "memories", "facts", "beliefs")
 _ENTRY_COLUMNS = "c.id, c.time, c.kind, c.actors, c.place, c.data, c.weight"
+_MEMORY_COLUMNS = "m.owner, m.feeling, m.intensity, m.indelible, m.inherited_from"
+_FACT_COLUMNS = "f.id, f.subject, f.predicate, f.object, f.time, f.source_event, f.place, f.weight, f.is_true, f.data"
+_BELIEF_COLUMNS = "b.knower, b.fact_id, b.variant_key, b.variant, b.source, b.confidence, b.learned_at, b.hops, b.channel"
 
 
 class SaveError(Exception):
@@ -77,6 +112,59 @@ class Memory:
     feeling: str
     intensity: float
     indelible: bool
+    inherited_from: int | None = None
+
+
+@dataclass(frozen=True)
+class Fact:
+    """Ground truth. Only the knowledge layer (systems/beliefs.py) reads it for anything shown."""
+    id: int
+    subject: int
+    predicate: str
+    object: int | None
+    time: int
+    source_event: int | None
+    place: int | None
+    weight: float
+    is_true: bool
+    data: dict
+
+    @property
+    def variant(self) -> dict:
+        """The story as it truly happened (as it looked to those present)."""
+        return self.data.get("variant", {})
+
+
+@dataclass(frozen=True)
+class Belief:
+    knower: int
+    fact_id: int
+    variant_key: str
+    variant: dict
+    source: int | None
+    confidence: float
+    learned_at: int
+    hops: int
+    channel: str
+
+
+def variant_key(variant: dict) -> str:
+    """A short stable key, so one knower can hold several versions of the same fact."""
+    return hashlib.blake2b(json.dumps(variant, sort_keys=True).encode(), digest_size=6).hexdigest()
+
+
+def _memory(row) -> Memory:
+    return Memory(row[0], _entry(row[5:]), row[1], row[2], bool(row[3]), row[4])
+
+
+def _fact(row) -> Fact:
+    obj = row[3]
+    return Fact(row[0], row[1], row[2], int(obj) if obj not in ("", None) else None, row[4], row[5], row[6],
+                row[7], bool(row[8]), json.loads(row[9]))
+
+
+def _belief(row) -> Belief:
+    return Belief(row[0], row[1], row[2], json.loads(row[3]), row[4], row[5], row[6], row[7], row[8])
 
 
 def _entry(row) -> ChronicleEntry:
@@ -127,7 +215,8 @@ class World:
         except (sqlite3.DatabaseError, ValueError) as exc:
             conn.close()
             raise SaveError(f"{path.name} is not a DeepMurim save ({exc})") from exc
-        if version != SCHEMA_VERSION:
+        upgradable = isinstance(version, int) and not isinstance(version, bool) and version in MIGRATIONS
+        if version != SCHEMA_VERSION and not upgradable:
             conn.close()
             raise SaveError(f"{path.name} has save version {version}; this game reads version {SCHEMA_VERSION}")
         try:
@@ -138,7 +227,19 @@ class World:
         if problem != "ok":
             conn.close()
             raise SaveError(f"{path.name} is damaged ({problem})")
-        return cls(conn, path)
+        world = cls(conn, path)
+        if version != SCHEMA_VERSION:
+            world._migrate(version)
+        return world
+
+    def _migrate(self, version: int) -> None:
+        """Bring an older save up to SCHEMA_VERSION, all or nothing."""
+        with self.transaction():
+            while version < SCHEMA_VERSION:
+                for statement in MIGRATIONS[version]:
+                    self._conn.execute(statement)
+                version += 1
+            self.set_meta("schema_version", SCHEMA_VERSION)
 
     @staticmethod
     def _connect(path: Path) -> sqlite3.Connection:
@@ -265,15 +366,17 @@ class World:
         )
         return [_entry(row) for row in rows]
 
-    def add_memory(self, owner: int, event_id: int, feeling: str, intensity: float, indelible: bool = False) -> None:
+    def add_memory(self, owner: int, event_id: int, feeling: str, intensity: float, indelible: bool = False,
+                   inherited_from: int | None = None, ignore_existing: bool = False) -> None:
+        verb = "insert or ignore" if ignore_existing else "insert"
         self._conn.execute(
-            "insert into memories(owner, event_id, feeling, intensity, indelible) values(?, ?, ?, ?, ?)",
-            (owner, event_id, feeling, intensity, int(indelible)),
+            f"{verb} into memories(owner, event_id, feeling, intensity, indelible, inherited_from) values(?, ?, ?, ?, ?, ?)",
+            (owner, event_id, feeling, intensity, int(indelible), inherited_from),
         )
 
     def memories(self, owner: int, about: int | None = None) -> list[Memory]:
         sql = (
-            f"select m.owner, m.feeling, m.intensity, m.indelible, {_ENTRY_COLUMNS} "
+            f"select {_MEMORY_COLUMNS}, {_ENTRY_COLUMNS} "
             "from memories m join chronicle c on c.id = m.event_id where m.owner = ?"
         )
         params: list = [owner]
@@ -281,7 +384,115 @@ class World:
             sql += " and exists(select 1 from json_each(c.actors) where json_each.value = ?)"
             params.append(about)
         rows = self._conn.execute(sql + " order by c.id", params)
-        return [Memory(row[0], _entry(row[4:]), row[1], row[2], bool(row[3])) for row in rows]
+        return [_memory(row) for row in rows]
+
+    def memories_with_feeling(self, feeling: str) -> list[Memory]:
+        rows = self._conn.execute(
+            f"select {_MEMORY_COLUMNS}, {_ENTRY_COLUMNS} from memories m join chronicle c on c.id = m.event_id "
+            "where m.feeling = ? order by c.id, m.owner", (feeling,))
+        return [_memory(row) for row in rows]
+
+    def memories_inherited(self) -> list[Memory]:
+        rows = self._conn.execute(
+            f"select {_MEMORY_COLUMNS}, {_ENTRY_COLUMNS} from memories m join chronicle c on c.id = m.event_id "
+            "where m.inherited_from is not null order by c.id, m.owner")
+        return [_memory(row) for row in rows]
+
+    def witnesses_of(self, event_id: int) -> list[int]:
+        """Everyone who holds a memory of this event."""
+        rows = self._conn.execute("select owner from memories where event_id = ? order by owner", (event_id,))
+        return [row[0] for row in rows]
+
+    def acquaintances(self, entity_id: int) -> list[int]:
+        """Everyone who shares any chronicle entry with this entity, most recent first."""
+        rows = self._conn.execute(
+            "select other.value, max(c.id) as last from chronicle c, json_each(c.actors) me, json_each(c.actors) other "
+            "where me.value = ? and other.value != ? group by other.value order by last desc", (entity_id, entity_id))
+        return [row[0] for row in rows]
+
+    def chronicle_entry(self, event_id) -> ChronicleEntry | None:
+        if not isinstance(event_id, int):
+            return None
+        row = self._conn.execute(f"select {_ENTRY_COLUMNS} from chronicle c where c.id = ?", (event_id,)).fetchone()
+        return _entry(row) if row else None
+
+    # --- facts & beliefs ------------------------------------------------------
+    def add_fact(self, subject: int, predicate: str, obj: int | None, *, place: int | None = None,
+                 weight: float = 1.0, is_true: bool = True, data: dict | None = None,
+                 source_event: int | None = None) -> int:
+        cursor = self._conn.execute(
+            "insert into facts(subject, predicate, object, time, source_event, place, weight, is_true, data) "
+            "values(?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (subject, predicate, "" if obj is None else str(obj), self.time, source_event, place, weight,
+             int(is_true), json.dumps(data or {})),
+        )
+        return cursor.lastrowid
+
+    def fact(self, fact_id: int) -> Fact | None:
+        row = self._conn.execute(f"select {_FACT_COLUMNS} from facts f where f.id = ?", (fact_id,)).fetchone()
+        return _fact(row) if row else None
+
+    def facts(self, predicate: str | None = None, subject: int | None = None, is_true: bool | None = None) -> list[Fact]:
+        sql, params = f"select {_FACT_COLUMNS} from facts f where 1 = 1", []
+        if predicate is not None:
+            sql += " and f.predicate = ?"
+            params.append(predicate)
+        if subject is not None:
+            sql += " and f.subject = ?"
+            params.append(subject)
+        if is_true is not None:
+            sql += " and f.is_true = ?"
+            params.append(int(is_true))
+        return [_fact(row) for row in self._conn.execute(sql + " order by f.id", params)]
+
+    def facts_unknown_to(self, knower: int, until: int) -> list[Fact]:
+        """Facts no older than `until` that this knower holds no version of."""
+        rows = self._conn.execute(
+            f"select {_FACT_COLUMNS} from facts f where f.time <= ? and not exists("
+            "select 1 from beliefs b where b.knower = ? and b.fact_id = f.id) order by f.id", (until, knower))
+        return [_fact(row) for row in rows]
+
+    def upsert_belief(self, knower: int, fact_id: int, variant: dict, source: int | None, confidence: float,
+                      hops: int, channel: str) -> bool:
+        """Add a belief; a version already held keeps whichever telling was surer. True if it was new."""
+        key = variant_key(variant)
+        row = self._conn.execute(
+            "select confidence from beliefs where knower = ? and fact_id = ? and variant_key = ?",
+            (knower, fact_id, key)).fetchone()
+        if row is None:
+            self._conn.execute(
+                "insert into beliefs(knower, fact_id, variant_key, variant, source, confidence, learned_at, hops, channel) "
+                "values(?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (knower, fact_id, key, json.dumps(variant, sort_keys=True), source, confidence, self.time, hops, channel))
+            return True
+        if confidence > row[0]:
+            self._conn.execute(
+                "update beliefs set confidence = ?, source = ?, hops = ?, channel = ? "
+                "where knower = ? and fact_id = ? and variant_key = ?",
+                (confidence, source, hops, channel, knower, fact_id, key))
+        return False
+
+    def beliefs(self, knower: int) -> list[Belief]:
+        rows = self._conn.execute(
+            f"select {_BELIEF_COLUMNS} from beliefs b where b.knower = ? order by b.learned_at, b.fact_id, b.variant_key",
+            (knower,))
+        return [_belief(row) for row in rows]
+
+    def believers(self, fact_id: int) -> list[Belief]:
+        rows = self._conn.execute(
+            f"select {_BELIEF_COLUMNS} from beliefs b where b.fact_id = ? order by b.knower, b.variant_key", (fact_id,))
+        return [_belief(row) for row in rows]
+
+    def all_beliefs(self) -> list[Belief]:
+        rows = self._conn.execute(f"select {_BELIEF_COLUMNS} from beliefs b order by b.knower, b.fact_id")
+        return [_belief(row) for row in rows]
+
+    def known_facts(self, knower: int) -> list[tuple[Belief, Fact]]:
+        """Each belief this knower holds, with its fact, oldest learned first."""
+        rows = self._conn.execute(
+            f"select {_BELIEF_COLUMNS}, {_FACT_COLUMNS} from beliefs b join facts f on f.id = b.fact_id "
+            "where b.knower = ? order by b.learned_at, b.fact_id, b.variant_key", (knower,))
+        return [(_belief(row[:9]), _fact(row[9:])) for row in rows]
 
     # --- integrity ----------------------------------------------------------
     def recent_chronicle_times(self, limit: int = 50) -> list[int]:
