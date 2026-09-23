@@ -1,0 +1,62 @@
+[symbols]
+quiet_sound = ["the town murmurs beyond the wall", "rain ticks on the roof", "insects drone in the grass", "a bell tolls far off", "wind worries the shutters"]
+qi_feel = ["Warmth gathers below your navel.", "Your breath slows until you hardly feel it.", "Qi stirs like a waking snake.", "Your limbs grow heavy, then light.", "A thin current circles your dantian."]
+limb = ["wrists", "shoulders", "thighs", "forearms", "knuckles"]
+drill_end = ["Sweat stings your eyes.", "The forms begin to flow a little easier.", "Your shadow keeps better time than you do.", "A passer-by stops to watch, then moves on.", "By the end you move without thinking."]
+strain = ["Something deep inside resists.", "Sweat beads on your brow.", "The seal holds, but thins.", "Your pulse thunders in your ears."]
+rest_note = ["Your body thanks you for it.", "Old aches loosen one by one.", "You sleep like the dead.", "Even your qi seems to settle."]
+surge = ["Qi floods every channel at once.", "The world goes white for a heartbeat.", "A roar rises from your dantian.", "Your meridians burn like lit fuses."]
+backlash = ["Blood fills your mouth.", "Pain lances through your chest.", "Your vision swims.", "Your hands shake uncontrollably."]
+
+[body_awakened]
+colour = "gold"
+lines = ["You take stock of the body you were born with and the little you have learned."]
+
+[cultivated]
+colour = "default"
+lines = [
+  "You sit cross-legged for {days} while #quiet_sound#. #qi_feel#",
+  "For {days} you guard your breath and follow the method. #qi_feel#",
+]
+
+[practised]
+colour = "default"
+lines = [
+  "You drill the {technique} until your #limb# ache. #drill_end#",
+  "Again and again you run the forms of the {technique}. #drill_end#",
+]
+
+[opening_meridian]
+colour = "default"
+lines = [
+  "You press your qi against the sealed {meridian} meridian. #strain#",
+  "Hour after hour you coax qi toward the {meridian} meridian. #strain#",
+]
+
+[rested]
+colour = "default"
+lines = [
+  "You rest for {days}, eating well and sleeping long. #rest_note#",
+  "For {days} you do nothing harder than walk and breathe. #rest_note#",
+]
+
+["breakthrough.success"]
+colour = "gold"
+lines = [
+  "#surge# The wall inside you breaks, and you stand in {target}.",
+  "You reach for {target}, and this time it answers. #surge#",
+]
+
+["breakthrough.failure"]
+colour = "default"
+lines = [
+  "#surge# Then the flow turns on you, and the attempt collapses. #backlash#",
+  "You reach for {target} and the qi recoils. #backlash#",
+]
+
+[deviation]
+colour = "default"
+lines = [
+  "#backlash# Your qi runs wild through your meridians.",
+  "Your qi twists against you. #backlash#",
+]

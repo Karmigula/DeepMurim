@@ -62,7 +62,7 @@ def test_real_world_scene_and_opening(tmp_path):
     populate(world, town)
     [(text, _)] = ProceduralNarrator().narrate(scene_brief(world, town, player, "look"))
     assert world.entity(town).name in text
-    [(text, _)] = ProceduralNarrator().narrate(event_brief(world, 1, Event("began", (player,), town)))
+    text = ProceduralNarrator().narrate(event_brief(world, 1, Event("began", (player,), town)))[0][0]
     assert "Hero" in text
     world.close()
 

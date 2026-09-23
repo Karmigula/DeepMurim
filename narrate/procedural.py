@@ -1,9 +1,13 @@
-"""Prose from grammar files, filled only from a Brief. Deterministic per brief.salt."""
+"""Prose from grammar files, filled only from a Brief. Deterministic per brief.salt.
+
+After the prose line, every `brief.outcome` line is shown dim: the grammar
+colours the moment, the outcome says plainly what happened.
+"""
 
 import random
 import re
-from collections import deque
 import tomllib
+from collections import deque
 from pathlib import Path
 
 from narrate.base import Line
@@ -86,13 +90,14 @@ class ProceduralNarrator:
         self._last_salt: dict[str, tuple[str, str]] = {}
 
     def narrate(self, brief: Brief) -> list[Line]:
+        outcome = [(line, "dim") for line in brief.outcome]
         key = self._key(brief)
         if key not in self.grammar.tables:
-            return [(f"[{brief.kind}]", "dim")]
+            return [(f"[{brief.kind}]", "dim")] + outcome
         colour = self.grammar.tables[key].get("colour", "default")
         salt, cached = self._last_salt.get(key, ("", ""))
         if salt == brief.salt:
-            return [(cached, colour)]
+            return [(cached, colour)] + outcome
         rng = rng_for(brief.seed, brief.salt)
         context = context_of(brief)
         recent = self._recent.setdefault(key, deque(maxlen=self.RECENT))
@@ -103,11 +108,13 @@ class ProceduralNarrator:
             text = self.grammar.expand(key, rng, context)
         recent.append(text)
         self._last_salt[key] = (brief.salt, text)
-        return [(text, colour)]
+        return [(text, colour)] + outcome
 
     def _key(self, brief: Brief) -> str:
         if brief.kind == "scene":
             return f"scene.{brief.place.terrain}"
+        if brief.kind == "breakthrough":
+            return f"breakthrough.{'success' if brief.details.get('success') == 'yes' else 'failure'}"
         if brief.kind == "asked":
             key = f"asked.{brief.details.get('topic', '')}"
             if brief.details.get("asked_before") and f"{key}.again" in self.grammar.tables:

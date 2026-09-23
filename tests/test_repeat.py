@@ -14,7 +14,7 @@ from narrate.procedural import SYMBOL, Grammar, ProceduralNarrator
 PLACE = PlaceBrief("Jade Town", "town", "the Misty Peaks", "mountains", "spring", "dusk")
 YOU = PersonBrief("Hero", "you", (), "mortal", "self")
 LI = PersonBrief("Li Wei", "innkeeper", ("proud",), "mortal", "acquaintance")
-ONE_OFF_KEYS = {"began"}  # happens once per life; variety not needed
+ONE_OFF_KEYS = {"began", "body_awakened"}  # happens once per life; variety not needed
 MIN_VARIETY = 6
 
 
