@@ -352,3 +352,17 @@ The player's choices are `1 Strike · 2 Feint · 3 Guard · 4 Probe · 5 Change 
 - Spirit locations and pills (phase 5).
 - Reputation spreading as rumors (phase 3). Phase 2 only writes the memories rumors will later spread.
 - The immortal realms beyond Life-and-Death (named, locked).
+
+## 16. Implementation notes (phase 2b)
+
+These choices were forced by the balance targets in §9.5 and were checked with a prototype solver before building:
+
+- **Guard counters a Strike:** it deals ×0.5 as well as gaining an opening. Without this, "always Strike" beats any adaptive opponent.
+- **Damage base is 35:** that puts duels at 3–8 exchanges (about 7 between equals).
+- **The opponent reads habits and patterns:**
+  - +0.75 to the counter of each of your last three moves;
+  - +3.0, spread across what you have tended to play *after* your last move.
+  - Result: fixed moves win at most about 49%, cycling all four about 53%, alternating two about 56%, and a realm gap about 99%.
+- **Watching duels gives no fragments yet.** NPC-versus-NPC duels arrive with the phase 4 world simulation. Fragments come from probing and sparring.
+- **Created arts get generated names.** There is no typed naming.
+- **Roamers live in regions.** Road bandits, beasts and wanderers are located in their region, not a town. Beasts are persons with `beast: true`.

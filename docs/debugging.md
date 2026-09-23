@@ -35,7 +35,9 @@ This rebuilds the starting world and re-enters every command. It either prints `
 - **Choices:** at most 9 are shown, and each one has a handler.
 - **Narrator fact sheets:** at most 6 facts, and at most 1,200 characters. They never contain an undiscovered constitution or a completeness value, and prose never starts a sentence in lowercase.
 - **Bodies:** qi is between 0 and max; energy is within the realm's bounds, with the bottleneck set at the cap; deviation is between 0 and 100; every meridian state and injury is valid; the realm label matches the body; silver is at least 0.
-- **Arts:** every known art is a technique, and mastery never exceeds completeness. No breakthrough skips a realm.
+- **Arts:** every known art is a technique, and mastery never exceeds completeness. No breakthrough skips a realm. Belief never falls below truth (`known_completeness >= completeness`).
+- **Items:** every manual has exactly one owner and a real technique, and never claims less than it holds.
+- **Fights:** a live duel has real participants, harm between 0 and 100, and a valid stage. An encounter has a real person. Fragment lists are well-formed and hold at most 12.
 
 ## The standing bug-catcher
 

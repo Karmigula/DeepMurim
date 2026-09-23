@@ -7,13 +7,16 @@ import random
 
 import pytest
 
+import systems.encounters as encounters
 from app import App
 from config import Config
 
 TYPED = ["look", "journal", "help", "talk li", "talk zzz", "go north", "go south", "ask work",
          "ask town", "bye", "²", "", "   ", "x" * 300, "go", "talk", "back", "9", "0",
          "cultivate", "meditate week", "meditate month", "meditate season", "rest", "breakthrough",
-         "practise", "open governing", "open conception"]
+         "practise", "open governing", "open conception",
+         "challenge", "spar", "strike", "feint", "guard", "probe", "flee", "yield", "spare", "rob", "cripple"]
+FIGHTING = ["strike", "feint", "guard", "probe", "strike", "guard", "flee", "yield", "spare", "rob", "cripple", "1", "2", "3", "4"]
 HOTKEYS = ["f2", "f3", "f4", "f12", "page up", "page down"]
 
 
@@ -53,5 +56,26 @@ def test_years_of_cultivation_stay_clean(tmp_path):
                                "open conception", "cultivate", "1", "2", "3"]))
     assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
     assert app.violations == [], app.violations[:5]
-    assert app.game.world.time > 4 * 360  # more than a year passed
+    assert app.game.world.time > 4 * 360
+    app.shutdown()
+
+
+@pytest.mark.parametrize("seed", [3, 21])
+def test_a_violent_life_stays_clean(tmp_path, seed, monkeypatch):
+    """Roads full of bandits and beasts, and fights with everyone in town."""
+    monkeypatch.setattr(encounters, "ENCOUNTER_CHANCE", 3.0)
+    rng = random.Random(seed)
+    app = App(Config(), tmp_path / "saves", tmp_path / "settings.json")
+    app.start_new(f"Brawler{seed}", world_seed=seed)
+    for step in range(300):
+        game = app.game
+        if game.combat is not None or game.encounter is not None or game.challenger is not None:
+            app.submit(rng.choice(FIGHTING + ["1", "2"]))
+        elif rng.random() < 0.35 and app.choices:
+            app.submit(str(rng.randint(1, len(app.choices))))
+        else:
+            app.submit(rng.choice(["challenge", "go north", "go east", "go south", "go west", "1", "look", "rest"]))
+        assert app.state == "game", f"left the game at step {step}"
+    assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
+    assert app.violations == [], app.violations[:5]
     app.shutdown()

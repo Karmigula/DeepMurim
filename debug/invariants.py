@@ -31,11 +31,13 @@ def check_world(world) -> list[str]:
         for place in places:
             if world.entity(place) is None:
                 problems.append(f"{person.name} (#{person.id}) is located in missing entity #{place}")
+        problems += check_fragments(person)
         if person.data.get("silver", 0) < 0:
             problems.append(f"{person.name} (#{person.id}) has negative silver")
         if "body" in person.data:
             problems += check_body(person, settle(from_dict(person.data["body"]), world.time))
             problems += check_arts(world, person)
+    problems += check_items(world)
     times = world.recent_chronicle_times()
     for before, after in zip(times, times[1:]):
         if after < before:
@@ -79,13 +81,59 @@ def check_arts(world, person) -> list[str]:
         technique = world.entity(technique_id)
         if technique is None or technique.kind != "technique":
             out.append(f"{person.name} knows #{technique_id}, which is not a technique")
+        if data.get("known_completeness", 1.0) < data.get("completeness", 1.0) - EPS:
+            out.append(f"{person.name} believes an art is less complete than it is")
         if mastery > data.get("completeness", 1.0) + EPS:
             out.append(f"{person.name} mastery {mastery:.2f} above completeness {data.get('completeness')}")
     return out
 
 
+def check_items(world) -> list[str]:
+    out = []
+    for manual in world.entities("manual"):
+        owners = world.sources(manual.id, "owns")
+        if len(owners) != 1:
+            out.append(f"manual #{manual.id} has {len(owners)} owners")
+        technique = world.entity(manual.data.get("technique"))
+        if technique is None or technique.kind != "technique":
+            out.append(f"manual #{manual.id} holds no real technique")
+        if manual.data.get("claimed_completeness", 1.0) < manual.data.get("true_completeness", 1.0) - EPS:
+            out.append(f"manual #{manual.id} claims less than it holds")
+    return out
+
+
+FRAGMENT_KEYS = {"technique", "form", "element", "segment"}
+
+
+def check_fragments(person) -> list[str]:
+    fragments = person.data.get("fragments", [])
+    if len(fragments) > 12:
+        return [f"{person.name} holds {len(fragments)} fragments (max 12)"]
+    if any(set(f) != FRAGMENT_KEYS for f in fragments):
+        return [f"{person.name} holds malformed fragments"]
+    return []
+
+
+def check_combat(game) -> list[str]:
+    out = []
+    d = getattr(game, "combat", None)
+    if d is not None:
+        for side in (d.player, d.opponent):
+            if game.world.entity(side) is None:
+                out.append(f"duel participant #{side} does not exist")
+        for side, value in d.harm.items():
+            if not 0 <= value <= 100:
+                out.append(f"duel harm for {side} is {value}")
+        if d.stage not in ("fighting", "verdict"):
+            out.append(f"duel stage {d.stage!r} is not a stage")
+    encounter = getattr(game, "encounter", None)
+    if encounter is not None and game.world.entity(encounter["person"]) is None:
+        out.append("an encounter with no one")
+    return out
+
+
 def check_turn(game, turn, recent_narration: Sequence[str]) -> list[str]:
-    problems = []
+    problems = check_combat(game)
     for text, key in turn.lines:
         if LEFTOVER.search(text):
             problems.append(f"leftover template slot in: {text[:80]}")
@@ -117,6 +165,8 @@ def check_turn(game, turn, recent_narration: Sequence[str]) -> list[str]:
             problems.append(f"leftover template slot in {brief.kind} brief")
         if hidden and hidden in prompt:
             problems.append(f"undiscovered constitution leaked into a {brief.kind} brief")
+        if any("true" in key for key in brief.details):
+            problems.append(f"a hidden truth leaked into a {brief.kind} brief")
         if any("completeness" in key for key in brief.details):
             problems.append(f"completeness leaked into a {brief.kind} brief")
     if player is not None:
