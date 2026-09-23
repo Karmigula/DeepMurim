@@ -109,3 +109,37 @@ def test_a_life_of_rumours_and_masks(tmp_path, seed, monkeypatch):
     assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
     assert app.violations == [], app.violations[:5]
     app.shutdown()
+
+
+@pytest.mark.parametrize("seed", [8, 17])
+def test_a_sect_life(tmp_path, seed, monkeypatch):
+    """Join a sect, take duties, rise, travel, fight, get framed or arrested: every rule holds."""
+    from systems import halls
+    from systems import factions as F
+    monkeypatch.setattr(encounters, "ENCOUNTER_CHANCE", 1.5)
+    rng = random.Random(seed)
+    app = App(Config(), tmp_path / "saves", tmp_path / "settings.json")
+    app.start_new(f"Disciple{seed}", world_seed=seed)
+    world, me = app.game.world, app.game.player.id
+    sect = next(i for i in F.ensure_roster(world) if world.entity(i).data["type"] == "orthodox_sect")
+    seat = halls.seat_of(world, sect)
+    with world.transaction():
+        world.unrelate(me, "located_in")
+        world.relate(me, seat, "located_in")
+        world.update_data(me, silver=300)
+    app.submit("look")
+    for step in range(300):
+        game = app.game
+        if game.combat is not None or game.encounter is not None or game.challenger is not None:
+            app.submit(rng.choice(FIGHTING + ["kill", "1", "2", "3", "4"]))
+        elif game.player.data.get("summons") or game.player.data.get("arrest"):
+            app.submit(rng.choice(["1", "2", "3", "4"]))
+        elif game.focus is not None:
+            app.submit(rng.choice(["1", "2", "3", "4", "5", "6", "7", "8", "9", "bye"]))
+        else:
+            app.submit(rng.choice(["1", "2", "3", "4", "look", "standing", "rest", "go north", "go south",
+                                   "go east", "go west", "journal"]))
+        assert app.state == "game", f"left the game at step {step}"
+    assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
+    assert app.violations == [], app.violations[:5]
+    app.shutdown()

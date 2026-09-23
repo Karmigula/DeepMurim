@@ -44,6 +44,7 @@ def check_world(world) -> list[str]:
             problems += check_arts(world, person)
     problems += check_items(world)
     problems += check_knowledge(world)
+    problems += check_factions(world)
     times = world.recent_chronicle_times()
     for before, after in zip(times, times[1:]):
         if after < before:
@@ -175,6 +176,40 @@ def check_knowledge(world) -> list[str]:
     return out
 
 
+def check_factions(world) -> list[str]:
+    """Memberships, ranks, merit, duties and stances stay consistent (phase 3b spec 10)."""
+    from systems import factions as F  # factions import the knowledge layer, which imports this module's peers
+    out = []
+    player = world.get_meta("player_id")
+    for faction in world.entities("faction"):
+        for other, value, _ in world.relations_from(faction.id, "stance"):
+            if not -1 <= value <= 1 or abs(F.stance(world, other, faction.id) - value) > 1e-9:
+                out.append(f"stance between #{faction.id} and #{other} is lopsided or out of range")
+    for person_id in [player] if player is not None else []:
+        rows = F.memberships(world, person_id)
+        open_martial = [fid for fid, _, d in rows if d.get("status", "member") == "member" and not d.get("secret")
+                        and world.entity(fid).data["type"] in F.MARTIAL]
+        if len(open_martial) > 1:
+            out.append(f"the player openly belongs to {len(open_martial)} martial factions")
+        for fid, rank, data in rows:
+            if world.entity(fid) is None or world.entity(fid).kind != "faction":
+                out.append(f"membership points at #{fid}, which is no faction")
+            if not 0 <= rank <= 3:
+                out.append(f"the player holds rank {rank} in #{fid}")
+            if data.get("merit", 0) < 0:
+                out.append(f"negative merit in #{fid}")
+    for duty in world.entities("duty"):
+        if duty.data.get("status") != "open":
+            continue
+        holder = world.entity(duty.data["holder"])
+        if holder is None or holder.data.get("dead") or holder.data.get("duty") != duty.id:
+            out.append(f"open duty #{duty.id} has no living holder")
+        target = duty.data.get("target")
+        if target is not None and world.entity(target) is None:
+            out.append(f"open duty #{duty.id} points at missing #{target}")
+    return out
+
+
 def check_people(game, turn) -> list[str]:
     """No one the player never met or heard of is named on screen; the dead never talk or fight."""
     world = game.world
@@ -204,6 +239,13 @@ def check_people(game, turn) -> list[str]:
                 continue
             if re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])", text):
                 out.append(f"{entity.name} (#{entity.id}) is named on screen but the player never heard of them")
+    from engine.standing_page import known_factions  # the page decides which factions the player knows
+    town = here[0] if here else None
+    heard = set(known_factions(world, player_id, town)) if town is not None else set()
+    heard_names = {world.entity(f).name.lower() for f in heard}  # minor factions far apart can share a name
+    for faction in world.entities("faction"):
+        if faction.name.lower() not in heard_names and faction.name.lower() in text:
+            out.append(f"the faction {faction.name} is named on screen but the player never heard of it")
     return out
 
 
