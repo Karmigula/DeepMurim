@@ -55,15 +55,22 @@ class RoadsMixin:
         events = encounters.road_encounter_events(self.world, self.player.id, self.place)
         if events:
             lines += self._commit(events)
-            self.encounter = encounters.encounter_state(events[0])
+            if events[-1].kind == "encounter":
+                self.encounter = encounters.encounter_state(events[-1])
+        if self.encounter is None:
+            lines += self._grudges()
         return lines
 
     def _after_look(self) -> list:
-        lines = super()._after_look()
+        return super()._after_look() + self._grudges()
+
+    def _grudges(self) -> list:
+        """Someone here with a grudge, a dead kinsman or a rival's pride may call you out."""
         npc = encounters.challenge_from(self.world, self.player.id, self.place.id)
-        if npc is not None:
-            lines += self._commit(encounters.challenge_events(self.player.id, npc, self.place.id))
-            self.challenger = npc
+        if npc is None:
+            return []
+        lines = self._commit(encounters.challenge_events(self.player.id, npc, self.place.id))
+        self.challenger = npc
         return lines
 
     def _resolve(self, how: str) -> list:
@@ -86,7 +93,7 @@ class RoadsMixin:
         if how == "talk":
             if e["kind"] == "beast":
                 return self._turn([("It does not understand words.", "system")])
-            if encounters.talk_succeeds(self.world, person, me):
+            if encounters.talk_succeeds(self.world, person, me, e["kind"]):
                 return self._turn(self._resolve("talked"))
             return self._turn(self._resolve("fight") + self._start_duel(person, "encounter"))
         if how == "flee":

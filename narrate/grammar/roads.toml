@@ -32,3 +32,7 @@ lines = ["{npc} laughs at you. #grudge#", "#grudge# {npc} turns away in disgust.
 [paid]
 colour = "default"
 lines = ["#coins#", "#coins# The deal is done."]
+
+["encounter.avenger"]
+colour = "default"
+lines = ["#roadside# #bravado#", "#bravado# #roadside#"]

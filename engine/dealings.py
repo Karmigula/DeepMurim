@@ -11,7 +11,10 @@ class DealingsMixin:
         extras = super()._conversation_extras(npc)
         if npc.data.get("beast"):
             return extras
-        if learning.can_ask_to_learn(self.world, npc.id, self.player.id):
+        if not learning.will_deal(self.world, npc.id, self.player.id):
+            return extras
+        if learning.can_ask_to_learn(self.world, npc.id, self.player.id) \
+                and learning.will_teach(self.world, npc.id, self.player.id, self.place.id):
             extras.append(Choice("Ask to learn an art...", Action("learn_menu")))
         if learning.ensure_goods(self.world, npc.id):
             extras.append(Choice("Browse their manuals...", Action("browse")))
@@ -42,19 +45,21 @@ class DealingsMixin:
                 for m in manuals_of(self.world, self.focus)]
 
     def _do_learn_menu(self, _target):
-        if self.focus is None or not learning.can_ask_to_learn(self.world, self.focus, self.player.id):
+        if self.focus is None or not learning.can_ask_to_learn(self.world, self.focus, self.player.id) \
+                or not learning.will_teach(self.world, self.focus, self.player.id, self.place.id):
             return self._turn([("No one here will teach you.", "system")])
         self.submenu = "learn_menu"
         return self._turn([("What would you learn?", "system")])
 
     def _do_browse(self, _target):
-        if self.focus is None or not learning.ensure_goods(self.world, self.focus):
+        if self.focus is None or not learning.will_deal(self.world, self.focus, self.player.id) \
+                or not learning.ensure_goods(self.world, self.focus):
             return self._turn([("No one here is selling manuals.", "system")])
         self.submenu = "browse"
         return self._turn([("Which manual catches your eye?", "system")])
 
     def _do_learn_paid(self, technique_id):
-        if self.focus is None:
+        if self.focus is None or not learning.will_teach(self.world, self.focus, self.player.id, self.place.id):
             return self._turn([("Learn from whom?", "system")])
         events = learning.lesson_events(self.world, self.player.id, self.focus, self.place.id, technique_id, "silver")
         if not events:
@@ -64,7 +69,7 @@ class DealingsMixin:
         return self._turn(self._commit(events))
 
     def _do_learn_test(self, technique_id):
-        if self.focus is None:
+        if self.focus is None or not learning.will_teach(self.world, self.focus, self.player.id, self.place.id):
             return self._turn([("Learn from whom?", "system")])
         teachable = {a.technique.id for a in learning.teachable_arts(self.world, self.focus, self.player.id)}
         if technique_id not in teachable:
@@ -73,7 +78,7 @@ class DealingsMixin:
         return self._turn(self._start_duel(teacher, "test", purpose={"teach": technique_id, "teacher": teacher}))
 
     def _do_buy(self, item_id):
-        if self.focus is None:
+        if self.focus is None or not learning.will_deal(self.world, self.focus, self.player.id):
             return self._turn([("Buy from whom?", "system")])
         events = learning.purchase_events(self.world, self.player.id, self.focus, self.place.id, item_id)
         if not events:

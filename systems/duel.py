@@ -8,6 +8,8 @@ by the effect, so replays, the journal and the narrator all agree exactly.
 
 from dataclasses import dataclass, field
 
+from systems.attitude import afraid
+from systems.beliefs import apparent_to
 from systems.bodies import load_body, save_body
 from systems.combat_core import (
     ALL_IN_DEVIATION, BROKEN, DAMAGE_BASE, FORM_STATS_EXTRA, INJURY_THRESHOLD, INTENTS, MAX_HARM, QI_COST,
@@ -148,6 +150,8 @@ def fragment_of(world, technique_id: int, rng) -> dict:
 # --- starting and refusing ----------------------------------------------------------
 
 def accepts(world, npc_id: int, player_id: int, mode: str) -> bool:
+    if afraid(world, npc_id, apparent_to(world, npc_id, player_id)):
+        return False
     npc = world.entity(npc_id)
     traits = set(npc.data.get("traits", ()))
     rng = rng_for(world.world_seed, f"accept:{mode}:{npc_id}:{world.time}")
@@ -160,8 +164,8 @@ def accepts(world, npc_id: int, player_id: int, mode: str) -> bool:
     return rng.random() < 0.5
 
 
-def refusal_events(player: int, npc: int, place: int, mode: str) -> list[Event]:
-    return [Event("refused_duel", (player, npc), place, {"mode": mode})]
+def refusal_events(player: int, npc: int, place: int, mode: str, reason: str = "unwilling") -> list[Event]:
+    return [Event("refused_duel", (player, npc), place, {"mode": mode, "reason": reason})]
 
 
 def start_events(world, player: int, opponent: int, place: int, mode: str,

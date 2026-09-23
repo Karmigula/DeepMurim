@@ -5,7 +5,10 @@ contains, while claiming more; the claim is what its reader believes until
 practice at the true limit ends in a deviation that reveals the lie.
 """
 
+from systems.attitude import attitude
+from systems.beliefs import apparent_to
 from systems.duel import ensure_npc_arts
+from systems.reputation import reputation
 from systems.items import create_manual, manual_price, manuals_of, transfer_events
 from systems.purse import payment_events
 from systems.talk import conversations_with
@@ -28,6 +31,20 @@ def teachable_arts(world, npc_id: int, player_id: int) -> list:
         return []
     mine = {a.technique.id for a in known_arts(world, player_id)}
     return [a for a in arts if a.technique.id not in mine]
+
+
+def will_deal(world, npc_id: int, player_id: int) -> bool:
+    """The hostile will neither teach nor sell (phase 3a spec 3.2)."""
+    return attitude(world, npc_id, apparent_to(world, npc_id, player_id)).score > -1.0
+
+
+def will_teach(world, npc_id: int, player_id: int, town_id: int) -> bool:
+    """And the kind and honest will not teach a name this town calls ruthless."""
+    if not will_deal(world, npc_id, player_id):
+        return False
+    if {"kind", "honest"} & set(world.entity(npc_id).data.get("traits", ())):
+        return reputation(world, town_id, apparent_to(world, town_id, player_id)).path != "ruthless"
+    return True
 
 
 def can_ask_to_learn(world, npc_id: int, player_id: int) -> bool:

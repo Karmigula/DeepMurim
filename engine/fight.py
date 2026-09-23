@@ -3,6 +3,8 @@
 import systems.duel as duel
 import systems.talk as talk
 from engine.actions import Action, Choice
+from systems.attitude import afraid
+from systems.beliefs import apparent_to
 from systems.combat_core import INTENTS, QI_OUTPUTS, condition_of
 from systems.realms import realm_title
 from systems.techniques import martial_arts, usable
@@ -90,7 +92,9 @@ class FightMixin:
         if npc_id not in present:
             return self._turn([("There is no one like that here.", "system")])
         if not duel.accepts(self.world, npc_id, self.player.id, mode):
-            return self._turn(self._commit(duel.refusal_events(self.player.id, npc_id, self.place.id, mode)))
+            scared = afraid(self.world, npc_id, apparent_to(self.world, npc_id, self.player.id))
+            events = duel.refusal_events(self.player.id, npc_id, self.place.id, mode, "afraid" if scared else "unwilling")
+            return self._turn(self._commit(events))
         return self._turn(self._start_duel(npc_id, mode))
 
     def _do_spar(self, npc_id):

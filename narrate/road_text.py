@@ -5,6 +5,7 @@ from narrate.outcomes import cap, outcome, summary
 HOW = {
     "paid": "You pay and are let through.", "talked": "You talk your way past {name}.",
     "fled": "You slip away from {name}.", "fight": "There is no way around it: you fight.",
+    "backed_off": "{name} recognises you, thinks better of it and slips away.",
 }
 
 
@@ -19,13 +20,14 @@ def _encounter(world, event):
         "bandit": f"{cap(name)}, a bandit, blocks the road and demands {d['toll']} silver.",
         "beast": f"{cap(name)} stalks out onto the road, hungry.",
         "wanderer": f"{cap(name)}, a wandering swordsman, bars the road and looks you over.",
+        "avenger": f'{cap(name)} steps into the road. "You killed my {d.get("role") or "kin"}."',
     }[d["kind"]]
     return [line], {"grammar_key": f"encounter.{d['kind']}"}
 
 
 @outcome("encounter_resolved")
 def _resolved(world, event):
-    return [HOW[event.data["how"]].format(name=_name(world, event))], {}
+    return [cap(HOW[event.data["how"]].format(name=_name(world, event)))], {}
 
 
 @outcome("challenge_issued", body_facts=False)

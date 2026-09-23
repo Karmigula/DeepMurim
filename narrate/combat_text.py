@@ -109,6 +109,8 @@ def _ended(world, event):
 
 @outcome("refused_duel", body_facts=False)
 def _refused(world, event):
+    if event.data.get("reason") == "afraid":
+        return [f"{cap(_name(world, event))} backs away; they want no part of you."], {}
     what = "to spar" if event.data["mode"] == "spar" else "your challenge"
     return [f"{cap(_name(world, event))} refuses {what}."], {}
 
