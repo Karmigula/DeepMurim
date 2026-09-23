@@ -57,9 +57,12 @@ def _exchange(world, event):
             lines.append(f"{cap(name)}'s {weapon} {verb} {'your ' + _place_of(wound) if wound else 'you'}.")
     mine, theirs = condition_of(d["harm_after"]["player"]), condition_of(d["harm_after"]["opponent"])
     lines.append(f"You are {mine}; {name} is {theirs}.")
-    if "player" in d["reveals"] and d["tendency"]:
+    read = "player" in d["reveals"] and d["tendency"]
+    if read and d["fragment"]:  # one line, so the four-line outcome limit never drops the fragment
+        lines.append(f"You read their style (they favour {d['tendency']}) and glimpse something of the {d['fragment']['technique']}.")
+    elif read:
         lines.append(f"You read their style: they favour {d['tendency']}.")
-    if d["fragment"]:
+    elif d["fragment"]:
         lines.append(f"You glimpse something of the {d['fragment']['technique']}.")
     return lines, {"you": mine, "them": theirs}
 

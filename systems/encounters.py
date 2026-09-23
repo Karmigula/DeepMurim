@@ -20,7 +20,7 @@ from world.seed import rng_for
 ENCOUNTER_CHANCE = 0.35
 CHALLENGE_CHANCE = 0.3
 BANDIT_MANUAL_CHANCE = 0.25
-GRUDGE_FEELINGS = frozenset({"annoyed", "humiliated", "hatred", "contempt"})
+GRUDGE_FEELINGS = frozenset({"annoyed", "humiliated", "hatred"})  # spec §10; contempt is theirs, not a grudge
 BEASTS = {"forest": ("grey wolf", "wild boar"), "mountains": ("mountain tiger", "grey wolf"), "marsh": ("marsh crocodile",)}
 FRIENDLY = frozenset({"kind", "lazy", "cheerful", "honest"})
 
@@ -118,7 +118,11 @@ def flee_succeeds(world, player: int, person: int) -> bool:
 
 def challenge_from(world, player: int, place: int) -> int | None:
     rng = rng_for(world.world_seed, f"challenge:{player}:{place}:{world.time}")
+    settled = {e.actors[1] for e in world.chronicle_about(player, limit=20)
+               if e.kind in ("challenge_issued", "declined_challenge") and e.time == world.time}
     for person in people_at(world, place, exclude=player):
+        if person.id in settled:
+            continue  # already challenged you this very moment
         if not set(person.data.get("traits", ())) & {"proud", "hot-tempered"}:
             continue
         grudges = [m for m in world.memories(person.id, about=player) if m.feeling in GRUDGE_FEELINGS]
