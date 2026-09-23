@@ -1,7 +1,7 @@
 [symbols]
-roadside = ["Dust hangs over the road.", "The trees crowd close here.", "No one else is in sight.", "A crow calls from a dead branch.", "The wind drops."]
+roadside = ["Dust hangs over the road.", "The trees crowd close here.", "No one else is in sight.", "A crow calls from a dead branch.", "The wind drops.", "A cart track bends out of sight.", "Insects fall silent in the grass.", "The light goes flat and grey."]
 growl = ["A low growl rolls across the road.", "Its eyes catch the light.", "It circles, head low.", "Hackles rise along its back."]
-bravado = ["They grin without warmth.", "Their hand rests on their weapon.", "They spit in the dust.", "They take their time looking you over."]
+bravado = ["They grin without warmth.", "Their hand rests on their weapon.", "They spit in the dust.", "They take their time looking you over.", "They crack their knuckles one by one.", "They step into the middle of the road.", "They weigh your purse with their eyes."]
 coins = ["Coins change hands.", "Silver clinks from purse to palm.", "The coins are counted twice.", "A few pieces of silver lighter, you go on."]
 grudge = ["The street goes quiet.", "Heads turn.", "Someone mutters that this was bound to happen.", "A child is pulled indoors."]
 

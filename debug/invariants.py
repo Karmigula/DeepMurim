@@ -45,6 +45,7 @@ def check_world(world) -> list[str]:
     problems += check_items(world)
     problems += check_knowledge(world)
     problems += check_factions(world)
+    problems += check_sect(world)
     times = world.recent_chronicle_times()
     for before, after in zip(times, times[1:]):
         if after < before:
@@ -210,6 +211,49 @@ def check_factions(world) -> list[str]:
         target = duty.data.get("target")
         if target is not None and world.entity(target) is None:
             out.append(f"open duty #{duty.id} points at missing #{target}")
+    return out
+
+
+def check_sect(world) -> list[str]:
+    """The player's sect: one leader, an owned seat, a sane roster and clock (phase 3c spec 9)."""
+    from systems import factions as F
+    from world.gen.materialize import region_of
+    out = []
+    for town in world.entities("town"):
+        if len(world.sources(town.id, "owns_land")) > 1:
+            out.append(f"{town.name} has {len(world.sources(town.id, 'owns_land'))} owners")
+    for sect in world.entities("faction"):
+        if sect.data.get("type") != "player_sect":
+            continue
+        living = [p for p in world.sources(sect.id, "member_of")
+                  if (F.membership(world, p, sect.id) or (0, {}))[1].get("status", "member") == "member"]
+        if sect.data.get("dissolved"):
+            if living:
+                out.append(f"dissolved {sect.name} still has {len(living)} members")
+            continue
+        leaders = [p for p in living if F.membership(world, p, sect.id)[1].get("role") == "leader"]
+        founder = sect.data["founder"]
+        if leaders != [founder]:
+            out.append(f"{sect.name} has leaders {leaders}, not its founder")
+        seat = sect.data["seat"]
+        if seat not in world.targets(founder, "owns_land"):
+            out.append(f"{sect.name}'s seat is not the founder's land")
+        roles = [F.membership(world, p, sect.id)[1].get("role") for p in living]
+        if roles.count("disciple") > 12 or roles.count("elder") > 3:
+            out.append(f"{sect.name} has too many members")
+        region = region_of(world, seat).id
+        for person in living:
+            entity = world.entity(person)
+            if person == founder or entity.data.get("dead"):
+                continue
+            where = world.targets(person, "located_in")
+            expected = region if entity.data.get("on_duty") else seat
+            if where != [expected]:
+                out.append(f"{entity.name} of {sect.name} is not at the seat or on duty")
+        if sect.data["last_tick"] > world.time:
+            out.append(f"{sect.name}'s seasons are ahead of the clock")
+        if sect.data["treasury"] < 0:
+            out.append(f"{sect.name} has a negative treasury")
     return out
 
 

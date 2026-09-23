@@ -143,3 +143,31 @@ def test_a_sect_life(tmp_path, seed, monkeypatch):
     assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
     assert app.violations == [], app.violations[:5]
     app.shutdown()
+
+
+@pytest.mark.parametrize("seed", [4, 19])
+def test_a_sect_founder(tmp_path, seed, monkeypatch):
+    """Found a sect, run it, roam for seasons, come home: every rule holds."""
+    import tests.test_sect as helpers
+    monkeypatch.setattr(encounters, "ENCOUNTER_CHANCE", 1.0)
+    rng = random.Random(seed)
+    app = App(Config(), tmp_path / "saves", tmp_path / "settings.json")
+    app.start_new(f"Founder{seed}", world_seed=seed)
+    helpers.found_sect(app.game)
+    app.game.world.update_data(app.game.player.id, silver=800)
+    app.submit("look")
+    for step in range(300):
+        game = app.game
+        if game.combat is not None or game.encounter is not None or game.challenger is not None:
+            app.submit(rng.choice(FIGHTING + ["1", "2", "3"]))
+        elif game.player.data.get("summons") or game.player.data.get("arrest"):
+            app.submit(rng.choice(["1", "2", "3", "4"]))
+        elif game.focus is not None:
+            app.submit(rng.choice(["1", "2", "3", "4", "5", "6", "7", "8", "9", "bye"]))
+        else:
+            app.submit(rng.choice(["1", "2", "3", "look", "ledger", "standing", "meditate season", "rest",
+                                   "go north", "go south", "go east", "go west"]))
+        assert app.state == "game", f"left the game at step {step}"
+    assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
+    assert app.violations == [], app.violations[:5]
+    app.shutdown()
