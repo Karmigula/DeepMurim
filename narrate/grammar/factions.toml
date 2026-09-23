@@ -1,0 +1,33 @@
+[symbols]
+faction_hall = ["Incense drifts through the hall.", "The banners stir above you.", "Disciples stop to watch.", "A bell sounds somewhere deeper in.", "The floorboards creak under old boots."]
+faction_weigh = ["They look you over for a long moment.", "Their eyes measure you.", "A brush scratches in a ledger.", "Someone murmurs your name.", "They say nothing at first."]
+faction_welcome = ["Hands clasp in the old salute.", "A robe is set in your arms.", "Your name goes into the book.", "Someone claps you on the shoulder.", "A cup is poured for you."]
+faction_shame = ["Doors close behind you.", "Backs turn as you pass.", "Your name is struck from the book.", "No one meets your eye.", "The banners hang still."]
+
+[trial_begun]
+colour = "npc"
+lines = ["#faction_hall# #faction_weigh#", "#faction_weigh# #faction_hall#"]
+
+[joined]
+colour = "gold"
+lines = ["#faction_welcome# #faction_hall#", "#faction_hall# #faction_welcome#"]
+
+[trial_failed]
+colour = "default"
+lines = ["#faction_shame# #faction_weigh#", "#faction_weigh# #faction_shame#"]
+
+[expelled]
+colour = "default"
+lines = ["#faction_shame# #faction_hall#", "#faction_hall# #faction_shame#"]
+
+[deserted]
+colour = "default"
+lines = ["#faction_shame# #faction_weigh#", "#faction_weigh# #faction_shame#"]
+
+[spy_exposed]
+colour = "default"
+lines = ["#faction_shame# #faction_weigh#", "#faction_hall# #faction_shame#"]
+
+[released]
+colour = "default"
+lines = ["#faction_hall# #faction_weigh#", "#faction_weigh# #faction_hall#"]
