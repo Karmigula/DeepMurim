@@ -28,7 +28,7 @@ def test_talk_focuses_and_farewell_returns(game):
     talk = next(c for c in game.start().all_choices if c.action.verb == "talk")
     turn = game.perform(talk.action)
     assert turn.art["type"] == "portrait"
-    assert set(verbs(turn)) == {"ask", "farewell"}
+    assert {"ask", "farewell", "challenge"} <= set(verbs(turn)) <= {"ask", "farewell", "challenge", "spar", "learn_menu", "browse"}
     turn = game.perform(Action("ask", "work"))
     assert turn.lines
     turn = game.perform(Action("farewell"))

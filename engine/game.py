@@ -1,12 +1,19 @@
-"""The engine: Actions in, Turns out. The only code that commits events."""
+"""The engine: Actions in, Turns out. The only code that commits events.
+
+Feature mixins (fights, roads, dealings, invention) extend the engine through
+the hooks in engine.hooks, so this file keeps the core loop: looking, talking,
+travelling, cultivating, and turning state into a Turn.
+"""
 
 import random
 import sqlite3
-from dataclasses import dataclass, field
 
 import systems.cultivation as cultivation
 import systems.talk as talk
 import systems.travel as travel
+from engine.actions import Action, Choice, Turn
+from engine.fight import FightMixin
+from engine.hooks import GameHooks
 from engine.journal import summarize
 from narrate.base import Line, Narrator
 from narrate.brief import event_brief, scene_brief
@@ -21,50 +28,36 @@ from world.db import Entity, SaveError, World
 from world.events import Event, commit
 from world.gen.materialize import ensure_town, people_at, populate, region_of
 
+__all__ = ["Action", "Choice", "Game", "Turn"]
+
 MAX_SHOWN = 9  # digits 1-9 pick a choice with one key
-KEEP_SUBMENU = frozenset({"people", "routes", "cultivate", "practise_menu", "meridian_menu", "ambiguous"})
+KEEP_SUBMENU = frozenset({
+    "people", "routes", "cultivate", "practise_menu", "meridian_menu", "ambiguous",
+    "use_menu", "learn_menu", "browse", "create_menu",
+})
+QUIET_KINDS = frozenset({"exchange"})  # too many to list in the journal
 BUSY = "Finish your conversation first."
 
 HELP = [
     ("Type a number, or a command:", "system"),
     ("  look | talk <name> | go <place or direction> | ask <work|town> | bye | journal | help", "system"),
     ("  cultivate | meditate <day|week|month|season> | practise <art> | open <meridian> | rest | breakthrough", "system"),
+    ("  challenge | spar | strike | feint | guard | probe | flee | yield | spare | rob | cripple", "system"),
     ("  F2 swap art side | F3 hide art | F4 character sheet | F9 report a bug | F12 debug | Esc menu", "system"),
 ]
 
 
-@dataclass(frozen=True)
-class Action:
-    verb: str
-    target: object = None
-
-
-@dataclass(frozen=True)
-class Choice:
-    label: str
-    action: Action
-
-
-@dataclass
-class Turn:
-    lines: list[Line]
-    choices: list[Choice]
-    art: dict
-    status: str
-    extra: list[Choice] = field(default_factory=list)  # valid now but grouped off-screen
-
-    @property
-    def all_choices(self) -> list[Choice]:
-        return self.choices + self.extra
-
-
-class Game:
+class Game(FightMixin, GameHooks):
     def __init__(self, world: World, narrator: Narrator | None = None) -> None:
         self.world = world
         self.narrator = narrator or ProceduralNarrator()
         self.focus: int | None = None
         self.submenu: str | None = None
         self.last_briefs: list = []  # what the narrator was given this turn (debug overlay, invariants)
+        self.combat = None       # a systems.duel.Duel while fighting
+        self.encounter = None    # a road encounter waiting for an answer (Task 7)
+        self.challenger = None   # someone who just challenged the player (Task 7)
+        self._last_ids: list[int] = []
         self._last_look: tuple[int, int] | None = None
         self._pending: list[Line] = []
 
@@ -106,6 +99,7 @@ class Game:
             place = travel.location_of(world, player.id).id
             data = {"origin": "Wanderer", "arts": wanderer_arts(world.world_seed)}
             game._pending = game._commit([Event("body_awakened", (player.id,), place, data)])
+        game._restore()
         return game
 
     def close(self) -> None:
@@ -128,10 +122,15 @@ class Game:
 
     def look(self) -> Turn:
         self.last_briefs = []
+        if self.combat is not None or self.encounter is not None or self.challenger is not None:
+            return self._turn([])  # resuming mid-fight or mid-encounter: show its menu, not the town
         return self._do_look(None)
 
     def perform(self, action: Action) -> Turn:
         self.last_briefs = []
+        gate = self._gate(action)
+        if gate is not None:
+            return gate
         handler = getattr(self, f"_do_{action.verb}", None)
         if handler is None:
             return self._turn([(f"You can't do that ({action.verb}).", "system")])
@@ -150,13 +149,16 @@ class Game:
     def _do_back(self, _target) -> Turn:
         return self._turn([])
 
+    def _do_talk_menu(self, _target) -> Turn:
+        return self._turn([])  # back to the plain conversation menu; focus is kept
+
     def _do_look(self, _target) -> Turn:
         self.focus = None
         here = (self.place.id, self.world.time)
         if here == self._last_look:
-            return self._turn([("Nothing has changed since you last looked.", "dim")] + self._presence())
+            return self._turn([("Nothing has changed since you last looked.", "dim")] + self._presence() + self._after_look())
         self._last_look = here
-        return self._turn(self._describe("look") + self._presence())
+        return self._turn(self._describe("look") + self._presence() + self._after_look())
 
     def _do_travel(self, dest) -> Turn:
         routes = {r.dest: r for r in travel.routes_from(self.world, self.place)}
@@ -167,7 +169,7 @@ class Game:
         lines = self._commit(travel.travel_events(self.player.id, self.place.id, route))
         populate(self.world, self.place.id)
         self._last_look = (self.place.id, self.world.time)
-        return self._turn(lines + self._describe("arrive") + self._presence())
+        return self._turn(lines + self._describe("arrive") + self._presence() + self._after_arrival())
 
     def _do_talk(self, npc_id) -> Turn:
         present = {p.id for p in people_at(self.world, self.place.id, exclude=self.player.id)}
@@ -194,9 +196,9 @@ class Game:
         return self._turn(lines)
 
     def _do_journal(self, _target) -> Turn:
-        entries = list(reversed(self.world.chronicle_about(self.player.id, limit=15)))
+        entries = [e for e in reversed(self.world.chronicle_about(self.player.id, limit=60)) if e.kind not in QUIET_KINDS]
         lines = [(f"Chronicle of {self.player.name}:", "heading")]
-        lines += [(summarize(self.world, e), "dim") for e in entries]
+        lines += [(summarize(self.world, e), "dim") for e in entries[-15:]]
         return self._turn(lines)
 
     def _do_help(self, _target) -> Turn:
@@ -298,6 +300,7 @@ class Game:
     # --- helpers --------------------------------------------------------------
     def _commit(self, events: list[Event]) -> list[Line]:
         ids = commit(self.world, events)
+        self._last_ids = ids
         lines: list[Line] = []
         for event_id, event in zip(ids, events):
             brief = event_brief(self.world, event_id, event)
@@ -324,10 +327,19 @@ class Game:
     def _choices(self) -> tuple[list[Choice], list[Choice]]:
         """(shown, extra). At most MAX_SHOWN are shown, so each has a single-key number.
         Everything valid but not shown goes in `extra`, so typed commands still reach it."""
+        special = self._special_choices()
+        if special is not None:
+            return special
+        feature_menus = self._submenu_options()
         if self.focus is not None:
+            if self.submenu in feature_menus:
+                options, back = feature_menus[self.submenu]
+                return options[: MAX_SHOWN - 1] + [Choice("Back", back)], []
+            npc = self.world.entity(self.focus)
             return [
                 Choice("Ask about their work", Action("ask", "work")),
                 Choice(f"Ask about {self.place.name}", Action("ask", "town")),
+                *self._conversation_extras(npc),
                 Choice("Say farewell", Action("farewell")),
             ], []
         body = self.body()
@@ -337,17 +349,20 @@ class Game:
         ]
         routes = [Choice(r.label, Action("travel", r.dest)) for r in travel.routes_from(self.world, self.place)]
         general = [Choice("Look around", Action("look")), Choice("Read your journal", Action("journal"))]
-        cultivate = self._cultivation_choices(body)
         practise = [Choice(f"Practise the {a.name} for a week", Action("practise", a.technique.id))
-                    for a in martial_arts(self.world, self.player.id)]
+                    for a in martial_arts(self.world, self.player.id)] + self._practise_extras(body)
+        cultivate = self._cultivation_choices(body, bool(practise))
         meridians = [Choice(f"Work on the {m} meridian for a week", Action("open_meridian", m))
                      for m in EXTRAORDINARY if body.meridians[m].state == "blocked"]
-        everything = people + routes + cultivate + practise + meridians + general
         submenus = {
             "people": (people, Action("back")), "routes": (routes, Action("back")),
             "cultivate": (cultivate, Action("back")),
             "practise_menu": (practise, Action("cultivate")), "meridian_menu": (meridians, Action("cultivate")),
         }
+        submenus.update(feature_menus)
+        everything = people + routes + cultivate + practise + meridians + general
+        for options, _ in feature_menus.values():
+            everything += [c for c in options if c not in everything]
         if self.submenu in submenus:
             options, back = submenus[self.submenu]
             shown = options[: MAX_SHOWN - 1] + [Choice("Back", back)]
@@ -369,14 +384,14 @@ class Game:
                 fold[name] = True
         return menu()
 
-    def _cultivation_choices(self, body: Body) -> list[Choice]:
+    def _cultivation_choices(self, body: Body, can_practise: bool) -> list[Choice]:
         options = [
             Choice("Meditate for a day", Action("meditate", 1)),
             Choice("Meditate for a week", Action("meditate", 7)),
             Choice("Meditate for a month", Action("meditate", 30)),
             Choice("Seclusion for a season (90 days)", Action("meditate", 90)),
         ]
-        if martial_arts(self.world, self.player.id):
+        if can_practise:
             options.append(Choice("Practise an art...", Action("practise_menu")))
         if any(body.meridians[m].state == "blocked" for m in EXTRAORDINARY):
             options.append(Choice("Work on opening a meridian...", Action("meridian_menu")))
@@ -386,12 +401,18 @@ class Game:
         return options
 
     def _art(self) -> dict:
+        special = self._special_art()
+        if special is not None:
+            return special
         if self.focus is not None:
             return {"type": "portrait", "parts": self.world.entity(self.focus).data["portrait"]}
         place = self.place
         return {"type": "scene", "terrain": place.data["terrain"], "settlement": place.data["kind"], "watch": self.world.time % 4}
 
     def _status(self) -> str:
+        special = self._special_status()
+        if special is not None:
+            return special
         player, place = self.player, self.place
         region = region_of(self.world, place.id)
         return f"{player.name} | {realm_title(self.body())} | {format_date(self.world.time)} | {place.name}, {region.name}"

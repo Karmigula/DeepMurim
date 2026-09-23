@@ -6,17 +6,24 @@ so every command the engine can take also has a number to press somewhere.
 
 import re
 
-from engine.game import Action, Choice
+from engine.actions import Action, Choice
 
 GLOBAL = {
-    "look": "look", "l": "look", "journal": "journal", "j": "journal", "chronicle": "journal",
-    "help": "help", "?": "help", "bye": "farewell", "farewell": "farewell", "leave": "farewell",
-    "cultivate": "cultivate", "meditate": "meditate", "rest": "rest", "breakthrough": "breakthrough",
+    "look": Action("look"), "l": Action("look"), "journal": Action("journal"), "j": Action("journal"),
+    "chronicle": Action("journal"), "help": Action("help"), "?": Action("help"),
+    "bye": Action("farewell"), "farewell": Action("farewell"), "leave": Action("farewell"),
+    "cultivate": Action("cultivate"), "meditate": Action("meditate"), "rest": Action("rest"),
+    "breakthrough": Action("breakthrough"),
+    "strike": Action("intent", "strike"), "feint": Action("intent", "feint"),
+    "guard": Action("intent", "guard"), "probe": Action("intent", "probe"),
+    "flee": Action("flee"), "run": Action("flee"), "yield": Action("yield_duel"), "surrender": Action("yield_duel"),
+    "spare": Action("verdict", "spare"), "rob": Action("verdict", "rob"), "cripple": Action("verdict", "cripple"),
+    "spar": Action("spar"), "challenge": Action("challenge"),
 }
 PREFIX_VERBS = {
     "talk": "talk", "speak": "talk", "go": "travel", "travel": "travel", "walk": "travel", "ask": "ask",
     "meditate": "meditate", "practise": "practise", "practice": "practise", "train": "practise",
-    "open": "open_meridian",
+    "open": "open_meridian", "use": "use",
 }
 FILLER = {"to", "about", "with", "the"}
 WORD = re.compile(r"[a-z0-9']+")
@@ -36,7 +43,7 @@ def parse(text: str, choices: list[Choice], extra: list[Choice] = ()) -> Action 
         n = int(lowered)
         return choices[n - 1].action if 1 <= n <= len(choices) else Action("unknown", cleaned)
     if lowered in GLOBAL:
-        return Action(GLOBAL[lowered])
+        return GLOBAL[lowered]
     head, _, rest = lowered.partition(" ")
     verb = PREFIX_VERBS.get(head)
     wanted = [w for w in _words(rest) if w not in FILLER]

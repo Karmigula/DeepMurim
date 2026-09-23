@@ -83,8 +83,33 @@ def compose_portrait(parts: dict, w: int, h: int) -> Art:
     return canvas
 
 
+def harm_bar(harm: float, condition: str, w: int) -> list:
+    filled = int(round(10 * min(max(harm, 0.0), 100.0) / 100))
+    text = f"[{'#' * filled}{'.' * (10 - filled)}] {condition}"
+    row: list = [None] * w
+    start = max(0, (w - len(text)) // 2)
+    for i, ch in enumerate(text):
+        if 0 <= start + i < w and ch != " ":
+            row[start + i] = (ch, "red" if ch == "#" else "dim")
+    return row
+
+
+def compose_duel(request: dict, w: int, h: int) -> Art:
+    height = max(1, h - 2)
+    if request.get("parts"):
+        art = compose_portrait(request["parts"], w, height)
+    else:
+        art = blank(w, height)
+        beast = load_art("beast")
+        stamp(art, beast, max(0, (height - len(beast)) // 2), (w - art_width(beast)) // 2)
+    rows = art + [[None] * w, harm_bar(request.get("harm", 0.0), request.get("condition", ""), w)]
+    return rows[-h:] if h < len(rows) else rows
+
+
 def render_request(request: dict, w: int, h: int) -> Art:
     kind = request.get("type")
+    if kind == "duel":
+        return compose_duel(request, w, h)
     if kind == "scene":
         return compose_scene(request["terrain"], request["settlement"], request["watch"], w, h)
     if kind == "portrait":
