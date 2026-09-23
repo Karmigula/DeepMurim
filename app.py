@@ -208,6 +208,8 @@ class App:
             self.sheet_visible = self.sheet_visible and not self.debug_visible
         elif key == "f6":
             self.submit("standing")
+        elif key == "f7":
+            self.submit("ledger")
         elif key == "f4":
             self.sheet_visible = not self.sheet_visible
             self.debug_visible = self.debug_visible and not self.sheet_visible

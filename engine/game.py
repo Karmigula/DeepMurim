@@ -27,6 +27,7 @@ from engine.founding import FoundingMixin
 from engine.sect import SectMixin
 from engine.seasons import SeasonsMixin
 from engine.standing_page import standing_lines
+from engine.ledger import ledger_lines
 from engine.masks import MasksMixin
 from engine.roads import RoadsMixin
 from engine.hooks import GameHooks
@@ -65,7 +66,7 @@ HELP = [
     ("  look | talk <name> | go <place or direction> | ask <work|town> | bye | journal | help", "system"),
     ("  cultivate | meditate <day|week|month|season> | practise <art> | open <meridian> | rest | breakthrough", "system"),
     ("  challenge | spar | strike | feint | guard | probe | flee | yield | spare | rob | cripple | kill", "system"),
-    ("  news | ask about <name> | tell | rumours | wear mask | remove mask | standing (F6)", "system"),
+    ("  news | ask about <name> | tell | rumours | wear mask | remove mask | standing (F6) | ledger (F7)", "system"),
     ("  F2 swap art side | F3 hide art | F4 character sheet | F9 report a bug | F12 debug | Esc menu", "system"),
 ]
 
@@ -238,6 +239,10 @@ class Game(FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, 
         lines = [(f"Chronicle of {self.player.name}:", "heading")]
         lines += [(summarize(self.world, e), "dim") for e in entries[-15:]]
         return self._turn(lines)
+
+    def _do_ledger(self, _target) -> Turn:
+        caught_up = self._sect_catch_up() if self._at_seat() else []
+        return self._turn(caught_up + ledger_lines(self.world, self.player.id))
 
     def _do_standing(self, _target) -> Turn:
         return self._turn(standing_lines(self.world, self.player.id, self.place.id))

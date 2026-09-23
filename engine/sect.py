@@ -61,6 +61,7 @@ class SectMixin:
         away = [p for p in sect_mod.members(world, sect) if world.entity(p).data.get("on_duty")]
         out += [Choice(f"Call back {world.entity(p).name}", Action("sect_duty", p)) for p in away[:2]]
         out.append(Choice("Treasury and buildings...", Action("sect_money")))
+        out.append(Choice("Open the sect ledger", Action("ledger")))
         out.append(Choice("Expel them", Action("sect_expel", person)))
         return out
 

@@ -32,6 +32,10 @@ def faction_facts(world, player: int, other) -> list[str]:
     """Up to two short facts for a brief: the player's rank, and the other person's faction."""
     facts = []
     for fid, rank, data in F.memberships(world, player):
+        if data.get("status", "member") == "member" and data.get("role") == "leader":
+            count = len([p for p in F.members_of(world, fid) if p != player])
+            facts.append(f"You lead the {world.entity(fid).name}, {count} disciples strong.")
+            break
         if data.get("status", "member") == "member":
             facts.append(f"You are {_article(F.title(world, fid, rank))} of the {world.entity(fid).name}.")
             break
@@ -44,7 +48,13 @@ def faction_facts(world, player: int, other) -> list[str]:
 
 
 def standing_lines(world, player: int, town: int) -> list[Line]:
-    lines: list[Line] = [("Your standing", "heading"), ("Your factions:", "heading")]
+    lines: list[Line] = [("Your standing", "heading")]
+    sect = world.entity(player).data.get("sect")
+    if sect and not world.entity(sect).data.get("dissolved"):
+        s = world.entity(sect)
+        count = len([p for p in F.members_of(world, sect) if p != player])
+        lines.append((f"Your sect: {s.name} at {world.entity(s.data['seat']).name}, {count} disciples, power {s.data['power']}.", "dim"))
+    lines.append(("Your factions:", "heading"))
     mine = [(fid, rank, data) for fid, rank, data in F.memberships(world, player)]
     if not mine:
         lines.append(("  none", "dim"))
