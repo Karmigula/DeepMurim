@@ -25,6 +25,7 @@ from world.body import REGULAR, add_injury, unhealed
 from world.events import Event, Witness, effect
 from world.gen.materialize import people_at
 from world.seed import rng_for
+import systems.facts  # noqa: E402,F401  (deeds become facts)
 
 MODES = ("duel", "spar", "encounter", "test")
 GENTLE_MODES = ("spar", "test")
