@@ -7,6 +7,7 @@ instead of a dead window.
 """
 
 import re
+import shutil
 import time
 from collections import deque
 from pathlib import Path
@@ -21,7 +22,12 @@ from render.art import render_request
 from render.layout import Grid, View, compose
 from render.menu import compose_title
 from settings_store import save_values
+from systems.creation import (
+    FLOW_POINT_COST, ORIGINS, POINT_BASE, POINT_MAX, POINT_POOL, CreationChoice, point_buy_problem, points_spent,
+)
+from systems.techniques import FORMS
 from systems.time import format_date
+from world.body import PHYSIQUE
 from world.db import SaveError
 
 MAX_LOG = 500
@@ -29,6 +35,9 @@ MAX_COMMAND = 200
 MAX_NAME = 24
 MAX_VIOLATIONS = 200
 INSTANT_KEYS = "123456789"  # submit on press, so a held key must not auto-repeat them
+CREATE_OPTIONS = ("Random (roll everything)", "Choose an origin", "Point-buy")
+ORIGIN_KEYS = tuple(ORIGINS)
+POINT_ROWS = PHYSIQUE + ("meridian openness", "form", "begin")
 
 
 def slug(name: str) -> str:
@@ -55,6 +64,13 @@ class App:
         self.status = ""
         self.command = ""
         self.scroll = 0
+        # character creation
+        self.pending_name = ""
+        self.origin_selected = 0
+        self.points: dict = {}
+        self.flow_points = 0
+        self.form_index = 0
+        self.points_row = 0
         # debug kit
         self.session: SessionLog | None = None
         self.last_turn: Turn | None = None
@@ -102,9 +118,75 @@ class App:
         elif key == "backspace":
             self.name = self.name[:-1]
         elif key in ("return", "enter"):
-            self.start_new(self.name.strip() or "Nameless")
+            self.pending_name = self.name.strip() or "Nameless"
+            self.state, self.selected, self.message = "create", 0, ""
         elif len(text) == 1 and text.isprintable() and len(self.name) < MAX_NAME:
             self.name += text
+
+    def _create_key(self, key: str, text: str) -> None:
+        if key in ("up", "w"):
+            self.selected = (self.selected - 1) % len(CREATE_OPTIONS)
+        elif key in ("down", "s"):
+            self.selected = (self.selected + 1) % len(CREATE_OPTIONS)
+        elif key == "escape":
+            self.state = "name"
+        elif key in ("return", "enter"):
+            if self.selected == 0:
+                self.start_new(self.pending_name, creation=CreationChoice("random"))
+            elif self.selected == 1:
+                self.state, self.origin_selected = "origin", 0
+            else:
+                self.state, self.message = "points", ""
+                self.points = {p: POINT_BASE for p in PHYSIQUE}
+                self.flow_points, self.form_index, self.points_row = 0, 0, 0
+
+    def _origin_key(self, key: str, text: str) -> None:
+        if key in ("up", "w"):
+            self.origin_selected = (self.origin_selected - 1) % len(ORIGIN_KEYS)
+        elif key in ("down", "s"):
+            self.origin_selected = (self.origin_selected + 1) % len(ORIGIN_KEYS)
+        elif key == "escape":
+            self.state = "create"
+        elif key in ("return", "enter"):
+            self.start_new(self.pending_name, creation=CreationChoice("origin", ORIGIN_KEYS[self.origin_selected]))
+
+    def _points_key(self, key: str, text: str) -> None:
+        if key == "up":
+            self.points_row = max(0, self.points_row - 1)
+        elif key == "down":
+            self.points_row = min(len(POINT_ROWS) - 1, self.points_row + 1)
+        elif key in ("left", "-") or text == "-":
+            self._adjust(-1)
+        elif key in ("right", "+", "=") or text in ("+", "="):
+            self._adjust(1)
+        elif key == "escape":
+            self.state, self.message = "create", ""
+        elif key in ("return", "enter"):
+            if POINT_ROWS[self.points_row] != "begin":
+                self.points_row += 1
+                return
+            problem = point_buy_problem(self.points, self.flow_points)
+            if problem:
+                self.message = problem
+                return
+            choice = CreationChoice("point_buy", physique=tuple(self.points.items()),
+                                    flow_points=self.flow_points, form=FORMS[self.form_index])
+            self.message = ""
+            self.start_new(self.pending_name, creation=choice)
+
+    def _adjust(self, delta: int) -> None:
+        row = POINT_ROWS[self.points_row]
+        left = POINT_POOL - points_spent(self.points, self.flow_points)
+        if row in PHYSIQUE:
+            value = self.points[row] + delta
+            if POINT_BASE <= value <= POINT_MAX and (delta < 0 or left >= 1):
+                self.points[row] = value
+        elif row == "meridian openness":
+            value = self.flow_points + delta
+            if value >= 0 and (delta < 0 or left >= FLOW_POINT_COST):
+                self.flow_points = value
+        elif row == "form":
+            self.form_index = (self.form_index + delta) % len(FORMS)
 
     def _game_key(self, key: str, text: str) -> None:
         if key == "f2":
@@ -200,12 +282,13 @@ class App:
             more = f" (+{len(problems) - 1} more)" if len(problems) > 1 else ""
             self.log.append((f"debug: {problems[0][:90]}{more} - F12 for details, F9 to report", "red"))
 
-    def start_new(self, name: str, world_seed: int | None = None) -> None:
+    def start_new(self, name: str, world_seed: int | None = None, creation: CreationChoice | None = None) -> None:
+        creation = creation or CreationChoice()
         path = self.saves_dir / f"{slug(name)}-{time.time_ns()}.world"
         self._close_game()
-        self.game = Game.new(path, name, world_seed=world_seed)
+        self.game = Game.new(path, name, world_seed=world_seed, creation=creation)
         self.save_path = path
-        self._open_session(mode="new", player=name, seed=self.game.world.world_seed)
+        self._open_session(mode="new", player=name, seed=self.game.world.world_seed, creation=creation.to_dict())
         self.log = []
         self._show(self.game.start())
         self.state = "game"
@@ -214,16 +297,21 @@ class App:
         if path is None:
             self.message = "No save to continue"
             return False
+        self.logs_dir.mkdir(parents=True, exist_ok=True)
+        snapshot = self.logs_dir / f"session-{stamp()}.start.world"
+        try:
+            shutil.copyfile(path, snapshot)  # before loading: loading may migrate the save
+        except OSError as exc:
+            self.message = f"Could not read {Path(path).name} ({exc})"
+            return False
         try:
             game = Game.load(path)
         except SaveError as exc:
             self.message = str(exc)
+            snapshot.unlink(missing_ok=True)
             return False
         self._close_game()
         self.game, self.save_path, self.log, self.message = game, Path(path), [], ""
-        self.logs_dir.mkdir(parents=True, exist_ok=True)
-        snapshot = self.logs_dir / f"session-{stamp()}.start.world"
-        game.world.backup_to(snapshot)
         self._open_session(mode="continue", player=game.player.name, seed=game.world.world_seed, snapshot=str(snapshot))
         self._show(game.start())
         self.state = "game"
@@ -321,6 +409,20 @@ class App:
             return compose_title(cols, rows, PALETTE, self.title_options(), self.selected, self.message)
         if self.state == "name":
             return compose_title(cols, rows, PALETTE, [], 0, self.message, f"What is your name? {self.name}_")
+        if self.state == "create":
+            return compose_title(cols, rows, PALETTE, list(CREATE_OPTIONS), self.selected,
+                                 f"Who is {self.pending_name}?", message_key="dim")
+        if self.state == "origin":
+            origin = ORIGINS[ORIGIN_KEYS[self.origin_selected]]
+            return compose_title(cols, rows, PALETTE, [ORIGINS[k].title for k in ORIGIN_KEYS],
+                                 self.origin_selected, origin.description, message_key="dim")
+        if self.state == "points":
+            left = POINT_POOL - points_spent(self.points, self.flow_points)
+            options = [f"{p:<18}{self.points[p]:>3}" for p in PHYSIQUE]
+            options += [f"{'meridian openness':<18}{self.flow_points:>3}", f"{'form':<18}{FORMS[self.form_index]:>8}", "Begin"]
+            note = self.message or f"Points left: {left}   (left/right adjusts, Enter on Begin starts)"
+            return compose_title(cols, rows, PALETTE, options, self.points_row, note,
+                                 message_key="red" if self.message else "dim")
         status, log, command = self.status, self.log, self.command
         if self.state == "report":
             command = f"Describe the bug (Enter saves, Esc cancels): {self.report_note}"

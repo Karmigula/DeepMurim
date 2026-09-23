@@ -100,6 +100,7 @@ def test_held_number_key_fires_once(tmp_path):
     for ch in "Hero":
         app.handle_key(ch, ch)
     app.handle_key("return", "\r")
+    app.handle_key("return", "\r")  # Random
     app.handle_key("1", "1")
     before = len(app.log)
     for _ in range(5):

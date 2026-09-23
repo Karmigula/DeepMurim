@@ -1,7 +1,8 @@
 """Re-run a recorded session and check every turn comes out the same.
 
-Turns a bug report into an exact reproduction: same seed (or the saved
-snapshot for a continued game), same commands, compared line by line.
+Turns a bug report into an exact reproduction: same seed and creation choice
+(or the snapshot taken before a continued save was loaded), same commands,
+compared line by line.
 """
 
 import shutil
@@ -24,6 +25,7 @@ def _lines(turn) -> list[list[str]]:
 def replay(session_path, work_dir) -> ReplayResult:
     from app import App  # the app is what recorded the session, so it is what replays it
     from config import Config
+    from systems.creation import CreationChoice
 
     entries = load_session(session_path)
     if not entries or entries[0].get("kind") != "session":
@@ -35,7 +37,8 @@ def replay(session_path, work_dir) -> ReplayResult:
     result = ReplayResult()
     try:
         if header["mode"] == "new":
-            app.start_new(header["player"], world_seed=header["seed"])
+            creation = CreationChoice.from_dict(header.get("creation") or {})
+            app.start_new(header["player"], world_seed=header["seed"], creation=creation)
         else:
             copy = work / "saves" / "replay.world"
             copy.parent.mkdir(parents=True, exist_ok=True)
@@ -54,9 +57,7 @@ def replay(session_path, work_dir) -> ReplayResult:
             elif kind == "turn":
                 got = _lines(app.last_turn) if app.last_turn else []
                 if got != entry["lines"]:
-                    result.mismatches.append(
-                        f"after {last_command}: expected {entry['lines'][:3]} got {got[:3]}"
-                    )
+                    result.mismatches.append(f"after {last_command}: expected {entry['lines'][:3]} got {got[:3]}")
             elif kind == "crash" and app.crash_count == crashes_before:
                 result.mismatches.append(f"after {last_command}: original crashed ({entry.get('error')}), replay did not")
     finally:

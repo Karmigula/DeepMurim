@@ -52,7 +52,7 @@ def run(smoke_png: str | None = None) -> None:
     screen = Screen(config)
 
     if smoke_png:
-        for key, text in [("return", "\r"), *[(ch, ch) for ch in "Tester"], ("return", "\r"), ("1", "1")]:
+        for key, text in [("return", "\r"), *[(ch, ch) for ch in "Tester"], ("return", "\r"), ("return", "\r"), ("1", "1")]:
             app.handle_key(key, text)
         screen.draw(app.grid(screen.cols, screen.rows))
         screen.screenshot(smoke_png)

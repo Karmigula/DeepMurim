@@ -22,6 +22,8 @@ def new_game(app, name="Mo Rin"):
     assert app.state == "name"
     type_text(app, name)
     app.handle_key("return", "\r")
+    assert app.state == "create"
+    app.handle_key("return", "\r")  # Random
     assert app.state == "game"
 
 
