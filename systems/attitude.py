@@ -114,6 +114,21 @@ def _belief_reason(world, variant: dict) -> str | None:
     return f"heard you {verb} {whom}{tail}{where}"
 
 
+def _inherited_terms(world, npc_id: int, heir: int, weight: float, now: int, depth: int = 0) -> list:
+    """Memories of an heir's forebears, halving with each generation back (phase 4b spec 6)."""
+    from systems.lineage import inherited
+    out = []
+    for ancestor, share in inherited(world, npc_id, heir):
+        carried = weight * share
+        for memory in world.memories(npc_id, about=ancestor):
+            value = FEELING_VALUE.get(memory.feeling, 0.0) * effective_intensity(memory, now) * carried
+            if value:
+                out.append((value, "they remember the one who came before you"))
+        if depth < 8:
+            out += _inherited_terms(world, npc_id, ancestor, carried, now, depth + 1)
+    return out
+
+
 def attitude(world, npc_id: int, subject_id: int) -> Attitude:
     npc = world.entity(npc_id)
     traits = set(npc.data.get("traits", ()))
@@ -146,12 +161,8 @@ def attitude(world, npc_id: int, subject_id: int) -> Attitude:
         if value and (fact.id not in best or abs(value) > abs(best[fact.id][0])):
             best[fact.id] = (value, _belief_reason(world, belief.variant))
     terms += list(best.values())
-    from systems.lineage import inherited  # an heir is remembered, in part, as the one before (phase 4b)
-    for ancestor, share in inherited(world, npc_id, true_id):
-        for memory in world.memories(npc_id, about=ancestor):
-            value = FEELING_VALUE.get(memory.feeling, 0.0) * effective_intensity(memory, now) * share
-            if value:
-                terms.append((value, "they remember the one who came before you"))
+    if subject_id == true_id:  # behind a mask, no one sees whose heir you are
+        terms += _inherited_terms(world, npc_id, true_id, 1.0, now)
     if "kind" in traits:
         terms.append((0.2, None))
     if "hot-tempered" in traits:

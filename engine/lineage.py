@@ -19,12 +19,16 @@ class LineageMixin:
         return self.player.data.get("dying")
 
     def _death_choices(self) -> list:
+        import systems.lives as lives
+        now = lives.current_season(self.world)
         choices = []
         for person, kind in bonds.candidates(self.world, self.player.id)[:8]:
             p = self.world.entity(person)
             where = self.world.entity(self.world.targets(person, "located_in")[0]).name \
                 if self.world.targets(person, "located_in") else "the roads"
-            label = f"{p.name} - {bonds.relation_word(self.world, person, kind)}, {int(p.data.get('age', 30))}, " \
+            behind = max(0, now - p.data.get("lived_to", now))
+            age = float(p.data.get("age", 30)) + 0.25 * behind  # as they are now; their seasons run when chosen
+            label = f"{p.name} - {bonds.relation_word(self.world, person, kind)}, {int(age)}, " \
                     f"{p.data.get('realm', 'mortal')}, in {where}"
             choices.append(Choice(label, Action("succeed", person)))
         return choices + [Choice("A newcomer in this world", Action("newcomer")), Choice("A new world", Action("new_world"))]
@@ -86,7 +90,7 @@ class LineageMixin:
                 if deaths:
                     return lines + self._commit(deaths) + self._death_lines()
         named = self.player.data.get("named_heir")
-        if named is not None and named not in [p for p, _ in bonds.candidates(self.world, me)]:
+        if named is not None and not bonds.is_candidate(self.world, me, named):
             self.world.update_data(me, named_heir=None)  # a named heir who can no longer inherit is forgotten
         aged = mortality.age_events(self.world, me)
         if aged:
@@ -116,8 +120,7 @@ class LineageMixin:
         if bonds.sworn_block(world, me, npc.id) is None:
             oath = "sisterhood" if npc.data.get("gender") == "woman" else "brotherhood"
             extras.append(Choice(f"Swear {oath}", Action("swear", npc.id)))
-        heirs = [p for p, _ in bonds.candidates(world, me)]
-        if npc.id in heirs and self.player.data.get("named_heir") != npc.id:
+        if bonds.is_candidate(world, me, npc.id) and self.player.data.get("named_heir") != npc.id:
             extras.append(Choice("Name them your heir", Action("name_heir", npc.id)))
         return extras
 
@@ -138,7 +141,7 @@ class LineageMixin:
         return self._bond(npc, bonds.sworn_block, bonds.sworn_events)
 
     def _do_name_heir(self, npc):
-        if npc not in [p for p, _ in bonds.candidates(self.world, self.player.id)]:
+        if not bonds.is_candidate(self.world, self.player.id, npc):
             return self._turn([("They cannot be your heir.", "system")])
         return self._bond(npc, None, bonds.name_heir_events)
 

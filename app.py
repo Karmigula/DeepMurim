@@ -391,7 +391,9 @@ class App:
         game = self.game
         if game is not None:
             try:
-                place = game.place
+                here = game.world.targets(game.player.id, "located_in") \
+                    or game.world.targets(game.player.id, "buried_at")  # the dead lie where they fell
+                place = game.world.entity(here[0])
                 context.update(
                     seed=game.world.world_seed, time=game.world.time, date=format_date(game.world.time),
                     place=f"{place.name} #{place.id}", focus=game.focus, submenu=game.submenu,

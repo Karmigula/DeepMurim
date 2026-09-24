@@ -120,6 +120,20 @@ def candidates(world, player: int) -> list[tuple[int, str]]:
     return out
 
 
+def is_candidate(world, player: int, person) -> bool:
+    """Whether this person could inherit, without listing everyone who could."""
+    entity = world.entity(person) if isinstance(person, int) else None
+    if entity is None or entity.kind != "person" or entity.data.get("dead") or entity.data.get("is_player") \
+            or _age(entity) < HEIR_AGE:
+        return False
+    if world.entity(player).data.get("named_heir") == person or entity.data.get("sworn_to") == player:
+        return True
+    if any(k == person and role in ("child", "disciple", "sworn_sibling") for k, role in kin_of(world, player)):
+        return True
+    sect = my_sect(world, player)
+    return sect is not None and person in sect_mod.members(world, sect)
+
+
 def relation_word(world, person: int, kind: str) -> str:
     woman = world.entity(person).data.get("gender") == "woman"
     return {"named": "your named heir", "child": "your daughter" if woman else "your son",

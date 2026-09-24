@@ -4,7 +4,7 @@ import systems.bonds as bonds
 import systems.lives as lives
 from systems import factions as F
 from systems.facts import make_variant, place_name, record_fact
-from systems.founding import my_sect
+from systems.founding import followers, my_sect
 from systems.membership import set_membership
 from systems.purse import silver_of
 from systems.techniques import known_arts, martial_arts, teach
@@ -91,9 +91,13 @@ def _succession(world, event) -> None:
         world.update_data(sect, founder=heir)
         world.update_data(old, sect=None)
         world.update_data(heir, sect=sect)
+    practised = {a.technique.id: a.mastery for a in known_arts(world, heir)}
     for technique, completeness in d["arts"]:
         teach(world, heir, technique, completeness=completeness, known_completeness=completeness,
-              source="inheritance", teacher=old)
+              source="inheritance", teacher=old, mastery=practised.get(technique, 0.05))
+    for follower in followers(world, old):
+        if follower != heir:
+            world.update_data(follower, sworn_to=heir)  # they served the house, and serve its heir
     if lives.home(world, heir) != d["home"]:
         world.unrelate(heir, "located_in")
         world.relate(heir, d["home"], "located_in")

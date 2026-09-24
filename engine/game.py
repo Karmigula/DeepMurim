@@ -120,6 +120,13 @@ class Game(LineageMixin, WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, Du
             world.set_meta("player_id", player)
             arts = apply_creation(world, player, made)
             world.update_data(old, is_player=False, dying=None)
+            import systems.sect as sect_mod
+            from systems.founding import followers, my_sect
+            old_sect = my_sect(world, old)
+            if old_sect is not None:
+                sect_mod.dissolve(world, old_sect)  # no one carries on the dead founder's sect
+            for follower in followers(world, old):
+                world.update_data(follower, sworn_to=None)
         populate(world, town)
         settle_town(world, town)
         game = cls(world, narrator)
