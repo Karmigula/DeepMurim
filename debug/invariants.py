@@ -68,6 +68,7 @@ def check_world(world) -> list[str]:
     problems += check_life(world, people)
     problems += check_lineage(world)
     problems += check_trade(world)
+    problems += check_sky(world)
     times = world.recent_chronicle_times()
     for before, after in zip(times, times[1:]):
         if after < before:
@@ -297,6 +298,41 @@ def mentions(name: str, text: str) -> bool:
     return name in text and re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])", text) is not None
 
 
+def check_sky(world) -> list[str]:
+    """Phase 4d spec 8, rules 1-3: occurrences keep their calendar, one per type and place, modifiers in bounds."""
+    import systems.world_events as W
+    out, live = [], {}
+    rows = W.index(world)
+    for row in rows:
+        occurrence = world.entity(row[W.ID])
+        if occurrence is None or occurrence.kind != "world_event":
+            out.append(f"the sky index names missing occurrence #{row[W.ID]}")
+            continue
+        d = occurrence.data
+        if d["type"] not in W.TYPES:
+            out.append(f"occurrence #{occurrence.id} has unknown type {d['type']!r}")
+            continue
+        ends = [d["ends"][s] for s in W.STAGES if s in d["ends"]]
+        if ends != sorted(ends) or not ends or ends[0] <= d["starts"]:
+            out.append(f"occurrence #{occurrence.id} has its stages out of order")
+        if d["seen"] != W.stages_of(d)[:len(d["seen"])]:
+            out.append(f"occurrence #{occurrence.id} saw its stages out of order: {d['seen']}")
+        if d.get("over") and world.time < d["over_at"]:
+            out.append(f"occurrence #{occurrence.id} is over before its time")
+        if not row[W.DONE]:
+            live.setdefault((row[W.TYPE], row[W.PLACE]), []).append(row)
+        for key in W.TYPES[d["type"]]["modifiers"]:
+            value = W.factor(world, None if row[W.SCOPE] == "world" else row[W.PLACE], key)
+            if not W.FACTOR_MIN - 1e-9 <= value <= W.FACTOR_MAX + 1e-9:
+                out.append(f"the {key} modifier over #{row[W.PLACE]} is {value}")
+    for (kind, place), found in live.items():
+        found.sort(key=lambda r: r[W.STARTS])
+        for a, b in zip(found, found[1:]):
+            if a[W.OVER_AT] > b[W.STARTS]:
+                out.append(f"two {kind} occurrences overlap over #{place}")
+    return out
+
+
 def check_trade(world) -> list[str]:
     """Phase 4c spec 9: sane packs, markets, price events and price books."""
     from systems.goods import GOODS, capacity, pack_weight
@@ -411,7 +447,8 @@ def check_people(game, turn) -> list[str]:
     encounter = getattr(game, "encounter", None)
     if encounter is not None and world.entity(encounter["person"]).data.get("dead"):
         out.append("a road encounter with the dead")
-    text = "\n".join([t for t, _ in turn.lines] + [c.label for c in turn.all_choices]).lower()
+    raw = "\n".join([t for t, _ in turn.lines] + [c.label for c in turn.all_choices])
+    text = raw.lower()
     known = {player.name.lower()}
     known |= {world.entity(p).name.lower() for p in known_people(world, player_id)}
     here = world.targets(player_id, "located_in")
@@ -430,7 +467,7 @@ def check_people(game, turn) -> list[str]:
             name = entity.name.lower()
             if name in known or len(name) < 4 or name not in text:  # cheap substring test before the regex
                 continue
-            if re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])", text):
+            if re.search(rf"(?<![\w-]){re.escape(entity.name)}(?![\w-])", raw):  # a proper noun: "again" is not Again
                 out.append(f"{entity.name} (#{entity.id}) is named on screen but the player never heard of them")
     from engine.standing_page import known_factions  # the page decides which factions the player knows
     town = here[0] if here else None

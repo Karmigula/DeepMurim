@@ -88,6 +88,7 @@ class ProceduralNarrator:
         self.grammar = grammar or Grammar.load()
         self._recent: dict[str, deque[str]] = {}
         self._last_salt: dict[str, tuple[str, str]] = {}
+        self._shown: deque[str] = deque(maxlen=2 * self.RECENT)  # lines of any kind: last turn's and this one's
 
     def narrate(self, brief: Brief) -> list[Line]:
         outcome = [(line, "dim") for line in brief.outcome]
@@ -102,11 +103,17 @@ class ProceduralNarrator:
         context = context_of(brief)
         recent = self._recent.setdefault(key, deque(maxlen=self.RECENT))
         text = self.grammar.expand(key, rng, context)
+        fallback = None
         for _ in range(self.REROLLS):
             if text not in recent:
-                break
+                if text not in self._shown:
+                    break
+                fallback = fallback or text  # new to its kind if not to the screen: the best a small grammar can do
             text = self.grammar.expand(key, rng, context)
+        else:
+            text = fallback or text
         recent.append(text)
+        self._shown.append(text)
         self._last_salt[key] = (brief.salt, text)
         return [(text, colour)] + outcome
 

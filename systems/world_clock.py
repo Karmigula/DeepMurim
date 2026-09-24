@@ -312,3 +312,6 @@ def _destroyed_news(world, event, event_id: int) -> None:
 @listen("faction_founded")
 def _founded_news(world, event, event_id: int) -> None:
     _news(world, event, event_id, event.actors[0], "faction_founded", None, 2.0)
+
+
+import systems.sky  # noqa: E402,F401  phase 4d: the sky's season hooks

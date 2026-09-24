@@ -1,0 +1,10 @@
+# World events (phase 4d spec 3-4): one entry per type. See systems/world_events.py for the fields.
+# A fork adds an event here, and (if it needs hooks) a module under systems/events/.
+
+[qi_tide]
+scope = "region"
+cycle = "season"
+chance = 0.04
+stages = { announced = 10, active = 90, aftermath = 20 }
+modifiers = { cultivation = 1.5, breakthrough = 1.2 }
+news = { predicate = "phenomenon", weight = 1.2, stages = ["announced", "active"] }
