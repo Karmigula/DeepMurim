@@ -488,6 +488,14 @@ class World:
             params.append(int(is_true))
         return [_fact(row) for row in self._conn.execute(sql + " order by f.id", params)]
 
+    def facts_after(self, after_id: int, until: int, predicates) -> list[Fact]:
+        """Facts newer than `after_id`, no later than `until`, of these predicates (phase 4d: the Pavilion's informants)."""
+        predicates = sorted(predicates)
+        rows = self._conn.execute(
+            f"select {_FACT_COLUMNS} from facts f where f.id > ? and f.time <= ? "
+            f"and f.predicate in ({','.join('?' * len(predicates))}) order by f.id", (after_id, until, *predicates))
+        return [_fact(row) for row in rows]
+
     def facts_unknown_to(self, knower: int, until: int) -> list[Fact]:
         """Facts no older than `until` that this knower holds no version of."""
         rows = self._conn.execute(

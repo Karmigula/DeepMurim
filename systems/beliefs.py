@@ -120,6 +120,8 @@ def known_people(world: World, player_id: int) -> list[int]:
         for someone in (belief.variant.get("actor"), belief.variant.get("target")):
             if someone is not None and someone != player_id and someone not in seen:
                 seen.append(someone)
+        for names in (belief.variant.get("lists") or {}).values():  # a list you have read names people (phase 4d)
+            seen += [p for p in names if p != player_id and p not in seen]
     out = []
     for someone in seen:
         entity = world.entity(someone)

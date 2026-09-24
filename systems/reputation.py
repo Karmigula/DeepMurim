@@ -71,7 +71,7 @@ def _own_reputation(world, town_id: int, subject_id: int) -> Reputation:
     return Reputation(renown, renown_word(renown), path, epithet)
 
 
-def reputation(world, town_id: int, subject_id: int) -> Reputation:
+def _reputation(world, town_id: int, subject_id: int) -> Reputation:
     """What a town makes of someone, including half of the name they inherited (phase 4b spec 6)."""
     own = _own_reputation(world, town_id, subject_id)
     from systems.lineage import inherited
@@ -85,3 +85,15 @@ def reputation(world, town_id: int, subject_id: int) -> Reputation:
         return own
     renown = round(own.renown + extra, 3)
     return Reputation(renown, renown_word(renown), own.path if own.renown else "hard to read", own.epithet or shadow)
+
+
+def reputation(world, town_id: int, subject_id: int) -> Reputation:
+    """What a town makes of someone: deeds, an inherited name, and a place on the Pavilion's lists (phase 4d)."""
+    found = _reputation(world, town_id, subject_id)
+    from systems.rankings import rank_known_in
+    ranked = rank_known_in(world, town_id, subject_id)
+    if ranked is None:
+        return found
+    title, bonus = ranked
+    renown = round(found.renown + bonus, 3)
+    return Reputation(renown, renown_word(renown), found.path, f"{title}, the {found.epithet}" if found.epithet else title)

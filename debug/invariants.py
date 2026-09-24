@@ -70,6 +70,7 @@ def check_world(world) -> list[str]:
     problems += check_trade(world)
     problems += check_sky(world)
     problems += check_races(world)
+    problems += check_rankings(world)
     times = world.recent_chronicle_times()
     for before, after in zip(times, times[1:]):
         if after < before:
@@ -297,6 +298,38 @@ def check_life(world, people=None) -> list[str]:
 def mentions(name: str, text: str) -> bool:
     """Whether `name` appears in `text` as whole words ("wang clan" is not in "hwang clan")."""
     return name in text and re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])", text) is not None
+
+
+def check_rankings(world) -> list[str]:
+    """Phase 4d spec 8, rule 4: the lists name only people the Pavilion believes in, in order, once each."""
+    import systems.rankings as R
+    pav = R.pavilion(world)
+    d = world.entity(pav).data if pav is not None else {}
+    if not d.get("lists"):
+        return []
+    key = (str(world.path), d["year"], len(d["lists"].get("heaven", [])), sum(map(len, d["lists"].values())))
+    if getattr(world, "_rankings_checked", None) == key:
+        return []
+    out, seen = [], set()
+    believed = {b.variant.get("actor") for b, f in world.known_facts(pav)}
+    for name, size in R.LISTS:
+        names = d["lists"].get(name, [])
+        values = [d["scores"].get(str(p), 0.0) for p in names]
+        if len(names) > size or len(set(names)) != len(names) or values != sorted(values, reverse=True):
+            out.append(f"the {name} list is out of order, too long or repeats someone")
+        if seen & set(names):
+            out.append(f"the {name} list shares a name with a higher list")
+        seen |= set(names)
+    for person in seen | set(d["lists"].get("young", [])):
+        if person not in believed:
+            out.append(f"#{person} is ranked but the Pavilion holds no belief about them")
+    ages = R.believed_ages(world, pav)
+    for person in d["lists"].get("young", []):
+        if ages.get(person, R.YOUNG_AGE + 1) > R.YOUNG_AGE:
+            out.append(f"#{person} is a Young Dragon but the Pavilion believes them older than {R.YOUNG_AGE}")
+    if not out:
+        world._rankings_checked = key
+    return out
 
 
 def check_races(world) -> list[str]:

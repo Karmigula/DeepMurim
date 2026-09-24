@@ -135,3 +135,24 @@ def _sold(world, event):
 @summary("sold_treasure")
 def _sold_line(world, entry, names, place, other):
     return f"Sold a treasure in {place} for {entry.data['silver']} silver."
+
+
+
+def _published_story(world, variant, viewer) -> str:
+    from systems.rankings import title
+    heaven = variant.get("lists", {}).get("heaven", [])
+    if not heaven:
+        return "The Heavenly Ranking Pavilion has published its lists; not one name on them is worth a rumour."
+    first = "you" if heaven[0] == viewer else world.entity(heaven[0]).name
+    return f"The Heavenly Ranking Pavilion has published its lists for year {variant.get('year')}: {title('heaven', 1)} is {first}."
+
+
+SPECIAL_PHRASES["published"] = _published_story
+
+
+@summary("rankings_published")
+def _published_line(world, entry, names, place, other):
+    from systems.rankings import rank_of, title
+    me = world.get_meta("player_id")
+    found = rank_of(entry.data["lists"], me)
+    return f"The Pavilion named you {title(*found)}." if found else "The Pavilion published its lists."

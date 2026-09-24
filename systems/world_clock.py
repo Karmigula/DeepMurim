@@ -315,3 +315,4 @@ def _founded_news(world, event, event_id: int) -> None:
 
 
 import systems.sky  # noqa: E402,F401  phase 4d: the sky's season hooks
+import systems.rankings  # noqa: E402,F401  phase 4d: the Pavilion's informants and yearly lists
