@@ -6,7 +6,7 @@ from systems import halls
 from systems.attitude import afraid
 from systems.beliefs import apparent_to
 from systems.membership import set_membership
-from world.events import Event, Witness, effect
+from world.events import Event, Witness, effect, listen
 from world.gen.materialize import ensure_region, ensure_town, people_at
 from world.gen.names import person_name
 from world.gen.npc import PORTRAIT_PARTS
@@ -252,3 +252,13 @@ def guarded_events(world, player: int, event) -> None:
 
 
 encounters.ROAD_HOOKS.extend([hunt_encounter, escort_encounter])
+
+
+@listen("died")
+def _duty_ends_with_the_holder(world, event, event_id: int) -> None:
+    """No one reports back for the dead (phase 4b review)."""
+    victim = event.actors[-1]
+    duty = open_duty(world, victim)
+    if duty is not None:
+        world.update_data(duty.id, status="closed")
+        world.update_data(victim, duty=None)

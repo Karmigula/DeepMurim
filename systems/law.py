@@ -57,7 +57,9 @@ def crimes(world, town_id: int, subject: int) -> list[tuple[int, float]]:
 def bounty(world, town_id: int, subject: int) -> int:
     amount = round(FINE_PER * sum(w for _, w in crimes(world, town_id, subject)))
     from systems.lineage import inherited  # an heir answers for half the debts they inherited (phase 4b)
-    amount += sum(round(share * bounty(world, town_id, a)) for a, share in inherited(world, town_id, subject))
+    entity = world.entity(subject) if isinstance(subject, int) else None
+    if entity is not None and town_id not in entity.data.get("inherited_paid", []):  # until settled here
+        amount += sum(round(share * bounty(world, town_id, a)) for a, share in inherited(world, town_id, subject))
     return amount if amount >= WANTED else 0
 
 
@@ -85,6 +87,13 @@ def _arrest(world, event) -> None:
     world.update_data(event.actors[0], arrest={"constable": event.actors[1], **event.data})
 
 
+def settle_inherited(world, player: int, town: int) -> None:
+    """Paying, serving or a trial settles the debts inherited in this town too (phase 4b review)."""
+    paid = list(world.entity(player).data.get("inherited_paid", []))
+    if town not in paid:
+        world.update_data(player, inherited_paid=paid + [town])
+
+
 def _atone(world, player: int, facts: list[int]) -> None:
     atoned = list(world.entity(player).data.get("atoned", []))
     world.update_data(player, atoned=atoned + [f for f in facts if f not in atoned], arrest=None)
@@ -109,11 +118,13 @@ def escape_events(world, player: int, place: int) -> list[Event]:
 @effect("fined")
 def _fined(world, event) -> None:
     _atone(world, event.actors[0], event.data["facts"])
+    settle_inherited(world, event.actors[0], event.place)
 
 
 @effect("jailed")
 def _jailed(world, event) -> None:
     _atone(world, event.actors[0], event.data["facts"])
+    settle_inherited(world, event.actors[0], event.place)
     advance(world, event.data["days"] * WATCHES_PER_DAY)
 
 

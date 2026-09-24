@@ -69,11 +69,17 @@ def _succession(world, event) -> None:
     for item in world.targets(old, "owns"):
         world.unrelate(old, "owns", item)
         world.relate(heir, item, "owns")
+        if world.entity(item).kind == "mask":
+            world.update_data(item, persona=None)  # a new wearer is a new face (phase 4b review)
     for town in world.targets(old, "owns_land"):
         world.unrelate(old, "owns_land", town)
         world.relate(heir, town, "owns_land")
         if world.entity(town).data.get("owner") == old:
             world.update_data(town, owner=heir)
+    for fid, rank, data in F.memberships(world, heir):  # the player holds no post in an NPC faction
+        if world.entity(fid).data["type"] != "player_sect" and data.get("status", "member") == "member" \
+                and data.get("role") not in (None, "member"):
+            set_membership(world, heir, fid, rank=min(rank, 3), status="released")
     sect = my_sect(world, old)
     if sect is not None:
         for fid, _, data in F.memberships(world, heir):

@@ -314,10 +314,13 @@ class App:
         if newcomer_save is not None:  # a newcomer walks into the dead player's world (phase 4b)
             self._newcomer_save = None
             self._close_game()
+            self.logs_dir.mkdir(parents=True, exist_ok=True)
+            snapshot = self.logs_dir / f"session-{stamp()}.start.world"
+            shutil.copyfile(newcomer_save, snapshot)  # the dead world, before the newcomer walks in: replayable
             self.game = Game.newcomer(newcomer_save, name, creation=creation)
             self.save_path = newcomer_save
             self._open_session(mode="newcomer", player=name, seed=self.game.world.world_seed,
-                               creation=creation.to_dict())
+                               creation=creation.to_dict(), snapshot=str(snapshot))
             self.log = []
             self._show(self.game.start())
             self.state = "game"

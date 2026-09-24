@@ -4,6 +4,8 @@ import systems.bonds as bonds
 import systems.mortality as mortality
 import systems.succession as succession
 from engine.actions import Action, Choice
+from systems.halls import settle_town
+from world.gen.materialize import populate
 from systems.time import format_date
 from world.events import commit
 
@@ -147,9 +149,11 @@ class LineageMixin:
         if not events:
             return self._turn([("They cannot carry on for you.", "system")])
         lines = self._commit(events)  # the player is now the heir
+        populate(self.world, self.place.id)
+        settle_town(self.world, self.place.id)
         self._last_look = None
         self._before_scene()
-        return self._turn(lines + self._describe("arrive") + self._presence())
+        return self._turn(lines + self._describe("arrive") + self._presence() + self._after_arrival())
 
     def _do_newcomer(self, _target):
         if not self._dying():

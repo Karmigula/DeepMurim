@@ -167,7 +167,8 @@ def _tried(world, event) -> None:
 
 @effect("imprisoned")
 def _imprisoned(world, event) -> None:
-    from systems.law import _atone
+    from systems.law import _atone, settle_inherited
     from systems.time import advance
     _atone(world, event.actors[0], event.data["facts"])
+    settle_inherited(world, event.actors[0], event.place)
     advance(world, event.data["seasons"] * lives.SEASON)

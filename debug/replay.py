@@ -39,6 +39,12 @@ def replay(session_path, work_dir) -> ReplayResult:
         if header["mode"] == "new":
             creation = CreationChoice.from_dict(header.get("creation") or {})
             app.start_new(header["player"], world_seed=header["seed"], creation=creation)
+        elif header["mode"] == "newcomer":  # a newcomer walked into a dead player's world (phase 4b)
+            copy = work / "saves" / "replay.world"
+            copy.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(header["snapshot"], copy)
+            app._newcomer_save = copy
+            app.start_new(header["player"], creation=CreationChoice.from_dict(header.get("creation") or {}))
         else:
             copy = work / "saves" / "replay.world"
             copy.parent.mkdir(parents=True, exist_ok=True)

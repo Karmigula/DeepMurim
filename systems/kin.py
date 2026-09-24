@@ -110,7 +110,8 @@ def _inherit(world, event, event_id: int) -> None:
     killer, victim = event.actors
     # the living world's deaths grieve only the family already in the world; conjuring
     # new relatives at every natural death made the population explode (phase 4a review)
-    family = kin_of(world, victim) if event.data.get("world") else ensure_kin(world, victim, origin=event.place)
+    known = event.data.get("world") or event.data.get("player")  # the player has no seeded kin, only real ones
+    family = kin_of(world, victim) if known else ensure_kin(world, victim, origin=event.place)
     for relative, _role in family:
         if relative == killer:
             continue
@@ -142,6 +143,8 @@ def avengers_for(world, player_id: int) -> list[int]:
     for memory in world.memories_with_feeling("grief"):
         if memory.event.kind != "died" or memory.event.actors[0] != player_id or memory.owner in found:
             continue
+        if memory.event.actors[0] == memory.event.actors[-1]:
+            continue  # grief over a natural death blames no one
         person = world.entity(memory.owner)
         if person is None or person.kind != "person" or person.data.get("dead"):
             continue

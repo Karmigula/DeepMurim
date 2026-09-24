@@ -388,6 +388,12 @@ def check_people(game, turn) -> list[str]:
         known |= {p.name.lower() for p in people_at(world, here[0])}
     known |= {p.name.lower() for p in world.entities("persona") if p.data.get("of") == player_id}
     known |= {world.entity(k).name.lower() for k, _, _ in world.relations_from(player_id, "kin_of")}  # your family
+    for ancestor in player.data.get("ancestors", []):  # and your forebears, and who killed them (phase 4b)
+        forebear = world.entity(ancestor)
+        known.add(forebear.name.lower())
+        killer = (forebear.data.get("death") or {}).get("killer")
+        if killer is not None:
+            known.add(world.entity(killer).name.lower())
     for kind in ("person", "persona"):
         for entity in world.entities(kind):
             name = entity.name.lower()
