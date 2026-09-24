@@ -1,5 +1,6 @@
 """Lineage in the engine (phase 4b): aging as time passes, death, and the death screen."""
 
+import systems.bonds as bonds
 import systems.mortality as mortality
 from engine.actions import Action, Choice
 from systems.time import format_date
@@ -73,6 +74,9 @@ class LineageMixin:
                 deaths = mortality.deviation_death_events(self.world, me, event_id)
                 if deaths:
                     return lines + self._commit(deaths) + self._death_lines()
+        named = self.player.data.get("named_heir")
+        if named is not None and named not in [p for p, _ in bonds.candidates(self.world, me)]:
+            self.world.update_data(me, named_heir=None)  # a named heir who can no longer inherit is forgotten
         aged = mortality.age_events(self.world, me)
         if aged:
             commit(self.world, aged[:1])  # quiet: aging is not an event worth a line of prose
@@ -88,6 +92,44 @@ class LineageMixin:
             return super()._after_duel(data)
         deaths = mortality.death_events(self.world, self.player.id, cause, data.get("killer"), record=False)
         return self._commit(deaths) + self._death_lines()  # nothing else follows a death
+
+    def _conversation_extras(self, npc) -> list:
+        extras = super()._conversation_extras(npc)
+        world, me = self.world, self.player.id
+        if npc.data.get("beast") or npc.data.get("dead"):
+            return extras
+        if bonds.propose_block(world, me, npc.id) is None:
+            extras.append(Choice("Propose marriage", Action("propose", npc.id)))
+        if bonds.disciple_block(world, me, npc.id) is None and (npc.id, "disciple") not in bonds.kin_of(world, me):
+            extras.append(Choice("Take them as your disciple", Action("take_disciple", npc.id)))
+        if bonds.sworn_block(world, me, npc.id) is None:
+            oath = "sisterhood" if npc.data.get("gender") == "woman" else "brotherhood"
+            extras.append(Choice(f"Swear {oath}", Action("swear", npc.id)))
+        heirs = [p for p, _ in bonds.candidates(world, me)]
+        if npc.id in heirs and self.player.data.get("named_heir") != npc.id:
+            extras.append(Choice("Name them your heir", Action("name_heir", npc.id)))
+        return extras
+
+    def _bond(self, npc, block, build):
+        if self.focus != npc:
+            return self._turn([("Speak with them first.", "system")])
+        if block is not None and (why := block(self.world, self.player.id, npc)) is not None:
+            return self._turn([(why, "system")])
+        return self._turn(self._commit(build(self.world, self.player.id, npc, self.place.id)))
+
+    def _do_propose(self, npc):
+        return self._bond(npc, bonds.propose_block, bonds.propose_events)
+
+    def _do_take_disciple(self, npc):
+        return self._bond(npc, bonds.disciple_block, bonds.disciple_events)
+
+    def _do_swear(self, npc):
+        return self._bond(npc, bonds.sworn_block, bonds.sworn_events)
+
+    def _do_name_heir(self, npc):
+        if npc not in [p for p, _ in bonds.candidates(self.world, self.player.id)]:
+            return self._turn([("They cannot be your heir.", "system")])
+        return self._bond(npc, None, bonds.name_heir_events)
 
     def _do_new_world(self, _target):
         if not self._dying():

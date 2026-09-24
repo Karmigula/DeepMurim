@@ -87,9 +87,15 @@ def marry_events(world, person: int, n: int, rng) -> list[Event]:
 
 def birth_events(world, person: int, n: int, rng) -> list[Event]:
     spouse = spouse_of(world, person)
-    if spouse is None or spouse < person:  # the lower id of a couple rolls for both
+    if spouse is None:
         return []
-    if not _ready(world, spouse, n):
+    with_player = bool(world.entity(spouse).data.get("is_player"))
+    if spouse < person and not with_player:  # the lower id of a couple rolls for both; with the player, the NPC does
+        return []
+    if with_player:
+        if world.entity(spouse).data.get("dead"):
+            return []
+    elif not _ready(world, spouse, n):
         return []  # the spouse lives up to this season first (spec §2.2)
     entity, other = world.entity(person), world.entity(spouse)
     if not any(18 <= _age(e) <= 45 for e in (entity, other)) or rng.random() >= BIRTH_CHANCE:

@@ -1,6 +1,7 @@
 [symbols]
 line_years = ["The years sit a little heavier.", "Another season is behind you.", "Time moves, as it always has.", "You feel the weight of years.", "The seasons turn.", "Something in you has grown older."]
 line_court = ["The court falls silent.", "A gong sounds once.", "The magistrate does not look up.", "Guards stand at your shoulders.", "Ink dries on the sentence.", "Someone in the crowd spits."]
+line_bond = ["Something between you settles.", "A promise hangs in the air.", "You will remember this day.", "The world feels a little less wide.", "Tea is poured for two.", "Neither of you speaks for a moment."]
 line_quiet = ["No one else notices.", "The day goes on.", "You breathe slowly.", "The wind shifts.", "A bird calls somewhere.", "You carry on."]
 
 [player_aged]
@@ -14,3 +15,19 @@ lines = ["#line_court# #line_quiet#", "#line_quiet# #line_court#"]
 [imprisoned]
 colour = "dim"
 lines = ["#line_years# #line_quiet#", "#line_quiet# #line_years#"]
+
+[proposal]
+colour = "npc"
+lines = ["#line_bond# #line_quiet#", "#line_quiet# #line_bond#"]
+
+[took_disciple]
+colour = "npc"
+lines = ["#line_bond# #line_quiet#", "#line_quiet# #line_bond#"]
+
+[sworn_siblings]
+colour = "npc"
+lines = ["#line_bond# #line_quiet#", "#line_quiet# #line_bond#"]
+
+[named_heir]
+colour = "npc"
+lines = ["#line_bond# #line_quiet#", "#line_quiet# #line_bond#"]
