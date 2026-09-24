@@ -281,4 +281,6 @@ def test_a_sky_watcher(tmp_path, seed, monkeypatch):
         keep_playing(app, step)
     assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
     assert app.violations == [], app.violations[:5]
+    happened = {row[0] for row in app.game.world._conn.execute("select distinct kind from chronicle")}
+    assert {"sky_started", "world_event_stage", "rankings_published"} <= happened, happened  # the sky was busy
     app.shutdown()

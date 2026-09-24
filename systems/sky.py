@@ -73,7 +73,14 @@ def stage_events(world, place: int | None = None) -> list[Event]:
     return events
 
 
+def load_modules() -> None:
+    """Import every type's module, so hooks a module registers itself are live (a fork may register late)."""
+    for kind in sorted(W.TYPES):
+        module(kind)
+
+
 def observe(world, place: int | None = None) -> list[int]:
+    load_modules()
     events = stage_events(world, place)
     return commit(world, events) if events else []
 
@@ -149,6 +156,7 @@ def _site(world, region: int, rng) -> int | None:
 
 def season_events(world, n: int) -> list[Event]:
     """Roll every season-cycle type for season n; each starts on a day of that season (spec §3.3)."""
+    load_modules()
     events = []
     for kind in sorted(W.TYPES):
         spec = W.TYPES[kind]
@@ -182,5 +190,4 @@ def observe_all(world, n: int) -> list[Event]:
 
 world_clock.SEASON_HOOKS.extend([season_events, observe_all])
 market.EVENT_FACTORS.append(W.price_factor)
-for _kind in sorted(W.TYPES):
-    module(_kind)  # a type's module may register hooks of its own (the blood moon's patrols)
+load_modules()  # a type's module may register hooks of its own (the blood moon's patrols)

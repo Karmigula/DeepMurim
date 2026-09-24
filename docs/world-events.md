@@ -55,7 +55,20 @@ occurrence active over a place, clamped to 0.25-4.0. These keys are read today:
 
 A new knob is one `factor()` call in the system it should move, and a key in your TOML.
 
-## 4. The worked examples
+## 4. Names that must not collide, and what is saved
+
+- **Event kinds and verbs are global.** Every event kind has exactly one effect (`world.events.EFFECTS`), and every
+  player verb is a `_do_<verb>` method found through the `Game` class's bases. A new kind or verb that reuses an existing
+  name silently replaces or shadows it, so pick names that no other system uses (`grep -rn '@effect("'` lists them).
+- **A misspelt field is refused.** `full_spec` raises on an unknown field or stage, so a typo in your TOML fails at start.
+- **Saved state.** Occurrences are `world_event` entities, and treasures are `treasure` entities. The meta rows are:
+  - `sky_index`: the occurrences that still matter;
+  - `capital`: the Pavilion's city;
+  - `pavilion`: the Pavilion itself;
+  - `pavilion_mark`: the newest fact its informants have weighed;
+  - `pavilion_retry`: facts waiting for their second chance.
+
+## 5. The worked examples
 
 `systems/data/world_events.toml` holds eight: the qi tide and the comet (modifiers only), the
 blood moon (a hook of its own), dao resonance (`eligible`, `start_data`, `on_stage`), tribulation

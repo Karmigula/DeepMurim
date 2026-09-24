@@ -337,12 +337,19 @@ def check_races(world) -> list[str]:
     import systems.races as races
     import systems.world_events as W
     out = []
-    for row in W.index(world):
-        if row[W.TYPE] not in races.RACE_KINDS:
-            continue
-        race = world.entity(row[W.ID]).data["data"]
+    live = {row[W.ID] for row in W.index(world)}
+    mark = getattr(world, "_races_checked", 0)
+    rows = world._conn.execute("select id, data from entities where kind = 'world_event' and id > ? order by id", (mark,))
+    settled = True  # the mark moves only past a run of settled occurrences, so none is skipped while open
+    for occurrence, text in rows.fetchall():
+        d = json.loads(text)
+        race = d["data"] if d["type"] in races.RACE_KINDS else {}
         if race.get("claimed") is not None and world.entity(race.get("item") or -1) is None:
-            out.append(f"race #{row[W.ID]} was claimed but its prize is missing")
+            out.append(f"race #{occurrence} was claimed but its prize is missing")
+            settled = False
+        settled = settled and (occurrence not in live or race.get("claimed") is not None)
+        if settled:
+            world._races_checked = occurrence
     for item in world.entities("treasure"):
         owners = world.sources(item.id, "owns")
         if len(owners) != (0 if item.data.get("used") else 1):

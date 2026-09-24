@@ -100,7 +100,7 @@ def road_encounter_events(world, player: int, town) -> list[Event]:
         found = hook(world, player, town, rng)
         if found:
             return found
-    if rng.random() >= danger * ENCOUNTER_CHANCE * W.factor(world, town.id, "encounter") * W.factor(world, town.id, "beasts"):
+    if rng.random() >= danger * ENCOUNTER_CHANCE * W.factors(world, town.id, ("encounter", "beasts")):
         return _avenger_events(world, player, town, rng)
     return random_encounter(world, player, town, rng)
 

@@ -223,9 +223,14 @@ def run_season(world, n: int) -> None:
             commit(world, staffing_events(world, faction, n, staff))
             commit(world, power_events(world, faction, n, staff))
         commit(world, founding_events(world, n))
-        for hook in SEASON_HOOKS:
+        for hook in season_hooks():
             commit(world, hook(world, n))
         world.set_meta("world_tick", n)
+
+
+def season_hooks() -> list:
+    """The hooks by module, each module's in the order it added them: the same whatever was imported first."""
+    return sorted(SEASON_HOOKS, key=lambda hook: hook.__module__)
 
 
 def run_due(world, limit: int = MAX_WORLD_SEASONS) -> int:

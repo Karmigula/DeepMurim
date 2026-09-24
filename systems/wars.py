@@ -49,11 +49,17 @@ def _leader(world, person: int, faction: int) -> bool:
     return (F.membership(world, person, faction) or (0, {}))[1].get("role") == "leader"
 
 
+def clash_boost(world, n: int) -> float:
+    """A comet year stirs war (phase 4d). Read at the season's start: this season's own comets do not exist
+    yet when its clashes are rolled, so every comet is caught by the next season's roll instead."""
+    return W.factor(world, None, "clash", at=n * W.SEASON)
+
+
 def clash_events(world, n: int) -> list[Event]:
     ids = clock_factions(world)
     known = stances(world, ids)
     events = []
-    boost = W.factor(world, None, "clash", at=n * W.SEASON + W.SEASON // 2)  # a comet year (phase 4d)
+    boost = clash_boost(world, n)
     for i, a in enumerate(ids):
         for b in ids[i + 1:]:
             value = known.get((a, b), 0.0)

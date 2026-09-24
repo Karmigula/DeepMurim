@@ -22,16 +22,18 @@ def rankings_lines(world, player: int) -> list[Line]:
     if known is None:
         return lines + [("  You have not seen the Pavilion's lists. Every city posts them each spring.", "dim")]
     lines.append((f"  Your copy: the lists of year {known['year']}, {max(0, (world.time - known['time']) // 4)} days old.", "dim"))
-    mine = R.rank_of(known["lists"], player)
+    mine = R.rank_of_you(world, known["lists"], player)
     if mine:
         lines.append((f"  You are {R.title(*mine)}.", "dim"))
     dead = _dead_you_know_of(world, player)
+    masks = {p.id: p.name for p in world.entities("persona") if p.data.get("of") == player}
     for name, label in LABELS:
         names = known["lists"].get(name, [])
         if not names:
             continue
         lines.append((f"{label}:", "heading"))
         for place, person in enumerate(names, 1):
-            who = "you" if person == player else world.entity(person).name
+            who = "you" if person == player else f"you, as {masks[person]}" if person in masks \
+                else world.entity(person).name
             lines.append((f"  {place:>2}. {who}{' (dead, you have heard)' if person in dead else ''}", "dim"))
     return lines

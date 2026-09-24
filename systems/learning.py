@@ -99,7 +99,9 @@ def study_events(world, player: int, place: int, item_id: int) -> list[Event]:
     manual = next((m for m in unstudied(world, player) if m.item.id == item_id), None)
     if manual is None:
         return []
-    data = {"item": item_id, "technique": manual.technique.id, "name": manual.technique.name, "days": STUDY_DAYS}
+    import systems.world_events as W
+    days = max(1, round(STUDY_DAYS / W.factor(world, place, "practice")))  # a dao resonance (phase 4d)
+    data = {"item": item_id, "technique": manual.technique.id, "name": manual.technique.name, "days": days}
     return [Event("studied_manual", (player,), place, data)]
 
 

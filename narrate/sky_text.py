@@ -1,7 +1,7 @@
 """What the player is told about the sky and the Murim's great events (phase 4d)."""
 
+from narrate.outcomes import cap, outcome, summary  # first: outcomes loads gossip_text, which needs it loaded
 from narrate.gossip_text import SPECIAL_PHRASES
-from narrate.outcomes import cap, outcome, summary
 from systems.realms import REALMS
 
 NAMES = {"qi_tide": "a qi tide", "blood_moon": "a blood moon", "comet": "a comet",
@@ -153,8 +153,10 @@ SPECIAL_PHRASES["published"] = _published_story
 @summary("rankings_published")
 def _published_line(world, entry, names, place, other):
     from systems.rankings import rank_of, title
+    from systems.rankings import latest
     me = world.get_meta("player_id")
-    found = rank_of(entry.data["lists"], me)
+    heard = latest(world, me)
+    found = rank_of(entry.data["lists"], me) if heard and heard["year"] >= entry.data["year"] else None
     return f"The Pavilion named you {title(*found)}." if found else "The Pavilion published its lists."
 
 

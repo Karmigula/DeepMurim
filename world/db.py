@@ -391,6 +391,11 @@ class World:
         )
         return cursor.lastrowid
 
+    def chronicle_of_kind(self, kind: str) -> list[ChronicleEntry]:
+        """Every entry of one kind, oldest first (phase 4d: the yearly lists, one a year)."""
+        rows = self._conn.execute(f"select {_ENTRY_COLUMNS} from chronicle c where c.kind = ? order by c.id", (kind,))
+        return [_entry(row) for row in rows]
+
     def chronicle_about(self, entity_id: int, limit: int = 20) -> list[ChronicleEntry]:
         rows = self._conn.execute(
             f"select {_ENTRY_COLUMNS} from chronicle c "

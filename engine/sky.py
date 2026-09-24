@@ -177,7 +177,7 @@ def sheet_sky_lines(world, player: int) -> list:
     if len(lines) == 2:
         lines.append(("  quiet", "dim"))
     known = rankings.latest(world, player)
-    mine = rankings.rank_of(known["lists"], player) if known else None
+    mine = rankings.rank_of_you(world, known["lists"], player) if known else None
     lines.append((f"Rank: {rankings.title(*mine)} (the lists of year {known['year']})" if mine else "Rank: unranked",
                   "default"))
     return lines

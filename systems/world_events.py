@@ -135,6 +135,14 @@ def factor(world, place: int | None, key: str, at: int | None = None) -> float:
     return max(FACTOR_MIN, min(FACTOR_MAX, value))
 
 
+def factors(world, place: int | None, keys, at: int | None = None) -> float:
+    """Several knobs that move one roll (encounters and beasts on the road), multiplied and clamped once."""
+    value = 1.0
+    for key in keys:
+        value *= factor(world, place, key, at)
+    return max(FACTOR_MIN, min(FACTOR_MAX, value))
+
+
 def price_factor(world, town: int, good: str) -> float:
     """The price multipliers of occurrences active over this town (4c market clamps the product)."""
     at = world.time

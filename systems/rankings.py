@@ -211,7 +211,7 @@ def _published_news(world, event, event_id: int) -> None:
     pav, d = event.actors[0], event.data
     variant = make_variant("published", pav, None, place=place_name(world, event.place))
     variant.update(year=d["year"], first=(d["lists"]["heaven"] or [None])[0])
-    fact = record_fact(world, pav, "published", None, place=event.place, source_event=event_id, weight=3.0,
+    fact = record_fact(world, pav, "published", None, place=event.place, weight=3.0,  # no witnesses: the named hear it by rumour
                        variant=variant, extra={"lists": d["lists"]})  # the lists once, not in every believer's copy
     world.update_data(pav, fact=fact)
 
@@ -248,6 +248,14 @@ def rank_of(lists: dict, person: int) -> tuple[str, int] | None:
     return None
 
 
+def rank_of_you(world, lists: dict, player: int) -> tuple[str, int] | None:
+    """The player's best place on these lists, as themselves or behind one of their masks."""
+    order = ("heaven", "earth", "human", "young")
+    selves = [player] + [p.id for p in world.entities("persona") if p.data.get("of") == player]
+    found = [f for f in (rank_of(lists, s) for s in selves) if f]
+    return min(found, key=lambda f: (order.index(f[0]), f[1])) if found else None
+
+
 def title(name: str, place: int) -> str:
     return f"{ORDINALS[place - 1]} {TITLES[name]}"
 
@@ -274,8 +282,8 @@ def best_rank(world, person: int) -> str | None:
     """The highest place this person ever held on the Pavilion's lists, as a title (the lineage page's pride)."""
     order = ("heaven", "earth", "human", "young")
     best = None
-    for entry in world.chronicle_about(person, limit=400):
-        found = rank_of(entry.data["lists"], person) if entry.kind == "rankings_published" else None
+    for entry in world.chronicle_of_kind("rankings_published"):
+        found = rank_of(entry.data["lists"], person)
         if found and (best is None or (order.index(found[0]), found[1]) < (order.index(best[0]), best[1])):
             best = found
     return title(*best) if best else None
