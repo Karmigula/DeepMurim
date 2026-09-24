@@ -59,7 +59,7 @@ __all__ = ["Action", "Choice", "Game", "Turn"]
 MAX_SHOWN = 9  # digits 1-9 pick a choice with one key
 KEEP_SUBMENU = frozenset({
     "people", "routes", "cultivate", "practise_menu", "meridian_menu", "ambiguous",
-    "use_menu", "learn_menu", "browse", "create_menu",
+    "use_menu", "learn_menu", "browse", "create_menu", "more_menu",
 })
 QUIET_KINDS = frozenset({"exchange", "player_aged"})
 SMALL_TRADE = 50  # smaller trades stay out of the journal
@@ -72,6 +72,7 @@ HELP = [
     ("  cultivate | meditate <day|week|month|season> | practise <art> | open <meridian> | rest | breakthrough", "system"),
     ("  challenge | spar | strike | feint | guard | probe | flee | yield | spare | rob | cripple | kill", "system"),
     ("  news | ask about <name> | tell | rumours | wear mask | remove mask | standing (F6) | ledger (F7) | lineage (F8) | market | prices", "system"),
+    ("  sky | rankings (F10) | seek | swallow", "system"),
     ("  F2 swap art side | F3 hide art | F4 character sheet | F9 report a bug | F12 debug | Esc menu", "system"),
 ]
 
@@ -206,6 +207,10 @@ class Game(LineageMixin, MarketMixin, SkyMixin, WorldMixin, FactionsMixin, Joini
     def _do_routes(self, _target) -> Turn:
         self.submenu = "routes"
         return self._turn([("Where to?", "system")])
+
+    def _do_more_menu(self, _target) -> Turn:
+        self.submenu = "more_menu"
+        return self._turn([("What else?", "system")])
 
     def _do_back(self, _target) -> Turn:
         return self._turn([])
@@ -455,11 +460,13 @@ class Game(LineageMixin, MarketMixin, SkyMixin, WorldMixin, FactionsMixin, Joini
         everything = people + routes + cultivate + practise + meridians + general
         for options, _ in feature_menus.values():
             everything += [c for c in options if c not in everything]
+        main = self._main_menu(people, routes, general)
+        submenus["more_menu"] = (self._more, Action("back"))
         if self.submenu in submenus:
             options, back = submenus[self.submenu]
             shown = options[: MAX_SHOWN - 1] + [Choice("Back", back)]
         else:
-            shown = self._main_menu(people, routes, general)
+            shown = main
         return shown, [c for c in everything if c not in shown]
 
     def _main_menu(self, people: list[Choice], routes: list[Choice], general: list[Choice]) -> list[Choice]:
@@ -474,7 +481,9 @@ class Game(LineageMixin, MarketMixin, SkyMixin, WorldMixin, FactionsMixin, Joini
         for name, group in (("people", people), ("routes", routes)):
             if len(menu()) > MAX_SHOWN and len(group) > 1:
                 fold[name] = True
-        return menu()
+        items = menu()
+        self._more = items[MAX_SHOWN - 1:] if len(items) > MAX_SHOWN else []  # a crowded day folds its tail (4d)
+        return items[: MAX_SHOWN - 1] + [Choice("More...", Action("more_menu"))] if self._more else items
 
     def _cultivation_choices(self, body: Body, can_practise: bool) -> list[Choice]:
         options = [

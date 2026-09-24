@@ -364,6 +364,8 @@ def scene_brief(world: World, place_id: int, player_id: int, salt: str) -> Brief
     trade = town_line(world, place_id)
     if trade:
         facts.append(trade)
+    from narrate.sky_text import sky_facts  # the sky over this place (phase 4d)
+    facts += sky_facts(world, place_id)
     ancestors = player.data.get("ancestors") or []
     if ancestors:
         facts.append(f"You are the heir of {world.entity(ancestors[-1]).name}.")

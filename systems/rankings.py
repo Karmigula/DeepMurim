@@ -258,3 +258,14 @@ def post_in_city(world, player: int, town: int) -> bool:
     fact = world.fact(fact_id)
     believe(world, town, fact.id, fact.variant, None, 1.0, 1, "posted")
     return believe(world, player, fact.id, fact.variant, town, 1.0, 1, "posted")
+
+
+def best_rank(world, person: int) -> str | None:
+    """The highest place this person ever held on the Pavilion's lists, as a title (the lineage page's pride)."""
+    order = ("heaven", "earth", "human", "young")
+    best = None
+    for entry in world.chronicle_about(person, limit=400):
+        found = rank_of(entry.data["lists"], person) if entry.kind == "rankings_published" else None
+        if found and (best is None or (order.index(found[0]), found[1]) < (order.index(best[0]), best[1])):
+            best = found
+    return title(*best) if best else None

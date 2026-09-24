@@ -22,7 +22,10 @@ def _ancestor(world, person: int) -> str:
     killer = world.entity(death["killer"]).name if death.get("killer") else "someone"
     how = mortality.CAUSES.get(death.get("cause"), "").format(killer=killer)
     where = place_name(world, death.get("place")) or "the road"
-    return f"  {p.name}, died {how} in {where}, aged {int(death.get('age') or p.data.get('age', 0))}"
+    from systems.rankings import best_rank  # phase 4d: a family's pride
+    rank = best_rank(world, person)
+    return f"  {p.name}, died {how} in {where}, aged {int(death.get('age') or p.data.get('age', 0))}" \
+        + (f", once {rank}" if rank else "")
 
 
 def lineage_lines(world, player: int) -> list[Line]:

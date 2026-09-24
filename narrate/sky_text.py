@@ -156,3 +156,33 @@ def _published_line(world, entry, names, place, other):
     me = world.get_meta("player_id")
     found = rank_of(entry.data["lists"], me)
     return f"The Pavilion named you {title(*found)}." if found else "The Pavilion published its lists."
+
+
+
+def _days_left(data: dict, stage: str, now: int) -> int:
+    return max(1, (data["ends"].get(stage, data["over_at"]) - now + 3) // 4)
+
+
+def stage_line(world, data: dict, stage: str, town: int) -> str:
+    """What someone standing in `town` sees of an occurrence at this stage."""
+    from systems.sky import reading
+    text = f"{cap(phenomenon_name(data['type']))} {STAGE_WORDS.get(stage, 'is over')} {world.entity(town).name}."
+    read = reading(world, data["type"], town)
+    return text + (f" People here say it means {read}." if read and stage != "aftermath" else "")
+
+
+def sky_facts(world, place: int) -> list[str]:
+    """The sky over this place, for a Brief: what, which stage, how long, and what the town makes of it."""
+    import systems.world_events as W
+    from systems.sky import reading
+    out = []
+    for row in W.showing(world, place):
+        data = world.entity(row[W.ID]).data
+        stage = W.stage_at(data, world.time)
+        if stage not in STAGE_WORDS:
+            continue
+        text = (f"The sky: {phenomenon_name(data['type'])} {STAGE_WORDS[stage]} {world.entity(place).name} "
+                f"({_days_left(data, stage, world.time)} days left)")
+        read = reading(world, data["type"], place)
+        out.append(text + (f"; people here read it as {read}." if read else "."))
+    return out

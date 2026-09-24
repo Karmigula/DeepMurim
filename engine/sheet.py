@@ -62,6 +62,8 @@ def sheet_lines(world: World, player_id: int) -> list[Line]:
         for persona in world.entities("persona"):
             if persona.data.get("of") == player_id:  # your own masks: you know who wears them
                 lines.append((_standing(world, town, persona.id, f"As {persona.name}"), "default"))
+    from engine.sky import sheet_sky_lines  # phase 4d
+    lines += sheet_sky_lines(world, player_id)
     return lines
 
 
