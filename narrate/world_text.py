@@ -15,6 +15,7 @@ WORLD_PHRASES = {
     "moved": "{actor} moved to {target}.",
     "apprenticed": "{actor} took {target} as a disciple.",
     "sworn_siblings": "{actor} swore an oath of kinship with {target}.",
+    "heir_of": "{actor} {be} the heir of {target}.",
     "clashed_with": "The {actor} beat the {target} in a clash.",
     "lost_hall": "The {actor} lost a hall to the {target}.",
     "faction_destroyed": "The {actor} was destroyed.",

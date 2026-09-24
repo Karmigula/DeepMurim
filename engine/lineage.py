@@ -2,6 +2,7 @@
 
 import systems.bonds as bonds
 import systems.mortality as mortality
+import systems.succession as succession
 from engine.actions import Action, Choice
 from systems.time import format_date
 from world.events import commit
@@ -16,7 +17,15 @@ class LineageMixin:
         return self.player.data.get("dying")
 
     def _death_choices(self) -> list:
-        return [Choice("A new world", Action("new_world"))]
+        choices = []
+        for person, kind in bonds.candidates(self.world, self.player.id)[:8]:
+            p = self.world.entity(person)
+            where = self.world.entity(self.world.targets(person, "located_in")[0]).name \
+                if self.world.targets(person, "located_in") else "the roads"
+            label = f"{p.name} - {bonds.relation_word(self.world, person, kind)}, {int(p.data.get('age', 30))}, " \
+                    f"{p.data.get('realm', 'mortal')}, in {where}"
+            choices.append(Choice(label, Action("succeed", person)))
+        return choices + [Choice("A newcomer in this world", Action("newcomer")), Choice("A new world", Action("new_world"))]
 
     def _death_lines(self) -> list:
         self.focus, self.submenu, self.combat, self.encounter, self.challenger = None, None, None, None, None
@@ -130,6 +139,23 @@ class LineageMixin:
         if npc not in [p for p, _ in bonds.candidates(self.world, self.player.id)]:
             return self._turn([("They cannot be your heir.", "system")])
         return self._bond(npc, None, bonds.name_heir_events)
+
+    def _do_succeed(self, heir):
+        if not self._dying():
+            return self._turn([("You are not dead.", "system")])
+        events = succession.succession_events(self.world, self.player.id, heir) if isinstance(heir, int) else []
+        if not events:
+            return self._turn([("They cannot carry on for you.", "system")])
+        lines = self._commit(events)  # the player is now the heir
+        self._last_look = None
+        self._before_scene()
+        return self._turn(lines + self._describe("arrive") + self._presence())
+
+    def _do_newcomer(self, _target):
+        if not self._dying():
+            return self._turn([("You are not dead.", "system")])
+        self.exit_to = "newcomer"
+        return self._turn([("Someone new walks into this world.", "system")])
 
     def _do_new_world(self, _target):
         if not self._dying():

@@ -73,6 +73,17 @@ def _born_line(world, entry, names, place, other):
     return f"{names[2]} was born in {place}."
 
 
+@outcome("succession", body_facts=False)
+def _succession(world, event):
+    old, heir = (world.entity(a) for a in event.actors)
+    return [f"You take up the mantle of {old.name}.", f"You are {heir.name} now."], {}
+
+
+@summary("succession")
+def _succession_line(world, entry, names, place, other):
+    return f"Took up the mantle of {names[0]}."
+
+
 @outcome("player_aged", body_facts=False)
 def _aged(world, event):
     return [], {}

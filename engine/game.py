@@ -107,6 +107,26 @@ class Game(LineageMixin, WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, Du
         return game
 
     @classmethod
+    def newcomer(cls, path, player_name: str, creation: CreationChoice | None = None, narrator=None) -> "Game":
+        """A new character in a world whose last player has died (phase 4b spec 5.3)."""
+        from systems.succession import newcomer_town
+        world = World.open(path)
+        old = world.get_meta("player_id")
+        town = newcomer_town(world, old)
+        made = build(world.world_seed + 7919 * int(old), creation or CreationChoice())
+        with world.transaction():
+            player = world.add_entity("person", player_name, {"is_player": True, "age": 18, "realm": "mortal"})
+            world.relate(player, town, "located_in")
+            world.set_meta("player_id", player)
+            arts = apply_creation(world, player, made)
+            world.update_data(old, is_player=False, dying=None)
+        populate(world, town)
+        settle_town(world, town)
+        game = cls(world, narrator)
+        game._pending = game._commit([Event("began", (player,), town, {"origin": made.origin.title, "arts": arts})])
+        return game
+
+    @classmethod
     def load(cls, path, narrator=None) -> "Game":
         world = World.open(path)
         try:

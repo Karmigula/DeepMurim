@@ -31,3 +31,7 @@ lines = ["#line_bond# #line_quiet#", "#line_quiet# #line_bond#"]
 [named_heir]
 colour = "npc"
 lines = ["#line_bond# #line_quiet#", "#line_quiet# #line_bond#"]
+
+[succession]
+colour = "gold"
+lines = ["#line_bond# #line_years#", "#line_years# #line_bond#"]

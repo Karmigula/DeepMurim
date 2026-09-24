@@ -308,6 +308,18 @@ class App:
 
     def start_new(self, name: str, world_seed: int | None = None, creation: CreationChoice | None = None) -> None:
         creation = creation or CreationChoice()
+        newcomer_save = getattr(self, "_newcomer_save", None)
+        if newcomer_save is not None:  # a newcomer walks into the dead player's world (phase 4b)
+            self._newcomer_save = None
+            self._close_game()
+            self.game = Game.newcomer(newcomer_save, name, creation=creation)
+            self.save_path = newcomer_save
+            self._open_session(mode="newcomer", player=name, seed=self.game.world.world_seed,
+                               creation=creation.to_dict())
+            self.log = []
+            self._show(self.game.start())
+            self.state = "game"
+            return
         path = self.saves_dir / f"{slug(name)}-{time.time_ns()}.world"
         self._close_game()
         self.game = Game.new(path, name, world_seed=world_seed, creation=creation)

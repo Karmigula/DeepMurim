@@ -192,7 +192,8 @@ def check_knowledge(world) -> list[str]:
         if source is None or not source.data.get("dead"):
             out.append(f"#{memory.owner} inherited a memory from #{memory.inherited_from}, who is not dead")
     for persona in world.entities("persona"):
-        if persona.data.get("of") != player:
+        wearer = world.entity(persona.data["of"]) if isinstance(persona.data.get("of"), int) else None
+        if persona.data.get("of") != player and (wearer is None or not wearer.data.get("dead")):  # a dead player's masks stay theirs
             out.append(f"{persona.name} (#{persona.id}) is nobody's mask")
     world._knowledge_mark = {"beliefs": world.last_rowid("beliefs"), "facts": world.last_rowid("facts")}
     return out
