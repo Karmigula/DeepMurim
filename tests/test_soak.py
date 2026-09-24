@@ -50,6 +50,8 @@ def history(tmp_path, years: int, step: int = 5):
             assert check_world(world) == [], f"year {(n + 1) * step}"
     assert check_world(world) == []
     assert not any(world.entity(f).data.get("dissolved") for f in F.ensure_roster(world))
+    import systems.world_events as W
+    assert len(W.index(world)) < 300, "the sky index keeps only what still matters (phase 4d)"
     # a long-lived world stays quick: one faction season, and the per-turn check once warm (4a minors)
     world.set_time(world.time + lives.SEASON)
     start = time.perf_counter()

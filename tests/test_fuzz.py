@@ -254,3 +254,31 @@ def test_a_travelling_trader(tmp_path, seed, monkeypatch):
     assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
     assert app.violations == [], app.violations[:5]
     app.shutdown()
+
+
+@pytest.mark.parametrize("seed", [4, 17])
+def test_a_sky_watcher(tmp_path, seed, monkeypatch):
+    """Seasons pass under a busy sky: comets, blood moons, tides, races, tribulations and the lists; every rule holds."""
+    import systems.world_events as W
+    for kind, spec in list(W.TYPES.items()):
+        if spec["cycle"] == "season":
+            monkeypatch.setitem(W.TYPES, kind, {**spec, "chance": min(1.0, spec["chance"] * 10)})
+    monkeypatch.setattr(encounters, "ENCOUNTER_CHANCE", 1.0)
+    rng = random.Random(seed)
+    app = App(Config(), tmp_path / "saves", tmp_path / "settings.json")
+    app.start_new(f"Watcher{seed}", world_seed=seed)
+    for step in range(300):
+        game = app.game
+        if game.combat is not None or game.encounter is not None or game.challenger is not None:
+            app.submit(rng.choice(FIGHTING + ["1", "2", "3"]))
+        elif rng.random() < 0.3 and app.choices:
+            app.submit(str(rng.randint(1, len(app.choices))))
+        else:
+            app.submit(rng.choice(["sky", "rankings", "seek", "swallow", "look", "meditate season", "meditate month",
+                                   "go north", "go east", "go south", "go west", "rest", "journal"]))
+        if rng.random() < 0.05:
+            app.handle_key("f10", "")
+        keep_playing(app, step)
+    assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
+    assert app.violations == [], app.violations[:5]
+    app.shutdown()
