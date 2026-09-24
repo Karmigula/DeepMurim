@@ -51,3 +51,4 @@ import narrate.sect_text  # noqa: E402,F401
 import narrate.season_text  # noqa: E402,F401
 import narrate.world_text  # noqa: E402,F401
 import narrate.lineage_text  # noqa: E402,F401
+import narrate.market_text  # noqa: E402,F401
