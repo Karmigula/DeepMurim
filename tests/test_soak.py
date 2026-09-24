@@ -54,13 +54,13 @@ def history(tmp_path, years: int, step: int = 5):
     assert len(W.index(world)) < 300, "the sky index keeps only what still matters (phase 4d)"
     # a long-lived world stays quick: one faction season, and the per-turn check once warm (4a minors)
     world.set_time(world.time + lives.SEASON)
-    start = time.perf_counter()
+    start = time.process_time()  # the work's own time, not the machine's other load (the timing-flake lesson)
     clock.run_due(world)
-    season = time.perf_counter() - start
+    season = time.process_time() - start
     check_world(world)
-    start = time.perf_counter()
+    start = time.process_time()
     check_world(world)
-    check = time.perf_counter() - start
+    check = time.process_time() - start
     assert season < 0.1 and check < 0.3, f"season {season * 1000:.0f} ms, check {check * 1000:.0f} ms"
     game.close()
     return path
