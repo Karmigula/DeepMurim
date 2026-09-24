@@ -5,6 +5,7 @@ the Event's data; the effect advances time, then applies exactly that. So a
 replay, the journal and the narrator's brief all see the same result.
 """
 
+import systems.world_events as W
 from systems import realms
 from systems.bodies import load_body, save_body
 from systems.techniques import compatibility, grade_mult, heart_method, known_arts, mastery_stage, practise_gain, set_known_completeness, set_mastery
@@ -109,7 +110,8 @@ def meditate_events(world, pid: int, place: int, days: int) -> list[Event]:
     heart = heart_method(world, pid)
     heart_data = heart.technique.data if heart else None
     trial = clone(body)
-    gained = realms.add_energy(trial, energy_rate(body, heart_data, days, world.time) * days)
+    gained = realms.add_energy(trial, energy_rate(body, heart_data, days, world.time) * days
+                               * W.factor(world, place, "cultivation"))  # a qi tide (phase 4d)
     deviation = _deviation_from(body, heart_data, days) if heart_data else 0.0
     data = {
         "days": days, "energy_gained": round(gained, 6),
@@ -151,6 +153,7 @@ def practise_events(world, pid: int, place: int, technique_id: int, days: int = 
     gain = practise_gain(days, body.physique["comprehension"], compat, art["grade"])
     if CONSTITUTION_FORM.get(body.constitution) == art["form"]:
         gain *= 1.5
+    gain *= W.factor(world, place, "practice")  # a dao resonance (phase 4d)
     mastered = known.mastery >= 1.0 - 1e-9  # everything the art holds is learned
     at_cap = not mastered and known.mastery >= known.completeness - 1e-9  # a flawed art stops short
     after = min(known.completeness, known.mastery + gain)
@@ -278,6 +281,7 @@ def breakthrough_events(world, pid: int, place: int) -> list[Event]:
     met, requirement = realms.requirement(body, known_arts(world, pid))
     rng = _rng(world, pid, "breakthrough")
     chance = realms.breakthrough_chance(body, met)
+    chance = min(max(chance, 0.95), chance * W.factor(world, place, "breakthrough"))  # a qi tide (phase 4d)
     success = rng.random() < chance
     damaged = []
     if not success:

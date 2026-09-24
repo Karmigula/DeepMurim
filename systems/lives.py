@@ -9,6 +9,7 @@ year per step, with no agendas.
 from collections.abc import Callable
 from types import SimpleNamespace
 
+import systems.world_events as W
 from systems import factions as F
 from systems.bodies import load_body
 from systems.facts import make_variant, place_name, record_fact
@@ -119,6 +120,12 @@ def _grown(body: dict, years: float) -> tuple[float, bool]:
     return energy, high is not None and energy >= high - EPS
 
 
+def _sky(world, place: int | None, n: int) -> dict:
+    """The sky's boosts over season n, the season being lived (phase 4d): its own sky, not today's."""
+    at = n * SEASON + SEASON // 2
+    return {key: W.factor(world, place, key, at=at) for key in ("cultivation", "breakthrough")}
+
+
 def step_events(world, entity, n: int, rng, span: int, passive: bool) -> list[Event]:
     """`span` seasons (1, or 4 in coarse mode) of aging, growth and the death roll, ending at season n."""
     person = entity.id
@@ -129,10 +136,11 @@ def step_events(world, entity, n: int, rng, span: int, passive: bool) -> list[Ev
     martial, sect = _ways(world, entity)
     if martial and not sect:
         body = entity.data.get("body") or to_dict(load_body(world, person))
-        years = round(0.25 * span * _talent(world, entity), 4)
+        sky = _sky(world, place, n) if span == 1 else {}  # coarse years are too long ago to matter
+        years = round(0.25 * span * _talent(world, entity) * sky.get("cultivation", 1.0), 4)
         _, bottleneck = _grown(body, years)
         traits = SimpleNamespace(physique=body["physique"], purity=body["purity"], insight=body["insight"])
-        breakthrough = bool(bottleneck and rng.random() < breakthrough_chance(traits, True))
+        breakthrough = bool(bottleneck and rng.random() < breakthrough_chance(traits, True) * sky.get("breakthrough", 1.0))
     dies = rng.random() < 1 - (1 - death_chance(age, realm)) ** span
     grown = _grown_job(world, entity) if entity.data.get("occupation") == "child" and age >= GROWN_AT else None
     data = {"season": n, "span": span, "age": age, "years": years, "breakthrough": breakthrough, "grown": grown}

@@ -4,6 +4,7 @@ Bandits, beasts and rival wanderers are real people of their region: they are
 materialized once, live in the region (not a town), and remember you.
 """
 
+import systems.world_events as W
 from systems.beliefs import appears_as, apparent_to, home_of
 from systems.duel import fighter_for
 from systems.kin import avengers_for, grief_role
@@ -99,7 +100,7 @@ def road_encounter_events(world, player: int, town) -> list[Event]:
         found = hook(world, player, town, rng)
         if found:
             return found
-    if rng.random() >= danger * ENCOUNTER_CHANCE:
+    if rng.random() >= danger * ENCOUNTER_CHANCE * W.factor(world, town.id, "encounter"):
         return _avenger_events(world, player, town, rng)
     return random_encounter(world, player, town, rng)
 

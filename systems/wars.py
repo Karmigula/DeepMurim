@@ -1,5 +1,6 @@
 """Clashes between hostile factions (phase 4a spec 3.2): who fights, who wins, what the loser loses."""
 
+import systems.world_events as W
 from systems import factions as F
 from systems import halls
 from systems.facts import make_variant, place_name, record_fact
@@ -52,13 +53,14 @@ def clash_events(world, n: int) -> list[Event]:
     ids = clock_factions(world)
     known = stances(world, ids)
     events = []
+    boost = W.factor(world, None, "clash", at=n * W.SEASON + W.SEASON // 2)  # a comet year (phase 4d)
     for i, a in enumerate(ids):
         for b in ids[i + 1:]:
             value = known.get((a, b), 0.0)
             if value > HOSTILE:
                 continue
             rng = rng_for(world.world_seed, f"world:{n}:clash:{a}:{b}")
-            if rng.random() >= (WAR_CHANCE if value <= WAR else CLASH_CHANCE):
+            if rng.random() >= (WAR_CHANCE if value <= WAR else CLASH_CHANCE) * boost:
                 continue
             town, abstract = _where(world, a, b)  # town is None when neither seat is settled yet: still a clash
             pa, pb = _power(world, a), _power(world, b)

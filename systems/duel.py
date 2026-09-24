@@ -8,6 +8,7 @@ by the effect, so replays, the journal and the narrator all agree exactly.
 
 from dataclasses import dataclass, field
 
+import systems.world_events as W
 from systems.attitude import afraid
 from systems.beliefs import apparent_to
 from systems.bodies import load_body, save_body
@@ -111,6 +112,18 @@ def best_art(world, person_id: int):
     return max(arts, key=lambda a: grade_mult(a.technique.data["grade"]) * (0.5 + a.mastery) * compatibility(body, a.technique.data))
 
 
+def _dark_boost(world, person_id: int) -> float:
+    """A blood moon lends strength to the arts of demonic cults and unorthodox clans (phase 4d spec 4.3)."""
+    if not W.index(world):
+        return 1.0
+    from systems import factions as F
+    if not any(world.entity(f).data.get("type") in F.DARK and d.get("status", "member") == "member"
+               for f, _, d in F.memberships(world, person_id)):
+        return 1.0
+    here = world.targets(person_id, "located_in")
+    return W.factor(world, here[0] if here else None, "demonic")
+
+
 def fighter_for(world, person_id: int, technique_id: int | None) -> Fighter:
     person = world.entity(person_id)
     body = load_body(world, person_id)
@@ -125,7 +138,8 @@ def fighter_for(world, person_id: int, technique_id: int | None) -> Fighter:
     hurt = unhealed(body, world.time)
     limbs = limbs_for(form)
     return Fighter(
-        name=person.name, realm_mult=REALMS[body.realm].multiplier, stage=STAGES.index(stage_of(body)),
+        name=person.name, realm_mult=REALMS[body.realm].multiplier * _dark_boost(world, person_id),
+        stage=STAGES.index(stage_of(body)),
         technique=art.name if art else None, form=form,
         grade_mult=grade_mult(art.technique.data["grade"]) if art else 1.0,
         mastery=art.mastery if art else 0.0,

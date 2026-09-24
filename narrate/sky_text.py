@@ -3,7 +3,8 @@
 from narrate.gossip_text import SPECIAL_PHRASES
 from narrate.outcomes import cap
 
-NAMES = {"qi_tide": "a qi tide"}
+NAMES = {"qi_tide": "a qi tide", "blood_moon": "a blood moon", "comet": "a comet",
+         "dao_resonance": "a dao resonance"}
 STAGE_WORDS = {"foretold": "is foretold over", "announced": "gathers over", "active": "hangs over",
                "aftermath": "has passed over"}
 
