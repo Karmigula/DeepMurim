@@ -5,6 +5,7 @@ import systems.lives as lives
 from systems import factions as F
 from systems.facts import make_variant, place_name, record_fact
 from systems.founding import followers, my_sect
+from systems.goods import MULE_CAPACITY, capacity, carried, fit
 from systems.membership import set_membership
 from systems.purse import silver_of
 from systems.techniques import known_arts, martial_arts, teach
@@ -47,7 +48,13 @@ def succession_events(world, player: int, heir: int) -> list[Event]:
         if theirs.get(art.technique.id, 0.0) < completeness:
             arts.append([art.technique.id, completeness])
     home = _home_town(world, heir, my_sect(world, player))
-    return [Event("succession", (player, heir), home, {"kind": kind, "silver": silver, "arts": arts, "home": home})]
+    mule = bool(world.entity(player).data.get("mule")) and not world.entity(heir).data.get("mule")
+    pack = carried(world, heir)
+    for good, n in carried(world, player).items():
+        pack[good] = pack.get(good, 0) + n
+    goods, _ = fit(pack, capacity(world, heir) + (MULE_CAPACITY if mule else 0))  # the rest is lost at the grave
+    return [Event("succession", (player, heir), home, {"kind": kind, "silver": silver, "arts": arts, "home": home,
+                                                       "goods": goods, "mule": mule})]
 
 
 def newcomer_town(world, old: int) -> int:
@@ -66,6 +73,9 @@ def _succession(world, event) -> None:
     d = event.data
     world.update_data(heir, silver=silver_of(world, heir) + d["silver"])
     world.update_data(old, silver=0)
+    if "goods" in d:  # the pack and the mule pass to the heir (phase 4c final review)
+        world.update_data(heir, goods=d["goods"], **({"mule": True} if d["mule"] else {}))
+        world.update_data(old, goods={}, mule=False)
     for item in world.targets(old, "owns"):
         world.unrelate(old, "owns", item)
         world.relate(heir, item, "owns")

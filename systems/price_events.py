@@ -24,7 +24,7 @@ ARMING_BELOW = 40
 
 
 def live(world) -> list:
-    """Price events still in force: the database finds them, so centuries of old ones cost nothing."""
+    """Price events still in force (expired ones are cleared away each world season)."""
     return world._cached(("live_price_events", world.time),
                          lambda: world.entities_after("price_event", "until", world.time))
 
@@ -84,7 +84,9 @@ def _war_prices(world, event, event_id: int) -> None:
     town = event.place
     if town is None or world.entity(town).kind != "town":
         return
-    until = world.time + lives.SEASON
+    until = (event.data["season"] + 1) * lives.SEASON if "season" in event.data else world.time + lives.SEASON
+    if until <= world.time:
+        return  # a war long over, caught up on
     here = {"iron": 1.8, "herbs": 1.5, **({"rice": 1.5} if event.data.get("hall_lost") else {})}
     shift(world, "region", region_of(world, town).id, {"iron": 1.3}, until, "war nearby", news=False)  # one rumour per war
     shift(world, "town", town, here, until, "war")  # last, so its rumour carries the full price
@@ -92,11 +94,14 @@ def _war_prices(world, event, event_id: int) -> None:
 
 def season_events(world, n: int) -> list[Event]:
     """Famines and bumper harvests across the materialized regions (spec §5)."""
+    world.drop_entities_until("price_event", "until", world.time)
     events = []
     regions = world.entities("region")
     for region in regions:
         if rng_for(world.world_seed, f"famine:{region.id}:{n}").random() < FAMINE_CHANCE:
-            until = world.time + 2 * lives.SEASON
+            until = (n + 2) * lives.SEASON  # from its own season, so a catch-up does not start old famines now
+            if until <= world.time:
+                continue
             events.append(Event("price_shift", (), None, {"scope": "region", "place": region.id,
                                                           "multipliers": {"rice": 3.0, "salt": 1.5}, "until": until,
                                                           "cause": "famine"}))
@@ -106,11 +111,12 @@ def season_events(world, n: int) -> list[Event]:
                     events.append(Event("price_shift", (), None, {"scope": "region", "place": other.id,
                                                                   "multipliers": {"rice": 1.5}, "until": until,
                                                                   "cause": "famine nearby"}))
-        if rng_for(world.world_seed, f"harvest:{region.id}:{n}").random() < HARVEST_CHANCE:
+        if rng_for(world.world_seed, f"harvest:{region.id}:{n}").random() < HARVEST_CHANCE \
+                and (n + 1) * lives.SEASON > world.time:
             made, _ = region_goods(world, region)
             events.append(Event("price_shift", (), None, {"scope": "region", "place": region.id,
                                                           "multipliers": {g: 0.6 for g in made},
-                                                          "until": world.time + lives.SEASON, "cause": "harvest"}))
+                                                          "until": (n + 1) * lives.SEASON, "cause": "harvest"}))
     return events
 
 

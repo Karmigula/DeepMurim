@@ -27,6 +27,16 @@ def pack_weight(goods: dict) -> int:
     return sum(GOODS[g][1] * n for g, n in goods.items())
 
 
+def fit(pack: dict, room: int) -> tuple[dict, dict]:
+    """What of `pack` fits in `room`, and what does not: the cheapest for its weight goes first."""
+    kept, shed = dict(pack), {}
+    for good in sorted(kept, key=lambda g: (GOODS[g][0] / GOODS[g][1], g)):
+        while kept[good] and pack_weight(kept) > room:
+            kept[good] -= 1
+            shed[good] = shed.get(good, 0) + 1
+    return {g: n for g, n in kept.items() if n}, shed
+
+
 def capacity(world, person: int) -> int:
     strength = load_body(world, person).physique.get("strength", 10)
     mule = MULE_CAPACITY if world.entity(person).data.get("mule") else 0

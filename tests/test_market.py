@@ -68,7 +68,7 @@ def test_selling_pays_less_than_buying(game, still):
     town, me = game.place.id, game.player.id
     game._commit(market.buy_events(game.world, me, town, "silk", 5))
     silver = silver_of(game.world, me)
-    unit = market.sell_price(game.world, town, "silk")
+    unit = market.sell_price(game.world, town, "silk", 5)
     game._commit(market.sell_events(game.world, me, town, "silk", 5))
     assert silver_of(game.world, me) == silver + 5 * unit
     assert unit < market.price(game.world, town, "silk") or unit == 1

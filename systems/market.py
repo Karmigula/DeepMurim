@@ -8,7 +8,7 @@ from collections.abc import Callable
 
 from systems import factions as F
 from systems import halls
-from systems.goods import GOODS, LACKED, MULE_PRICE, PRODUCED, capacity, carried, pack_weight, region_goods
+from systems.goods import GOODS, LACKED, MULE_CAPACITY, MULE_PRICE, PRODUCED, capacity, carried, fit, pack_weight, region_goods
 from systems.purse import silver_of
 from world.events import Event, effect
 from world.gen.materialize import region_of
@@ -57,10 +57,13 @@ def _kind_factor(world, town: int, good: str) -> float:
     return 1.0
 
 
-def price(world, town: int, good: str) -> int:
+def price(world, town: int, good: str, n: int = 0) -> int:
+    """The price of one unit; with `n` (bought > 0, sold < 0) each unit is charged at the average stock
+    over the whole trade, so buying and selling back always loses the cut (phase 4c final review)."""
     base = GOODS[good][0]
+    held = max(STOCK_MIN, min(STOCK_MAX, stock(world, town, good) - STOCK_STEP * n / 2))
     value = base * _region_factor(world, town, good) * _kind_factor(world, town, good) \
-        * event_factor(world, town, good) / stock(world, town, good) * drift(world, town, good)
+        * event_factor(world, town, good) / held * drift(world, town, good)
     return max(1, round(value))
 
 
@@ -68,8 +71,9 @@ def _guild_here(world, town: int) -> bool:
     return any(world.entity(f).data["type"] == "merchant_guild" for f in halls.halls_here(world, town))
 
 
-def sell_price(world, town: int, good: str) -> int:
-    return max(1, int(price(world, town, good) * (GUILD_CUT if _guild_here(world, town) else SELL_CUT)))
+def sell_price(world, town: int, good: str, n: int = 1) -> int:
+    """What each of `n` units sold here fetches."""
+    return max(1, int(price(world, town, good, -n) * (GUILD_CUT if _guild_here(world, town) else SELL_CUT)))
 
 
 def prices(world, town: int) -> dict[str, int]:
@@ -79,7 +83,7 @@ def prices(world, town: int) -> dict[str, int]:
 def buy_block(world, player: int, town: int, good: str, n: int) -> str | None:
     if good not in GOODS or n <= 0:
         return "There is no such trade."
-    if silver_of(world, player) < price(world, town, good) * n:
+    if silver_of(world, player) < price(world, town, good, n) * n:
         return "You cannot afford that."
     if pack_weight(carried(world, player)) + GOODS[good][1] * n > capacity(world, player):
         return "Your pack cannot hold that much."
@@ -97,13 +101,13 @@ def sell_block(world, player: int, town: int, good: str, n: int) -> str | None:
 
 
 def buy_events(world, player: int, town: int, good: str, n: int) -> list[Event]:
-    unit = price(world, town, good)
+    unit = price(world, town, good, n)
     return [Event("traded", (player,), town, {"good": good, "n": n, "side": "buy", "unit": unit, "total": unit * n,
                                              "day": day(world)})]
 
 
 def sell_events(world, player: int, town: int, good: str, n: int) -> list[Event]:
-    unit = sell_price(world, town, good)
+    unit = sell_price(world, town, good, n)
     return [Event("traded", (player,), town, {"good": good, "n": n, "side": "sell", "unit": unit, "total": unit * n,
                                              "day": day(world)})]
 
@@ -147,18 +151,18 @@ def _mule(world, event) -> None:
     world.update_data(player, silver=silver_of(world, player) - event.data["price"], mule=True)
 
 
-def known_prices(world, player: int) -> dict[int, dict]:
-    """What the player knows of prices: their visits, and the shortages and gluts they believe (spec §6)."""
-    book = {int(t): {"time": e["time"], "source": e["source"], "prices": dict(e["prices"])}
+def known_prices(world, player: int) -> dict[int, dict[str, tuple[int, int, str]]]:
+    """What the player knows of prices, {town: {good: (price, time, source)}}: their visits, and the
+    shortages and gluts they believe (spec §6). Each price keeps its own age (phase 4c final review)."""
+    book = {int(t): {g: (p, e["time"], e["source"]) for g, p in e["prices"].items()}
             for t, e in world.entity(player).data.get("price_book", {}).items()}
     for belief, fact in world.known_facts(player):
         if fact.predicate not in ("shortage", "glut") or fact.place is None or "good" not in fact.data:
             continue
-        entry = book.setdefault(fact.place, {"time": fact.time, "source": "rumour", "prices": {}})
-        if fact.data["good"] not in entry["prices"] or fact.time > entry["time"]:
-            entry["prices"][fact.data["good"]] = fact.data["price"]
-            if fact.time > entry["time"]:
-                entry["time"], entry["source"] = fact.time, "rumour"
+        entry = book.setdefault(fact.place, {})
+        good = fact.data["good"]
+        if good not in entry or fact.time > entry[good][1]:
+            entry[good] = (fact.data["price"], fact.time, "rumour")
     return book
 
 
@@ -175,10 +179,16 @@ MULE_THEFT = 0.3
 
 
 def robbery_events(world, player: int, robber: int, place: int, duel_id) -> list[Event]:
-    """A robber takes half of each good, and perhaps the mule (spec §7)."""
-    taken = {g: n // 2 for g, n in carried(world, player).items() if n // 2}
+    """A robber takes half of each good, and perhaps the mule (spec §7); without the mule, whatever
+    the pack can no longer hold goes with it, the cheapest for its weight first (phase 4c final review)."""
+    pack = carried(world, player)
+    taken = {g: n // 2 for g, n in pack.items() if n // 2}
     mule = bool(world.entity(player).data.get("mule")) \
         and rng_for(world.world_seed, f"mule:{duel_id}").random() < MULE_THEFT
+    if mule:
+        _, shed = fit({g: n - taken.get(g, 0) for g, n in pack.items()}, capacity(world, player) - MULE_CAPACITY)
+        for good, n in shed.items():
+            taken[good] = taken.get(good, 0) + n
     if not taken and not mule:
         return []
     return [Event("lost_goods", (player, robber), place, {"goods": taken, "mule": mule, "reason": "robbed"})]

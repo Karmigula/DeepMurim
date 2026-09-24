@@ -61,6 +61,7 @@ KEEP_SUBMENU = frozenset({
     "use_menu", "learn_menu", "browse", "create_menu",
 })
 QUIET_KINDS = frozenset({"exchange", "player_aged"})
+SMALL_TRADE = 50  # smaller trades stay out of the journal
 PATIENCE_SHIFT = {"warm": 1, "hostile": -1, "hateful": -1}  # phase 3a spec 3.2  # too many to list in the journal
 BUSY = "Finish your conversation first."
 
@@ -272,7 +273,8 @@ class Game(LineageMixin, MarketMixin, WorldMixin, FactionsMixin, JoiningMixin, R
         return self._turn(lines)
 
     def _do_journal(self, _target) -> Turn:
-        entries = [e for e in reversed(self.world.chronicle_about(self.player.id, limit=60)) if e.kind not in QUIET_KINDS]
+        entries = [e for e in reversed(self.world.chronicle_about(self.player.id, limit=300)) if e.kind not in QUIET_KINDS
+                   and not (e.kind == "traded" and e.data.get("total", 0) < SMALL_TRADE)]  # phase 4c spec 8
         lines = [(f"Chronicle of {self.player.name}:", "heading")]
         lines += [(summarize(self.world, e), "dim") for e in entries[-15:]]
         return self._turn(lines)

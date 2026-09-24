@@ -68,7 +68,7 @@ def test_the_price_book_mixes_visits_and_rumours(game):
     [fact] = [f for f in game.world.facts(predicate="shortage", subject=far)]
     believe(game.world, me, fact.id, fact.variant, None, 0.8, 2, "test")
     book = market.known_prices(game.world, me)
-    assert book[far]["prices"]["iron"] == fact.data["price"] and book[far]["source"] == "rumour"
+    assert book[far]["iron"] == (fact.data["price"], fact.time, "rumour")
     lines = texts(game.perform(Action("prices")))
     name = game.world.entity(far).name
     assert any(t.strip().startswith("iron") and name in t and "heard" in t for t in lines)

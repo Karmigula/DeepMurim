@@ -310,12 +310,18 @@ def _cripple(rng) -> list:
     return rng.choice(options)
 
 
+def covets(opponent) -> bool:
+    """Whether a victor takes what the loser carries: bandits and the greedy do, beasts never."""
+    traits = set(opponent.data.get("traits", ()))
+    return not opponent.data.get("beast") and (opponent.data.get("occupation") == "bandit" or "greedy" in traits)
+
+
 def npc_verdict(rng, opponent, player_silver: int, hateful: bool = False) -> tuple[str, int, list | None]:
     if opponent.data.get("beast"):
         return "spare", 0, None  # a beast only wants you gone
     traits = set(opponent.data.get("traits", ()))
     ruthless = opponent.data.get("occupation") == "bandit" or {"cunning", "greedy"} <= traits
-    greedy = ruthless or "greedy" in traits
+    greedy = covets(opponent)
     amount = int(player_silver * rng.uniform(0.3, 1.0)) if greedy else 0
     if hateful:
         return "leave_for_dead", amount, None  # a grudge wants you broken (phase 3a spec 6.2)

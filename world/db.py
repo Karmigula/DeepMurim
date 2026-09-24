@@ -45,6 +45,7 @@ create table if not exists beliefs(
 """
 
 INDEXES = (
+    "create index if not exists entities_kind on entities(kind)",
     "create index if not exists facts_subject on facts(subject)",
     "create index if not exists facts_time on facts(time)",
     "create index if not exists facts_place on facts(place)",
@@ -330,6 +331,10 @@ class World:
             "select id, kind, name, seed_path, created_at, data from entities "
             f"where kind = ? and json_extract(data, '$.{key}') > ? order by id", (kind, value))
         return [_entity(row) for row in rows]
+
+    def drop_entities_until(self, kind: str, key: str, value) -> None:
+        """Delete entities of this kind whose data[key] is at most `value` (phase 4c: spent price events)."""
+        self._conn.execute(f"delete from entities where kind = ? and json_extract(data, '$.{key}') <= ?", (kind, value))
 
     def entities(self, kind: str) -> list[Entity]:
         rows = self._conn.execute(

@@ -1,5 +1,6 @@
 """The market in the engine (phase 4c spec 8): a page, a two-level trade menu, the price book, merchant news."""
 
+import systems.duel as duel
 import systems.market as market
 from engine.actions import Action, Choice
 from systems.beliefs import knowledge_of
@@ -20,12 +21,12 @@ class MarketMixin:
         lines = [(f"Market of {self.place.name} (pack {pack_weight(pack)}/{capacity(world, me)})", "heading")]
         for good in ORDER:
             here, sell = market.price(world, town, good), market.sell_price(world, town, good)
-            elsewhere = [(entry["prices"][good], t, entry) for t, entry in book.items()
-                         if t != town and good in entry["prices"]]
+            elsewhere = [(entry[good][0], t, entry[good][1]) for t, entry in book.items()
+                         if t != town and good in entry]
             note = ""
             if elsewhere:
-                best, where, entry = max(elsewhere, key=lambda e: (e[0], -e[1]))
-                days = max(0, (world.time - entry["time"]) // 4)
+                best, where, when = max(elsewhere, key=lambda e: (e[0], -e[1]))
+                days = max(0, (world.time - when) // 4)
                 note = f" | {best} in {world.entity(where).name}, {days}d ago"
             lines.append((f"  {good:<6} buy {here:>4}  sell {sell:>4}  carry {pack.get(good, 0):>3}{note}", "dim"))
         return lines
@@ -66,10 +67,10 @@ class MarketMixin:
 
     def _after_duel(self, data: dict) -> list:
         lines = super()._after_duel(data)
-        if data.get("by") == "opponent" and data.get("verdict") == "rob" and self.combat is None:
+        if data.get("by") == "opponent" and self.combat is None and data.get("verdict") != "kill":
             robber = self.world.entity(self.world.chronicle_entry(data.get("duel")).actors[1]) \
                 if self.world.chronicle_entry(data.get("duel")) else None
-            if robber is not None:
+            if robber is not None and (data.get("verdict") == "rob" or duel.covets(robber)):
                 lines += self._commit(market.robbery_events(self.world, self.player.id, robber.id,
                                                             self.place.id, data.get("duel")))
         return lines
@@ -118,14 +119,15 @@ class MarketMixin:
         if not book:
             return self._turn(lines + [("  You have seen no markets and heard no talk of trade.", "dim")])
         for good in ORDER:
-            seen = [(entry["prices"][good], t, entry) for t, entry in book.items() if good in entry["prices"]]
+            seen = [(entry[good][0], t, entry[good]) for t, entry in book.items() if good in entry]
             if not seen:
                 continue
             low, high = min(seen, key=lambda e: (e[0], e[1])), max(seen, key=lambda e: (e[0], -e[1]))
 
             def where(e):
-                how = "seen" if e[2]["source"] == "visit" else "heard"
-                return f"{e[0]} in {world.entity(e[1]).name} ({how} {max(0, (world.time - e[2]['time']) // 4)}d ago)"
+                _, when, source = e[2]
+                how = "seen" if source == "visit" else "heard"
+                return f"{e[0]} in {world.entity(e[1]).name} ({how} {max(0, (world.time - when) // 4)}d ago)"
             lines.append((f"  {good:<6} cheapest {where(low)}; dearest {where(high)}", "dim"))
         return self._turn(lines)
 
