@@ -69,6 +69,7 @@ def check_world(world) -> list[str]:
     problems += check_lineage(world)
     problems += check_trade(world)
     problems += check_sky(world)
+    problems += check_races(world)
     times = world.recent_chronicle_times()
     for before, after in zip(times, times[1:]):
         if after < before:
@@ -296,6 +297,24 @@ def check_life(world, people=None) -> list[str]:
 def mentions(name: str, text: str) -> bool:
     """Whether `name` appears in `text` as whole words ("wang clan" is not in "hwang clan")."""
     return name in text and re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])", text) is not None
+
+
+def check_races(world) -> list[str]:
+    """Phase 4d spec 8, rule 5: a prize is claimed at most once, and every treasure has one owner (or was used)."""
+    import systems.races as races
+    import systems.world_events as W
+    out = []
+    for row in W.index(world):
+        if row[W.TYPE] not in races.RACE_KINDS:
+            continue
+        race = world.entity(row[W.ID]).data["data"]
+        if race.get("claimed") is not None and world.entity(race.get("item") or -1) is None:
+            out.append(f"race #{row[W.ID]} was claimed but its prize is missing")
+    for item in world.entities("treasure"):
+        owners = world.sources(item.id, "owns")
+        if len(owners) != (0 if item.data.get("used") else 1):
+            out.append(f"treasure #{item.id} has {len(owners)} owners")
+    return out
 
 
 def check_sky(world) -> list[str]:

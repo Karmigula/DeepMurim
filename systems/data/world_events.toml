@@ -49,3 +49,19 @@ stages = { announced = 5, active = 15, aftermath = 30 }
 modifiers = { beasts = 3.0 }
 readings = ["the mountain spirits' anger", "a great beast waking", "a hard winter coming"]
 news = { predicate = "phenomenon", weight = 1.5, stages = ["announced", "active"] }
+
+[treasure_light]
+module = "systems.events.treasure_light"
+scope = "site"
+chance = 0.03
+stages = { announced = 5, active = 20 }
+readings = ["an immortal's cave opening", "a heavenly treasure born", "a trap for the greedy"]
+news = { predicate = "phenomenon", weight = 1.5, stages = ["announced"] }
+
+[star_fall]
+module = "systems.events.star_fall"
+scope = "site"
+chance = 0.01
+stages = { announced = 3, active = 30 }
+readings = ["heaven's iron for a great blade", "a star's grief", "a hero's birth"]
+news = { predicate = "phenomenon", weight = 1.5, stages = ["announced"] }

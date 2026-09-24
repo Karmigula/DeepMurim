@@ -21,6 +21,7 @@ GLOBAL = {
     "spar": Action("spar"), "challenge": Action("challenge"),
     "news": Action("news"), "rumours": Action("rumours"), "rumors": Action("rumours"), "gossip": Action("rumours"),
     "tell": Action("tell_menu"), "standing": Action("standing"), "factions": Action("standing"), "ledger": Action("ledger"), "lineage": Action("lineage"), "market": Action("market"), "prices": Action("prices"),
+    "seek": Action("seek"), "swallow": Action("swallow"),
     "wear mask": Action("wear_mask"), "mask": Action("wear_mask"), "put on mask": Action("wear_mask"),
     "remove mask": Action("remove_mask"), "unmask": Action("remove_mask"), "take off mask": Action("remove_mask"),
 }

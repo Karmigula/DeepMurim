@@ -1,6 +1,9 @@
 [symbols]
 sky_thunder = ["Thunder rolls on long after.", "The air smells of burnt iron.", "Somewhere a dog will not stop howling.", "The clouds break slowly, as if reluctant.", "People come out of their doors to stare.", "Rain follows, warm and heavy."]
 sky_hunt = ["The carcass steams in the cold air.", "Blood darkens the grass.", "Flies are already gathering.", "The villagers will sleep easier tonight.", "Its teeth are as long as your fingers."]
+sky_race = ["The light above is almost too bright to look at.", "Other seekers watch from the rocks.", "Dust and blood; the treasure waits.", "Somewhere behind you someone is praying.", "The ground here is scorched and strange."]
+sky_treasure = ["It is warm to the touch.", "Heaven and earth seem to hold their breath.", "The light fades as your hand closes on it.", "Nobody else dares come closer."]
+sky_pill = ["Heat spreads from your belly to your fingertips.", "Your sweat smells of herbs.", "For a moment you can hear your own heart like a drum.", "Your dantian swells and settles."]
 sky_reward = ["The magistrate's clerk counts it out twice.", "A crowd gathers to see who hunted so well.", "The silver is heavier than you expected.", "Someone buys you a drink on the strength of it."]
 
 [tribulation]
@@ -14,3 +17,19 @@ lines = ["#sky_hunt#", "#sky_hunt# #sky_hunt#"]
 [bounty_paid]
 colour = "default"
 lines = ["#sky_reward#", "#sky_reward# #sky_hunt#"]
+
+[race_fought]
+colour = "default"
+lines = ["#sky_race#", "#sky_race# #sky_race#"]
+
+[treasure_claimed]
+colour = "default"
+lines = ["#sky_treasure#", "#sky_treasure# #sky_race#"]
+
+[swallowed]
+colour = "default"
+lines = ["#sky_pill#", "#sky_pill# #sky_pill#"]
+
+[sold_treasure]
+colour = "default"
+lines = ["#sky_reward#", "#sky_reward# #sky_reward#"]
