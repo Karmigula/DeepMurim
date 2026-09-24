@@ -46,7 +46,7 @@ def path_value(world, predicate: str, target_id) -> float:
     return PATH_VALUE.get(predicate, 0.0)
 
 
-def reputation(world, town_id: int, subject_id: int) -> Reputation:
+def _own_reputation(world, town_id: int, subject_id: int) -> Reputation:
     true_id = true_identity(world, subject_id)
     seen = identities(world, town_id, true_id) if subject_id == true_id else {subject_id}
     best: dict = {}
@@ -69,3 +69,19 @@ def reputation(world, town_id: int, subject_id: int) -> Reputation:
         place = belief.variant.get("place") or world.entity(town_id).name
         epithet = f"{rng.choice(ADJECTIVES[path])} {noun} of {place}"
     return Reputation(renown, renown_word(renown), path, epithet)
+
+
+def reputation(world, town_id: int, subject_id: int) -> Reputation:
+    """What a town makes of someone, including half of the name they inherited (phase 4b spec 6)."""
+    own = _own_reputation(world, town_id, subject_id)
+    from systems.lineage import inherited
+    extra, shadow = 0.0, None
+    for ancestor, share in inherited(world, town_id, subject_id):
+        old = reputation(world, town_id, ancestor)
+        extra += share * old.renown
+        name = world.entity(ancestor).name
+        shadow = shadow or (f"heir of the {old.epithet}" if old.epithet else f"heir of {name}" if old.renown else None)
+    if not extra:
+        return own
+    renown = round(own.renown + extra, 3)
+    return Reputation(renown, renown_word(renown), own.path if own.renown else "hard to read", own.epithet or shadow)

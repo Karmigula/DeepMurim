@@ -146,6 +146,12 @@ def attitude(world, npc_id: int, subject_id: int) -> Attitude:
         if value and (fact.id not in best or abs(value) > abs(best[fact.id][0])):
             best[fact.id] = (value, _belief_reason(world, belief.variant))
     terms += list(best.values())
+    from systems.lineage import inherited  # an heir is remembered, in part, as the one before (phase 4b)
+    for ancestor, share in inherited(world, npc_id, true_id):
+        for memory in world.memories(npc_id, about=ancestor):
+            value = FEELING_VALUE.get(memory.feeling, 0.0) * effective_intensity(memory, now) * share
+            if value:
+                terms.append((value, "they remember the one who came before you"))
     if "kind" in traits:
         terms.append((0.2, None))
     if "hot-tempered" in traits:

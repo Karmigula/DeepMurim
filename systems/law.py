@@ -56,6 +56,8 @@ def crimes(world, town_id: int, subject: int) -> list[tuple[int, float]]:
 
 def bounty(world, town_id: int, subject: int) -> int:
     amount = round(FINE_PER * sum(w for _, w in crimes(world, town_id, subject)))
+    from systems.lineage import inherited  # an heir answers for half the debts they inherited (phase 4b)
+    amount += sum(round(share * bounty(world, town_id, a)) for a, share in inherited(world, town_id, subject))
     return amount if amount >= WANTED else 0
 
 

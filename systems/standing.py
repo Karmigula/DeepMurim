@@ -128,6 +128,11 @@ def standing(world, faction_id: int, subject: int) -> Standing:
         terms.append((1.0, "you are one of us"))
     elif mine and mine[1].get("status") in GONE:
         terms.append((-3.0, "you betrayed them"))
+    from systems.lineage import inherited  # a faction judges an heir, in part, by the one before (phase 4b)
+    for ancestor, share in inherited(world, faction_id, subject):
+        old = standing(world, faction_id, ancestor).score
+        if old:
+            terms.append((share * old, "the one who came before you"))
     score = round(sum(v for v, _ in terms), 3)
     reasons = tuple(r for _, r in sorted(terms, key=lambda t: -abs(t[0]))[:2])
     return Standing(score, word_for(score), reasons)

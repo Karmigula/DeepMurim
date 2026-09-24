@@ -152,7 +152,8 @@ def avengers_for(world, player_id: int) -> list[int]:
         if appears_as(world, memory.owner, memory.event, player_id) != player_id:
             continue  # they grieve, but do not know it was you
         found.append(memory.owner)
-    return found
+    from systems.lineage import inherited_avengers  # grudges outlive the one they were held against (phase 4b)
+    return found + [a for a in inherited_avengers(world, player_id) if a not in found]
 
 
 def grief_role(world, avenger: int, player_id: int) -> str | None:
