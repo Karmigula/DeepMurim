@@ -227,3 +227,6 @@ def _lost(world, event) -> None:
         changes["mule"] = False
     world.update_data(player, **changes)
     world.update_data(taker, goods=theirs)
+
+
+import systems.price_events  # noqa: E402,F401  registers its price factors and season hooks

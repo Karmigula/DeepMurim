@@ -98,7 +98,7 @@ def season_events(world, n: int) -> list[Event]:
     events = []
     regions = world.entities("region")
     for region in regions:
-        if rng_for(world.world_seed, f"famine:{region.id}:{n}").random() < FAMINE_CHANCE:
+        if rng_for(world.world_seed, f"famine:{region.seed_path}:{n}").random() < FAMINE_CHANCE:
             until = (n + 2) * lives.SEASON  # from its own season, so a catch-up does not start old famines now
             if until <= world.time:
                 continue
@@ -111,7 +111,7 @@ def season_events(world, n: int) -> list[Event]:
                     events.append(Event("price_shift", (), None, {"scope": "region", "place": other.id,
                                                                   "multipliers": {"rice": 1.5}, "until": until,
                                                                   "cause": "famine nearby"}))
-        if rng_for(world.world_seed, f"harvest:{region.id}:{n}").random() < HARVEST_CHANCE \
+        if rng_for(world.world_seed, f"harvest:{region.seed_path}:{n}").random() < HARVEST_CHANCE \
                 and (n + 1) * lives.SEASON > world.time:
             made, _ = region_goods(world, region)
             events.append(Event("price_shift", (), None, {"scope": "region", "place": region.id,
@@ -135,7 +135,7 @@ def _player_glut(world, event, event_id: int) -> None:
     if d["side"] != "sell":
         return
     player, town = event.actors[0], event.place
-    sold = dict(world.entity(player).data.get("sold_today", {}))
+    sold = {k: v for k, v in world.entity(player).data.get("sold_today", {}).items() if v[0] == d["day"]}
     key = f"{town}:{d['good']}"
     day, count = sold.get(key, [d["day"], 0])
     count = (count if day == d["day"] else 0) + d["n"]

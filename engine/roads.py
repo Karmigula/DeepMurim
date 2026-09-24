@@ -99,6 +99,8 @@ class RoadsMixin:
             lines = self._commit(payment_events(me, person, place, e["toll"], "toll"))
             return self._turn(lines + self._resolve("paid"))
         if how == "pay_goods":
+            if silver_of(self.world, me) >= e["toll"]:
+                return self._turn([("They want silver, and you have it.", "system")])
             events = market.toll_events(self.world, me, person, place, e["toll"]) if e["kind"] == "bandit" else []
             if not events:
                 return self._turn([("You have nothing they would take.", "system")])

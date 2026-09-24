@@ -89,9 +89,9 @@ def test_the_status_line_shows_the_pack(game):
     assert "pack 3/" in game.perform(Action("look")).status
 
 
-def test_a_mule_from_the_town_menu(game):
+def test_a_mule_from_the_market_menu(game):
     game.world.update_data(game.player.id, silver=100)
-    turn = game.perform(Action("look"))
+    turn = game.perform(Action("market"))
     assert Action("buy_mule") in [c.action for c in turn.all_choices]
     game.perform(Action("buy_mule"))
     assert game.player.data["mule"]

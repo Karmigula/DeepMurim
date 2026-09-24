@@ -37,6 +37,8 @@ class MarketMixin:
             if self.submenu == "market":
                 goods = [Choice(f"Trade {g} ({market.price(self.world, self.place.id, g)})", Action("trade_good", g))
                          for g in ORDER]
+                if market.mule_block(self.world, self.player.id) is None:
+                    goods.append(Choice(f"Buy a mule ({MULE_PRICE} silver)", Action("buy_mule")))
                 options["market"] = (goods, Action("back"))
             else:
                 good = self._trade_good
@@ -48,8 +50,6 @@ class MarketMixin:
     def _general_extras(self) -> list:
         extras = super()._general_extras()
         extras.append(Choice("Visit the market", Action("market")))
-        if market.mule_block(self.world, self.player.id) is None:
-            extras.append(Choice(f"Buy a mule ({MULE_PRICE} silver)", Action("buy_mule")))
         return extras
 
     def _conversation_extras(self, npc) -> list:
