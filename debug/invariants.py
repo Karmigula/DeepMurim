@@ -66,6 +66,7 @@ def check_world(world) -> list[str]:
     problems += check_factions(world)
     problems += check_sect(world)
     problems += check_life(world, people)
+    problems += check_lineage(world)
     times = world.recent_chronicle_times()
     for before, after in zip(times, times[1:]):
         if after < before:
@@ -289,6 +290,28 @@ def check_life(world, people=None) -> list[str]:
     return out
 
 
+def check_lineage(world) -> list[str]:
+    """Phase 4b spec 8: exactly one living player, or a dead one choosing a successor."""
+    out = []
+    player_id = world.get_meta("player_id")
+    player = world.entity(player_id) if player_id is not None else None
+    if player is None:
+        return out
+    flagged = [p.id for p in world.entities("person") if p.data.get("is_player") and not p.data.get("dead")]
+    if player.data.get("dead"):
+        if not player.data.get("dying"):
+            out.append("the player is dead but no successor is being chosen")
+        if flagged:
+            out.append(f"living people marked as the player while the player is dead: {flagged}")
+    elif flagged != [player_id]:
+        out.append(f"is_player marks {flagged}, but the player is #{player_id}")
+    for ancestor in player.data.get("ancestors", []):
+        entity = world.entity(ancestor)
+        if entity is None or not entity.data.get("dead") or len(world.targets(ancestor, "buried_at")) != 1:
+            out.append(f"ancestor #{ancestor} is not dead and buried")
+    return out
+
+
 def check_sect(world) -> list[str]:
     """The player's sect: one leader, an owned seat, a sane roster and clock (phase 3c spec 9)."""
     from systems import factions as F
@@ -306,8 +329,10 @@ def check_sect(world) -> list[str]:
             if living:
                 out.append(f"dissolved {sect.name} still has {len(living)} members")
             continue
-        leaders = [p for p in living if F.membership(world, p, sect.id)[1].get("role") == "leader"]
         founder = sect.data["founder"]
+        if world.entity(founder).data.get("dead"):
+            continue  # its founder has died and a successor is being chosen (phase 4b)
+        leaders = [p for p in living if F.membership(world, p, sect.id)[1].get("role") == "leader"]
         if leaders != [founder]:
             out.append(f"{sect.name} has leaders {leaders}, not its founder")
         seat = sect.data["seat"]
@@ -356,6 +381,7 @@ def check_people(game, turn) -> list[str]:
     if here:
         known |= {p.name.lower() for p in people_at(world, here[0])}
     known |= {p.name.lower() for p in world.entities("persona") if p.data.get("of") == player_id}
+    known |= {world.entity(k).name.lower() for k, _, _ in world.relations_from(player_id, "kin_of")}  # your family
     for kind in ("person", "persona"):
         for entity in world.entities(kind):
             name = entity.name.lower()

@@ -111,6 +111,7 @@ class App:
             if choice == "Continue":
                 self.open_save(self.latest_save())
             elif choice == "New world":
+                self._newcomer_save = None
                 self.state, self.name, self.message = "name", "", ""
             else:
                 self.running = False
@@ -260,6 +261,18 @@ class App:
             self.record_crash(exc, f"perform {action.verb}")
             return
         self._show(turn)
+        self._follow_exit()
+
+    def _follow_exit(self) -> None:
+        """After a death the player may leave for a new world or a newcomer (phase 4b spec 5.3)."""
+        exit_to = getattr(self.game, "exit_to", None) if self.game is not None else None
+        if exit_to == "title":
+            self._close_game()
+            self.state, self.selected = "title", 0
+        elif exit_to == "newcomer":
+            self._newcomer_save = self.save_path
+            self._close_game()
+            self.state, self.name, self.message = "name", "", ""
 
     def _show(self, turn: Turn) -> None:
         if self.log:

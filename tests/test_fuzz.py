@@ -22,6 +22,18 @@ FIGHTING = ["strike", "feint", "guard", "probe", "strike", "guard", "flee", "yie
 HOTKEYS = ["f2", "f3", "f4", "f12", "page up", "page down"]
 
 
+def keep_playing(app, step):
+    """A death may end in a new world or a newcomer (phase 4b); carry the run on, then insist on play."""
+    for _ in range(30):
+        if app.state == "game":
+            return
+        if app.state == "title" and app.game is None:
+            app.start_new("Again", world_seed=step + 1)
+        else:
+            app.handle_key("return", "\r")
+    assert app.state == "game", f"left the game at step {step}"
+
+
 @pytest.mark.parametrize("seed", [1, 7, 42, 1234])
 def test_random_play_is_clean(tmp_path, seed):
     rng = random.Random(seed)
@@ -43,7 +55,7 @@ def test_random_play_is_clean(tmp_path, seed):
             app.handle_key("escape", "\x1b")
             if app.state == "title":
                 app.handle_key("return", "\r")  # Continue
-        assert app.state == "game", f"left the game at step {step}"
+        keep_playing(app, step)
     assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
     assert app.violations == [], app.violations[:5]
     app.shutdown()
@@ -77,7 +89,7 @@ def test_a_violent_life_stays_clean(tmp_path, seed, monkeypatch):
             app.submit(str(rng.randint(1, len(app.choices))))
         else:
             app.submit(rng.choice(["challenge", "go north", "go east", "go south", "go west", "1", "look", "rest"]))
-        assert app.state == "game", f"left the game at step {step}"
+        keep_playing(app, step)
     assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
     assert app.violations == [], app.violations[:5]
     app.shutdown()
@@ -105,7 +117,7 @@ def test_a_life_of_rumours_and_masks(tmp_path, seed, monkeypatch):
         else:
             app.submit(rng.choice(["1", "2", "look", "rumours", "wear mask", "remove mask", "go north", "go east",
                                    "go south", "go west", "rest", "journal"]))
-        assert app.state == "game", f"left the game at step {step}"
+        keep_playing(app, step)
     assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
     assert app.violations == [], app.violations[:5]
     app.shutdown()
@@ -139,7 +151,7 @@ def test_a_sect_life(tmp_path, seed, monkeypatch):
         else:
             app.submit(rng.choice(["1", "2", "3", "4", "look", "standing", "rest", "go north", "go south",
                                    "go east", "go west", "journal"]))
-        assert app.state == "game", f"left the game at step {step}"
+        keep_playing(app, step)
     assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
     assert app.violations == [], app.violations[:5]
     app.shutdown()
@@ -167,7 +179,7 @@ def test_a_sect_founder(tmp_path, seed, monkeypatch):
         else:
             app.submit(rng.choice(["1", "2", "3", "look", "ledger", "standing", "meditate season", "rest",
                                    "go north", "go south", "go east", "go west"]))
-        assert app.state == "game", f"left the game at step {step}"
+        keep_playing(app, step)
     assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
     assert app.violations == [], app.violations[:5]
     app.shutdown()
@@ -188,7 +200,7 @@ def test_a_long_lived_wanderer(tmp_path, seed):
         else:
             app.submit(rng.choice(["meditate season", "meditate season", "meditate month", "look", "journal",
                                    "rumours", "go north", "go south", "go east", "go west", "1", "2", "3"]))
-        assert app.state == "game", f"left the game at step {step}"
+        keep_playing(app, step)
     assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
     assert app.violations == [], app.violations[:5]
     app.shutdown()

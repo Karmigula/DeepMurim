@@ -27,6 +27,7 @@ from engine.founding import FoundingMixin
 from engine.sect import SectMixin
 from engine.seasons import SeasonsMixin
 from engine.world_mixin import WorldMixin
+from engine.lineage import LineageMixin
 from engine.standing_page import standing_lines
 from engine.ledger import ledger_lines
 from engine.masks import MasksMixin
@@ -58,7 +59,7 @@ KEEP_SUBMENU = frozenset({
     "people", "routes", "cultivate", "practise_menu", "meridian_menu", "ambiguous",
     "use_menu", "learn_menu", "browse", "create_menu",
 })
-QUIET_KINDS = frozenset({"exchange"})
+QUIET_KINDS = frozenset({"exchange", "player_aged"})
 PATIENCE_SHIFT = {"warm": 1, "hostile": -1, "hateful": -1}  # phase 3a spec 3.2  # too many to list in the journal
 BUSY = "Finish your conversation first."
 
@@ -72,7 +73,7 @@ HELP = [
 ]
 
 
-class Game(WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, LeavingMixin, LawMixin, LandMixin, FoundingMixin, SectMixin, SeasonsMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
+class Game(LineageMixin, WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, LeavingMixin, LawMixin, LandMixin, FoundingMixin, SectMixin, SeasonsMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
     def __init__(self, world: World, narrator: Narrator | None = None) -> None:
         self.world = world
         self.narrator = narrator or ProceduralNarrator()
@@ -113,7 +114,7 @@ class Game(WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, Pol
             player = world.entity(player_id) if isinstance(player_id, int) else None
             if player is None:
                 raise SaveError(f"{world.path.name} has no player")
-            if not world.targets(player.id, "located_in"):
+            if not world.targets(player.id, "located_in") and not player.data.get("dying"):
                 raise SaveError(f"{world.path.name}: {player.name} is nowhere in the world")
         except SaveError:
             world.close()
@@ -150,6 +151,8 @@ class Game(WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, Pol
 
     def look(self) -> Turn:
         self.last_briefs = []
+        if self.player.data.get("dying"):
+            return self._turn(self._death_lines())  # the death screen, after a load (phase 4b)
         if self.combat is not None or self.encounter is not None or self.challenger is not None:
             return self._turn([])  # resuming mid-fight or mid-encounter: show its menu, not the town
         return self._do_look(None)
@@ -181,6 +184,8 @@ class Game(WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, Pol
         return self._turn([])  # back to the plain conversation menu; focus is kept
 
     def _do_look(self, _target) -> Turn:
+        if self.player.data.get("dying"):
+            return self._turn(self._death_lines())
         self.focus = None
         self._before_scene()
         here = (self.place.id, self.world.time)
