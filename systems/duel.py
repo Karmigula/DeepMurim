@@ -337,6 +337,11 @@ def _end_event(world, d: Duel, result: str, reason: str, rng, harm: dict, exchan
     if result == "lost":
         hateful = any(m.feeling in HATEFUL for m in world.memories(d.opponent, about=d.player))
         chosen, amount, crippled = npc_verdict(rng, opponent, silver_of(world, d.player), hateful)
+        from systems.mortality import lethal  # losing can be the end (phase 4b spec 3.2)
+        cause = lethal(world, d, rng, hateful, reason)
+        if cause:
+            chosen, amount, crippled = "kill", 0, None
+            data.update(player_killed=cause, killer=d.opponent)
         data.update(verdict=chosen, by="opponent", silver=amount, crippled=crippled,
                     insight=5.0 * gap if gap > 0 else 0.0, left_for_dead=chosen == "leave_for_dead")
         feeling = "respect" if exchanges >= 4 or gap <= 0 else "contempt"

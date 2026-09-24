@@ -34,10 +34,13 @@ def lifespan_near(world, player: int) -> bool:
     return float(world.entity(player).data.get("age", 18)) >= lifespan(world, player) - WHITE_HAIR
 
 
-def death_events(world, player: int, cause: str, killer: int | None, age: float | None = None) -> list[Event]:
+def death_events(world, player: int, cause: str, killer: int | None, age: float | None = None,
+                 record: bool = True) -> list[Event]:
+    """`record=False` when a duel's own `killed` fact already tells the story."""
     place = lives.home(world, player)
     age = float(world.entity(player).data.get("age", 18)) if age is None else age
-    return [Event("died", (killer or player, player), place, {"cause": cause, "player": True, "age": age})]
+    return [Event("died", (killer or player, player), place,
+                  {"cause": cause, "player": True, "age": age, "record": record})]
 
 
 def age_events(world, player: int) -> list[Event]:
@@ -100,6 +103,8 @@ def _player_died(world, event, event_id: int) -> None:
     killer, victim = event.actors
     world.update_data(victim, dying={"cause": event.data["cause"], "killer": killer if killer != victim else None,
                                      "place": event.place, "time": world.time, "age": event.data.get("age")})
+    if not event.data.get("record", True):
+        return
     where = place_name(world, event.place)
     if killer == victim:
         record_fact(world, victim, "died", None, place=event.place, source_event=event_id, weight=DEATH_WEIGHT,
@@ -108,3 +113,61 @@ def _player_died(world, event, event_id: int) -> None:
         record_fact(world, killer, "killed", victim, place=event.place, source_event=event_id, weight=DEATH_WEIGHT,
                     variant=make_variant("killed", killer, victim, place=where,
                                          realm=world.entity(killer).data.get("realm")))
+
+
+CAPITAL = 150
+KILL_CHANCE = {"grudge": 0.5, "hunter": 0.3, "ruthless": 0.1}
+TRIAL_DEATH = 0.5
+PRISON_SEASONS = 8
+
+
+def ruthless(entity) -> bool:
+    traits = set(entity.data.get("traits", ()))
+    return entity.data.get("occupation") == "bandit" or entity.data.get("roamer_kind") == "bandit" \
+        or {"cunning", "greedy"} <= traits
+
+
+def kill_chance(world, d, hateful: bool) -> float:
+    """How likely an opponent who has beaten the player is to finish them (spec 3.2): the highest row counts."""
+    opponent = world.entity(d.opponent)
+    if opponent is None or opponent.data.get("beast"):
+        return 0.0
+    if hateful:
+        return KILL_CHANCE["grudge"]
+    if (d.purpose or {}).get("hunter"):
+        return KILL_CHANCE["hunter"]
+    return KILL_CHANCE["ruthless"] if ruthless(opponent) else 0.0
+
+
+def lethal(world, d, rng, hateful: bool, reason: str) -> str | None:
+    """Whether losing this fight ends the player's life, and how. Yielding spares you, except from the law."""
+    if (d.purpose or {}).get("capital"):
+        return "executed"
+    if reason == "yielded":
+        return None
+    chance = kill_chance(world, d, hateful)
+    return "killed" if chance and rng.random() < chance else None
+
+
+def trial_events(world, player: int, place: int) -> list[Event]:
+    a = world.entity(player).data["arrest"]
+    executed = rng_for(world.world_seed, f"trial:{player}:{world.time}").random() < TRIAL_DEATH
+    events = [Event("tried", (player, a["constable"]), place,
+                    {"verdict": "death" if executed else "prison", "facts": a["facts"]})]
+    if executed:
+        return events + death_events(world, player, "executed", a["constable"])
+    return events + [Event("imprisoned", (player, a["constable"]), place,
+                           {"seasons": PRISON_SEASONS, "facts": a["facts"]})]
+
+
+@effect("tried")
+def _tried(world, event) -> None:
+    world.update_data(event.actors[0], arrest=None)
+
+
+@effect("imprisoned")
+def _imprisoned(world, event) -> None:
+    from systems.law import _atone
+    from systems.time import advance
+    _atone(world, event.actors[0], event.data["facts"])
+    advance(world, event.data["seasons"] * lives.SEASON)

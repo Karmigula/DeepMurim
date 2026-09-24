@@ -1,5 +1,7 @@
 """The law in the engine (phase 3b spec 8): arrest as a gated moment, like a challenge."""
 
+import systems.mortality as mortality
+
 import systems.encounters as encounters
 import systems.law as law
 from engine.actions import Action, Choice
@@ -19,6 +21,10 @@ class LawMixin:
     def _special_choices(self):
         a = self._arrest()
         if a:
+            if a["bounty"] >= mortality.CAPITAL:  # a capital charge: no fine, no cell (phase 4b spec 3.4)
+                return [Choice("Stand trial", Action("arrest", "trial")),
+                        Choice("Fight your way free", Action("arrest", "fight")),
+                        Choice("Try to flee", Action("arrest", "flee"))], []
             return [Choice(f"Pay the fine ({a['bounty']} silver)", Action("arrest", "pay")),
                     Choice(f"Serve time ({max(1, a['bounty'] // 5)} days)", Action("arrest", "jail")),
                     Choice("Fight your way free", Action("arrest", "fight")),
@@ -44,6 +50,14 @@ class LawMixin:
         if not a:
             return self._turn([("No one is arresting you.", "system")])
         me, place = self.player.id, self.place.id
+        capital = a["bounty"] >= mortality.CAPITAL
+        if choice == "trial":
+            if not capital:
+                return self._turn([("Only a capital charge goes to trial.", "system")])
+            lines = self._commit(mortality.trial_events(self.world, me, place))
+            return self._turn(lines + (self._death_lines() if self._dying() else []))
+        if capital and choice in ("pay", "jail"):
+            return self._turn([("A capital charge cannot be paid or served away.", "system")])
         if choice == "pay":
             if law.silver_of(self.world, me) < a["bounty"]:
                 return self._turn([(f"You don't have {a['bounty']} silver.", "system")])
@@ -54,5 +68,6 @@ class LawMixin:
             return self._turn(self._commit(law.escape_events(self.world, me, place)))
         if choice in ("fight", "flee"):
             lines = self._commit(law.escape_events(self.world, me, place))
-            return self._turn(lines + self._start_duel(a["constable"], "duel", purpose={"arrest": True}))
+            purpose = {"arrest": True, "capital": True} if capital else {"arrest": True}
+            return self._turn(lines + self._start_duel(a["constable"], "duel", purpose=purpose))
         return self._turn([("Pay, serve, fight or flee?", "system")])

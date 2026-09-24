@@ -78,6 +78,10 @@ class RoadsMixin:
         self.encounter = None
         return self._commit(encounters.resolved_events(self.player.id, e["person"], self.place.id, how, e["kind"]))
 
+    def _road_purpose(self, e: dict) -> dict | None:
+        """Sect and bounty hunters came to kill (phase 4b spec 3.2)."""
+        return {"hunter": True} if e["kind"] in encounters.UNTALKABLE else None
+
     def _do_road(self, how):
         if self.encounter is None:
             return self._turn([("Nothing stands in your way.", "system")])
@@ -95,13 +99,13 @@ class RoadsMixin:
                 return self._turn([("It does not understand words.", "system")])
             if encounters.talk_succeeds(self.world, person, me, e["kind"]):
                 return self._turn(self._resolve("talked"))
-            return self._turn(self._resolve("fight") + self._start_duel(person, "encounter"))
+            return self._turn(self._resolve("fight") + self._start_duel(person, "encounter", purpose=self._road_purpose(e)))
         if how == "flee":
             if encounters.flee_succeeds(self.world, me, person):
                 return self._turn(self._resolve("fled"))
-            return self._turn(self._resolve("fight") + self._start_duel(person, "encounter", opening="opponent"))
+            return self._turn(self._resolve("fight") + self._start_duel(person, "encounter", purpose=self._road_purpose(e), opening="opponent"))
         if how == "fight":
-            return self._turn(self._resolve("fight") + self._start_duel(person, "encounter"))
+            return self._turn(self._resolve("fight") + self._start_duel(person, "encounter", purpose=self._road_purpose(e)))
         return self._turn([("Fight, flee, pay or talk?", "system")])
 
     def _do_answer_challenge(self, accept):

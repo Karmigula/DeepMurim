@@ -1,7 +1,16 @@
 [symbols]
 line_years = ["The years sit a little heavier.", "Another season is behind you.", "Time moves, as it always has.", "You feel the weight of years.", "The seasons turn.", "Something in you has grown older."]
+line_court = ["The court falls silent.", "A gong sounds once.", "The magistrate does not look up.", "Guards stand at your shoulders.", "Ink dries on the sentence.", "Someone in the crowd spits."]
 line_quiet = ["No one else notices.", "The day goes on.", "You breathe slowly.", "The wind shifts.", "A bird calls somewhere.", "You carry on."]
 
 [player_aged]
+colour = "dim"
+lines = ["#line_years# #line_quiet#", "#line_quiet# #line_years#"]
+
+[tried]
+colour = "default"
+lines = ["#line_court# #line_quiet#", "#line_quiet# #line_court#"]
+
+[imprisoned]
 colour = "dim"
 lines = ["#line_years# #line_quiet#", "#line_quiet# #line_years#"]

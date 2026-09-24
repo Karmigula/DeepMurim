@@ -82,6 +82,13 @@ class LineageMixin:
                 lines += self._commit(aged[1:]) + self._death_lines()
         return lines
 
+    def _after_duel(self, data: dict) -> list:
+        cause = data.get("player_killed")
+        if not cause:
+            return super()._after_duel(data)
+        deaths = mortality.death_events(self.world, self.player.id, cause, data.get("killer"), record=False)
+        return self._commit(deaths) + self._death_lines()  # nothing else follows a death
+
     def _do_new_world(self, _target):
         if not self._dying():
             return self._turn([("You are not dead.", "system")])
