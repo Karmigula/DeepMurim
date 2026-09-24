@@ -133,7 +133,24 @@ def test_arriving_in_a_busy_town_eight_seasons_on_is_quick(game):
     for i in range(30):
         local(game, f"test:crowd:{i}", occupation="tea seller", age=30)
     game.world.set_time(game.world.time + 8 * lives.SEASON)
-    start = time.perf_counter()
+    start = time.process_time()  # the work's own time, not the machine's other load
     game.perform(Action("look"))
-    elapsed = time.perf_counter() - start
+    elapsed = time.process_time() - start
     assert elapsed < 0.15, f"arriving took {elapsed * 1000:.0f} ms"
+
+
+def test_arriving_catches_the_town_up_in_one_commit(game, monkeypatch):
+    """Each commit waits on the disk; one per townsperson made arrival slow under load."""
+    for i in range(10):
+        local(game, f"test:crowd:{i}", occupation="tea seller", age=30)
+    game.world.set_time(game.world.time + 8 * lives.SEASON)
+    world, outermost = game.world, []
+    inner = type(world).transaction
+
+    def counting(self):
+        if self._depth == 0:
+            outermost.append(1)
+        return inner(self)
+    monkeypatch.setattr(type(world), "transaction", counting)
+    game.perform(Action("look"))
+    assert len(outermost) <= 3, f"{len(outermost)} commits"

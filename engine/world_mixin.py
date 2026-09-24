@@ -29,9 +29,10 @@ class WorldMixin:
         visits = dict(self.player.data.get("visits", {}))
         self._last_visit = visits.get(str(self.place.id))  # kept for the arrival news line
         visits[str(self.place.id)] = self.world.time
-        self.world.update_data(self.player.id, visits=visits)
-        for person in people_at(self.world, self.place.id, exclude=self.player.id):
-            lives.catch_up(self.world, person.id)
+        with self.world.transaction():  # one commit for the whole town: each commit waits on the disk
+            self.world.update_data(self.player.id, visits=visits)
+            for person in people_at(self.world, self.place.id, exclude=self.player.id):
+                lives.catch_up(self.world, person.id)
 
     def _before_talk(self, npc_id) -> None:
         super()._before_talk(npc_id)

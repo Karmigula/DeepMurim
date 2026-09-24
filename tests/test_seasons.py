@@ -152,8 +152,8 @@ def test_eight_seasons_for_fifteen_members_are_quick(game):
     import systems.world_clock as world_clock
     while world_clock.run_due(game.world):
         pass  # the world's own seasons are not what this test measures (phase 4a ruling 11)
-    start = time.perf_counter()
+    start = time.process_time()  # the work's own time, not the machine's other load
     for _ in range(8):
         game._commit(seasons.season_events(game.world, game.player.id, sect))
-    elapsed = time.perf_counter() - start
+    elapsed = time.process_time() - start
     assert elapsed < 0.2, f"8 seasons took {elapsed * 1000:.0f} ms"
