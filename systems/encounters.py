@@ -100,7 +100,7 @@ def road_encounter_events(world, player: int, town) -> list[Event]:
         found = hook(world, player, town, rng)
         if found:
             return found
-    if rng.random() >= danger * ENCOUNTER_CHANCE * W.factor(world, town.id, "encounter"):
+    if rng.random() >= danger * ENCOUNTER_CHANCE * W.factor(world, town.id, "encounter") * W.factor(world, town.id, "beasts"):
         return _avenger_events(world, player, town, rng)
     return random_encounter(world, player, town, rng)
 
@@ -110,7 +110,8 @@ def random_encounter(world, player: int, town, rng) -> list[Event]:
     region = region_of(world, town.id)
     danger = region_danger(world.world_seed, region.data["x"], region.data["y"])
     kinds = ["bandit", "wanderer"] + (["beast"] if region.data["terrain"] in BEASTS else [])
-    kind = rng.choice(kinds)
+    tide = W.factor(world, town.id, "beasts")  # a beast tide (phase 4d): most of what comes is a beast
+    kind = "beast" if "beast" in kinds and tide > 1.0 and rng.random() < 1 - 1 / tide else rng.choice(kinds)
     known = [p for p in roamers(world, region.id) if world.entity(p).data.get("roamer_kind") == kind]
     if known and rng.random() < 0.5:
         person = rng.choice(known)

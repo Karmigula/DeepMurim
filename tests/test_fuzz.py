@@ -28,7 +28,7 @@ def keep_playing(app, step):
         if app.state == "game":
             return
         if app.state == "title" and app.game is None:
-            app.start_new("Again", world_seed=step + 1)
+            app.start_new("Ko Haneul", world_seed=step + 1)  # a real name: "Again" is also a word the prose uses
         else:
             app.handle_key("return", "\r")
     assert app.state == "game", f"left the game at step {step}"

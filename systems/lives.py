@@ -146,7 +146,7 @@ def step_events(world, entity, n: int, rng, span: int, passive: bool) -> list[Ev
     data = {"season": n, "span": span, "age": age, "years": years, "breakthrough": breakthrough, "grown": grown}
     events = [Event("lived", (person,), place, data)]
     if breakthrough and realm + 1 >= NOTABLE_REALM:
-        events.append(Event("broke_through", (person,), place, {"realm": realm + 1}))
+        events.append(Event("broke_through", (person,), place, {"realm": realm + 1, "season": n}))
     if dies and place is not None:
         cause = "age" if age >= LIFESPAN[realm] - 10 else "illness"
         return events + [Event("died", (person, person), place, {"cause": cause, "world": True})]

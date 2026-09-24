@@ -1,0 +1,16 @@
+[symbols]
+sky_thunder = ["Thunder rolls on long after.", "The air smells of burnt iron.", "Somewhere a dog will not stop howling.", "The clouds break slowly, as if reluctant.", "People come out of their doors to stare.", "Rain follows, warm and heavy."]
+sky_hunt = ["The carcass steams in the cold air.", "Blood darkens the grass.", "Flies are already gathering.", "The villagers will sleep easier tonight.", "Its teeth are as long as your fingers."]
+sky_reward = ["The magistrate's clerk counts it out twice.", "A crowd gathers to see who hunted so well.", "The silver is heavier than you expected.", "Someone buys you a drink on the strength of it."]
+
+[tribulation]
+colour = "default"
+lines = ["#sky_thunder#", "#sky_thunder# #sky_thunder#"]
+
+[beast_hunted]
+colour = "default"
+lines = ["#sky_hunt#", "#sky_hunt# #sky_hunt#"]
+
+[bounty_paid]
+colour = "default"
+lines = ["#sky_reward#", "#sky_reward# #sky_hunt#"]

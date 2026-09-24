@@ -34,3 +34,18 @@ chance = 0.01
 stages = { active = 5 }
 modifiers = { practice = 2.0 }
 news = { predicate = "phenomenon", weight = 1.0, stages = ["active"] }
+
+[tribulation]
+module = "systems.events.tribulation"
+scope = "town"
+cycle = "trigger"
+stages = { active = 1 }
+
+[beast_tide]
+module = "systems.events.beast_tide"
+scope = "region"
+chance = 0.03
+stages = { announced = 5, active = 15, aftermath = 30 }
+modifiers = { beasts = 3.0 }
+readings = ["the mountain spirits' anger", "a great beast waking", "a hard winter coming"]
+news = { predicate = "phenomenon", weight = 1.5, stages = ["announced", "active"] }

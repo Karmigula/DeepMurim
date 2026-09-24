@@ -14,7 +14,8 @@ DEVIATION_DEATH = 0.5
 WHITE_HAIR = 10          # years before the lifespan when the warning comes
 DEATH_WEIGHT = 3.0
 CAUSES = {"age": "of old age", "illness": "of illness", "deviation": "of qi deviation",
-          "killed": "at the hands of {killer}", "executed": "under the executioner's blade"}
+          "killed": "at the hands of {killer}", "executed": "under the executioner's blade",
+          "beasts": "to the beasts"}
 
 
 def player_lived_to(world, player: int) -> int:
