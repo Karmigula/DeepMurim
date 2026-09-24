@@ -67,6 +67,7 @@ def check_world(world) -> list[str]:
     problems += check_sect(world)
     problems += check_life(world, people)
     problems += check_lineage(world)
+    problems += check_trade(world)
     times = world.recent_chronicle_times()
     for before, after in zip(times, times[1:]):
         if after < before:
@@ -294,6 +295,30 @@ def check_life(world, people=None) -> list[str]:
 def mentions(name: str, text: str) -> bool:
     """Whether `name` appears in `text` as whole words ("wang clan" is not in "hwang clan")."""
     return name in text and re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])", text) is not None
+
+
+def check_trade(world) -> list[str]:
+    """Phase 4c spec 9: sane packs, markets, price events and price books."""
+    from systems.goods import GOODS, capacity, pack_weight
+    out = []
+    player = world.get_meta("player_id")
+    for person in world.entities("person"):
+        goods = person.data.get("goods") or {}
+        if any(g not in GOODS or not isinstance(n, int) or n < 0 for g, n in goods.items()):
+            out.append(f"{person.name} (#{person.id}) carries impossible goods {goods}")
+        elif person.id == player and not person.data.get("dead") and pack_weight(goods) > capacity(world, person.id):
+            out.append(f"the player's pack weighs {pack_weight(goods)}, over its {capacity(world, person.id)}")
+        book = person.data.get("price_book") or {}
+        if any(entry.get("time", 0) > world.time for entry in book.values()):
+            out.append(f"{person.name} (#{person.id}) has a price book entry from the future")
+    for town in world.entities("town"):
+        for good, (value, _) in (town.data.get("market") or {}).items():
+            if not 0.1 - 1e-9 <= value <= 3.0 + 1e-9:
+                out.append(f"{town.name} market stock of {good} is {value}")
+    for event in world.entities_after("price_event", "until", world.time):
+        if any(not 0.3 <= m <= 4.0 for m in event.data["multipliers"].values()):
+            out.append(f"price event #{event.id} has a multiplier outside 0.3-4.0")
+    return out
 
 
 def check_lineage(world) -> list[str]:

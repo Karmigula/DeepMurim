@@ -231,3 +231,26 @@ def test_a_short_dangerous_life(tmp_path, seed, monkeypatch):
     assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
     assert app.violations == [], app.violations[:5]
     app.shutdown()
+
+
+@pytest.mark.parametrize("seed", [9, 31])
+def test_a_travelling_trader(tmp_path, seed, monkeypatch):
+    """Buying, selling and hauling between towns, robbed now and then: every trade rule holds."""
+    monkeypatch.setattr(encounters, "ENCOUNTER_CHANCE", 1.0)
+    rng = random.Random(seed)
+    app = App(Config(), tmp_path / "saves", tmp_path / "settings.json")
+    app.start_new(f"Trader{seed}", world_seed=seed)
+    app.game.world.update_data(app.game.player.id, silver=2000)
+    for step in range(300):
+        game = app.game
+        if game.combat is not None or game.encounter is not None or game.challenger is not None:
+            app.submit(rng.choice(FIGHTING + ["1", "2", "3", "4"]))
+        elif game.submenu in ("market", "trade_good") and app.choices:
+            app.submit(str(rng.randint(1, len(app.choices))))
+        else:
+            app.submit(rng.choice(["market", "market", "prices", "go north", "go east", "go south", "go west",
+                                   "look", "meditate week", "1", "2", "3"]))
+        keep_playing(app, step)
+    assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
+    assert app.violations == [], app.violations[:5]
+    app.shutdown()
