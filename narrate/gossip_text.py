@@ -12,6 +12,8 @@ COUNT_WORDS = {2: "one other", 3: "two others"}
 REALM_DEEDS = frozenset({"defeated", "killed", "crippled", "robbed", "spared", "left_for_dead"})
 # Later systems add their own story shapes here: {actor}, {target} and {be} ("are" for you, else "is").
 EXTRA_PHRASES = {"member_of": "{actor} {be} of the {target}."}
+# Story shapes that need more than actor and target (phase 4c: which good is dear or cheap).
+SPECIAL_PHRASES: dict = {}
 
 
 def who(world, entity_id, viewer: int) -> str:
@@ -27,6 +29,8 @@ def rumour_text(world, variant: dict, viewer: int) -> str:
     """One plain sentence for a story, as this viewer would hear it."""
     actor = who(world, variant.get("actor"), viewer)
     predicate = variant.get("predicate")
+    if predicate in SPECIAL_PHRASES:
+        return SPECIAL_PHRASES[predicate](world, variant, viewer)
     target = who(world, variant["target"], viewer) if variant.get("target") is not None else None
     if predicate == "is":
         return cap(f"{actor} is really {target}.")

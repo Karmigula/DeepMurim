@@ -20,6 +20,7 @@ from world.gen.npc import PORTRAIT_PARTS, TRAITS
 from world.seed import rng_for
 
 MAX_WORLD_SEASONS = 8
+SEASON_HOOKS: list = []  # (world, n) -> list[Event]; later phases add their seasonal events (4c: famines)
 DRIFT, NOISE = 0.2, 3.0
 DESTROY_BELOW = 15
 FOUND_CHANCE = 0.02
@@ -222,6 +223,8 @@ def run_season(world, n: int) -> None:
             commit(world, staffing_events(world, faction, n, staff))
             commit(world, power_events(world, faction, n, staff))
         commit(world, founding_events(world, n))
+        for hook in SEASON_HOOKS:
+            commit(world, hook(world, n))
         world.set_meta("world_tick", n)
 
 

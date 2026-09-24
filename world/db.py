@@ -324,6 +324,13 @@ class World:
             "select id, kind, name, seed_path, created_at, data from entities where seed_path = ?", (seed_path,)
         ).fetchone())
 
+    def entities_after(self, kind: str, key: str, value) -> list[Entity]:
+        """Entities of this kind whose data[key] is greater than `value` (phase 4c: live price events)."""
+        rows = self._conn.execute(
+            "select id, kind, name, seed_path, created_at, data from entities "
+            f"where kind = ? and json_extract(data, '$.{key}') > ? order by id", (kind, value))
+        return [_entity(row) for row in rows]
+
     def entities(self, kind: str) -> list[Entity]:
         rows = self._conn.execute(
             "select id, kind, name, seed_path, created_at, data from entities where kind = ? order by id", (kind,)

@@ -52,3 +52,4 @@ import narrate.season_text  # noqa: E402,F401
 import narrate.world_text  # noqa: E402,F401
 import narrate.lineage_text  # noqa: E402,F401
 import narrate.market_text  # noqa: E402,F401
+import systems.price_events  # noqa: E402,F401  (registers price events)

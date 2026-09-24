@@ -1,6 +1,18 @@
 """What the player is told about trade (phase 4c)."""
 
+from narrate.gossip_text import SPECIAL_PHRASES
 from narrate.outcomes import outcome, summary
+
+
+def _market_story(world, variant, viewer) -> str:
+    good = str(variant.get("good", "trade")).capitalize()
+    where = variant.get("place") or "some town"
+    if variant.get("predicate") == "shortage":
+        return f"{good} is dear in {where}."
+    return f"{good} is going cheap in {where}."
+
+
+SPECIAL_PHRASES.update({"shortage": _market_story, "glut": _market_story})
 
 
 @outcome("traded", body_facts=False)
