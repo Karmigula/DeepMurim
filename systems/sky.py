@@ -123,8 +123,8 @@ def reading(world, kind: str, town: int) -> str | None:
 def _news(world, occurrence, stage: str, event_id: int) -> None:
     d = occurrence.data
     news = W.TYPES.get(d["type"], W.DEFAULTS)["news"]
-    if not news or stage not in news.get("stages", NEWS_STAGES):
-        return
+    if not news or stage not in news.get("stages", NEWS_STAGES) or d["ends"].get(stage, d["over_at"]) <= world.time:
+        return  # a stage that ended before anyone told of it is not news (a catch-up; final review)
     town = news_town(world, d)
     if town is None:
         return

@@ -32,6 +32,9 @@ ID, TYPE, SCOPE, PLACE, X, Y, STARTS, ACTIVE_FROM, ACTIVE_TO, OVER_AT, DONE = ra
 
 
 def full_spec(spec: dict) -> dict:
+    unknown = sorted(set(spec) - set(DEFAULTS)) + sorted(set(spec.get("stages", {})) - set(STAGES))
+    if unknown:
+        raise ValueError(f"unknown event-type fields or stages: {unknown}")  # a fork's typo is caught, not ignored
     full = {**DEFAULTS, **spec}
     if full["scope"] not in SCOPES:
         raise ValueError(f"unknown scope {full['scope']!r}")

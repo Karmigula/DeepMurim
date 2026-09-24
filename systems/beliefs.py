@@ -116,11 +116,11 @@ def identities(world: World, knower_id: int, true_id: int) -> set[int]:
 def known_people(world: World, player_id: int) -> list[int]:
     """Everyone the player has met or heard of (people and personas), most recent first."""
     seen: list[int] = world.acquaintances(player_id)  # all of history, not just recent pages
-    for belief, _ in reversed(world.known_facts(player_id)):
+    for belief, fact in reversed(world.known_facts(player_id)):
         for someone in (belief.variant.get("actor"), belief.variant.get("target")):
             if someone is not None and someone != player_id and someone not in seen:
                 seen.append(someone)
-        for names in (belief.variant.get("lists") or {}).values():  # a list you have read names people (phase 4d)
+        for names in (fact.data.get("lists") or {}).values() if fact.predicate == "published" else ():  # lists you have read (4d)
             seen += [p for p in names if p != player_id and p not in seen]
     out = []
     for someone in seen:

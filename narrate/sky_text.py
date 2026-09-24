@@ -140,7 +140,7 @@ def _sold_line(world, entry, names, place, other):
 
 def _published_story(world, variant, viewer) -> str:
     from systems.rankings import title
-    heaven = variant.get("lists", {}).get("heaven", [])
+    heaven = [variant["first"]] if variant.get("first") is not None else []
     if not heaven:
         return "The Heavenly Ranking Pavilion has published its lists; not one name on them is worth a rumour."
     first = "you" if heaven[0] == viewer else world.entity(heaven[0]).name

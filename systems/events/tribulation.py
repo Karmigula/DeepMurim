@@ -22,12 +22,17 @@ REST_DAYS = 3
 WITNESSES = 8
 
 
+def rested_before(world, pid: int) -> bool:
+    """Whether a rest ended in the few days before this breakthrough (a rest is stamped when it starts)."""
+    since = world.time - (BREAKTHROUGH_DAYS + REST_DAYS) * 4
+    return any(e.kind == "rested" and e.time + e.data.get("days", 0) * 4 >= since
+               for e in world.chronicle_about(pid, limit=30))
+
+
 def player_roll(world, pid: int) -> str:
     """How the player comes through: purity and a rested body help; only the impure can be crippled."""
     body = load_body(world, pid)
-    since = world.time - (BREAKTHROUGH_DAYS + REST_DAYS) * 4
-    rested = any(e.kind == "rested" and e.time >= since for e in world.chronicle_about(pid, limit=30))
-    clean = 0.45 + 0.3 * body.purity + (0.1 if rested else 0.0)
+    clean = 0.45 + 0.3 * body.purity + (0.1 if rested_before(world, pid) else 0.0)
     crippled = 0.03 if body.purity < 0.5 else 0.0
     roll = rng_for(world.world_seed, f"tribulation:{pid}:{world.time}").random()
     return "clean" if roll < clean else "crippled" if roll >= 1 - crippled else "scarred"

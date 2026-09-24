@@ -12,6 +12,7 @@ import systems.world_events as W
 from systems import factions as F
 from systems.beliefs import believe
 from systems.facts import make_variant, place_name, record_fact
+from systems.lives import LIFESPAN
 from systems.realms import realm_index
 from world.events import Event, effect, listen
 from world.gen.materialize import ensure_town
@@ -33,6 +34,7 @@ HEARD = TIER_FACTS | {"defeated", "died", "killed"}
 INFORMANT_REACH, INFORMANT_FALL = 0.9, 0.85
 WIN_POINTS, WIN_SHARE, TREASURE_POINTS, ENLIGHTENED_POINTS = 10.0, 0.6, 30.0, 20.0
 DEED_FADE = 0.8
+SILENCE_YEARS = 40  # a master unheard of for this long is presumed dead or gone (final review)
 PUBLIC_ROLES = ("leader", "elder")
 YEAR = 4 * W.SEASON
 
@@ -131,34 +133,42 @@ def survey(world) -> None:
 def scores(world, pav: int) -> dict[int, float]:
     """Everyone the Pavilion believes in, scored: realm tier x 100, plus deeds that fade year by year."""
     last = world.entity(pav).data.get("scores") or {}
-    tier, deeds, dead = {}, {}, set()
-    for belief, fact in world.known_facts(pav):
+    tier, deeds, dead, heard = {}, {}, set(), {}
+    known = world.known_facts(pav)
+    won_duels = {f.source_event for _, f in known if f.predicate == "defeated" and f.source_event is not None}
+    for belief, fact in known:
         v, predicate = belief.variant, fact.predicate
         if predicate == "died":
             dead.add(fact.subject)
             continue
-        if predicate == "killed":
-            if v.get("target") is not None:
-                dead.add(v["target"])
-            continue
+        if predicate == "killed" and v.get("target") is not None:
+            dead.add(v["target"])
+            if fact.source_event in won_duels:
+                continue  # the player's duel already counted as a win (plan ruling 5)
         who = v.get("actor")
         if who is None:
             continue
+        heard[who] = max(heard.get(who, 0), fact.time)
         realm = realm_index(v["realm"]) if v.get("realm") else None
-        if realm is not None and (predicate in TIER_FACTS or predicate == "defeated"):
+        if realm is not None and (predicate in TIER_FACTS or predicate in ("defeated", "killed")):
             tier[who] = max(tier.get(who, 0), realm)
         fade = DEED_FADE ** max(0, (world.time - fact.time) // YEAR)
-        if predicate == "defeated":
+        if predicate in ("defeated", "killed"):  # an NPC's killing records no `defeated` of its own
             points = WIN_POINTS + WIN_SHARE * last.get(str(v.get("target")), 0.0)
         else:
             points = {"treasure": TREASURE_POINTS, "enlightened": ENLIGHTENED_POINTS}.get(predicate, 0.0)
         if points:
             deeds[who] = deeds.get(who, 0.0) + points * fade
+    ages = believed_ages(world, pav)
     out = {}
     for who in set(tier) | set(deeds):
         entity = world.entity(who)
         if who in dead or entity is None or entity.kind not in ("person", "persona"):
             continue
+        if world.time - heard.get(who, 0) > SILENCE_YEARS * YEAR:
+            continue  # silent for a lifetime of rumours: presumed dead or gone (final review)
+        if ages.get(who, 0) > LIFESPAN[min(tier.get(who, 0), len(LIFESPAN) - 1)]:
+            continue  # older than anyone of that realm lives
         out[who] = round(tier.get(who, 0) * 100 + deeds.get(who, 0.0), 2)
     return out
 
@@ -200,9 +210,9 @@ def _published(world, event) -> None:
 def _published_news(world, event, event_id: int) -> None:
     pav, d = event.actors[0], event.data
     variant = make_variant("published", pav, None, place=place_name(world, event.place))
-    variant.update(year=d["year"], lists=d["lists"])
+    variant.update(year=d["year"], first=(d["lists"]["heaven"] or [None])[0])
     fact = record_fact(world, pav, "published", None, place=event.place, source_event=event_id, weight=3.0,
-                       variant=variant)
+                       variant=variant, extra={"lists": d["lists"]})  # the lists once, not in every believer's copy
     world.update_data(pav, fact=fact)
 
 
@@ -226,7 +236,7 @@ def latest(world, knower: int) -> dict | None:
     best = None
     for belief, fact in world.known_facts(knower):
         if fact.predicate == "published" and (best is None or belief.variant.get("year", 0) > best["year"]):
-            best = {"year": belief.variant.get("year", 0), "lists": belief.variant.get("lists", {}), "time": fact.time}
+            best = {"year": belief.variant.get("year", 0), "lists": fact.data.get("lists", {}), "time": fact.time}
     return best
 
 
