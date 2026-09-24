@@ -291,6 +291,11 @@ def check_life(world, people=None) -> list[str]:
     return out
 
 
+def mentions(name: str, text: str) -> bool:
+    """Whether `name` appears in `text` as whole words ("wang clan" is not in "hwang clan")."""
+    return name in text and re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])", text) is not None
+
+
 def check_lineage(world) -> list[str]:
     """Phase 4b spec 8: exactly one living player, or a dead one choosing a successor."""
     out = []
@@ -406,7 +411,7 @@ def check_people(game, turn) -> list[str]:
     heard = set(known_factions(world, player_id, town)) if town is not None else set()
     heard_names = {world.entity(f).name.lower() for f in heard}  # minor factions far apart can share a name
     for faction in world.entities("faction"):
-        if faction.name.lower() not in heard_names and faction.name.lower() in text:
+        if faction.name.lower() not in heard_names and mentions(faction.name.lower(), text):
             out.append(f"the faction {faction.name} is named on screen but the player never heard of it")
     return out
 

@@ -28,6 +28,7 @@ from engine.sect import SectMixin
 from engine.seasons import SeasonsMixin
 from engine.world_mixin import WorldMixin
 from engine.lineage import LineageMixin
+from engine.market import MarketMixin
 from engine.standing_page import standing_lines
 from engine.ledger import ledger_lines
 from engine.masks import MasksMixin
@@ -68,12 +69,12 @@ HELP = [
     ("  look | talk <name> | go <place or direction> | ask <work|town> | bye | journal | help", "system"),
     ("  cultivate | meditate <day|week|month|season> | practise <art> | open <meridian> | rest | breakthrough", "system"),
     ("  challenge | spar | strike | feint | guard | probe | flee | yield | spare | rob | cripple | kill", "system"),
-    ("  news | ask about <name> | tell | rumours | wear mask | remove mask | standing (F6) | ledger (F7) | lineage (F8)", "system"),
+    ("  news | ask about <name> | tell | rumours | wear mask | remove mask | standing (F6) | ledger (F7) | lineage (F8) | market | prices", "system"),
     ("  F2 swap art side | F3 hide art | F4 character sheet | F9 report a bug | F12 debug | Esc menu", "system"),
 ]
 
 
-class Game(LineageMixin, WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, LeavingMixin, LawMixin, LandMixin, FoundingMixin, SectMixin, SeasonsMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
+class Game(LineageMixin, MarketMixin, WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, LeavingMixin, LawMixin, LandMixin, FoundingMixin, SectMixin, SeasonsMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
     def __init__(self, world: World, narrator: Narrator | None = None) -> None:
         self.world = world
         self.narrator = narrator or ProceduralNarrator()

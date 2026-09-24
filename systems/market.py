@@ -145,3 +145,27 @@ def _traded(world, event) -> None:
 def _mule(world, event) -> None:
     player = event.actors[0]
     world.update_data(player, silver=silver_of(world, player) - event.data["price"], mule=True)
+
+
+def known_prices(world, player: int) -> dict[int, dict]:
+    """What the player knows of prices: their visits, and the shortages and gluts they believe (spec §6)."""
+    book = {int(t): {"time": e["time"], "source": e["source"], "prices": dict(e["prices"])}
+            for t, e in world.entity(player).data.get("price_book", {}).items()}
+    for belief, fact in world.known_facts(player):
+        if fact.predicate not in ("shortage", "glut") or fact.place is None or "good" not in fact.data:
+            continue
+        entry = book.setdefault(fact.place, {"time": fact.time, "source": "rumour", "prices": {}})
+        if fact.data["good"] not in entry["prices"] or fact.time > entry["time"]:
+            entry["prices"][fact.data["good"]] = fact.data["price"]
+            if fact.time > entry["time"]:
+                entry["time"], entry["source"] = fact.time, "rumour"
+    return book
+
+
+def town_line(world, town: int) -> str | None:
+    """The good that is cheapest and the one that is dearest here today, for a brief (spec §8)."""
+    ratios = {good: price(world, town, good) / GOODS[good][0] for good in GOODS}
+    cheap, dear = min(ratios, key=lambda g: (ratios[g], g)), max(ratios, key=lambda g: (ratios[g], g))
+    if cheap == dear:
+        return None
+    return f"Here {cheap} is cheap and {dear} is dear."

@@ -360,6 +360,10 @@ def scene_brief(world: World, place_id: int, player_id: int, salt: str) -> Brief
         facts.append("You already know " + ", ".join(known) + ".")
     from narrate.world_text import town_news  # the newest change here the player believes (phase 4a)
     news = town_news(world, place_id, player_id)
+    from systems.market import town_line  # what is cheap and dear here (phase 4c)
+    trade = town_line(world, place_id)
+    if trade:
+        facts.append(trade)
     ancestors = player.data.get("ancestors") or []
     if ancestors:
         facts.append(f"You are the heir of {world.entity(ancestors[-1]).name}.")
