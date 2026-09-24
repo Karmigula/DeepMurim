@@ -1,5 +1,6 @@
 [symbols]
 market_noise = ["A vendor shouts over the crowd.", "Scales creak under the weight.", "Coins ring on a counter.", "Someone haggles loudly nearby.", "The smell of spice drifts past.", "A porter shoulders a load."]
+market_loss = ["Your pack is lighter.", "You watch it go.", "There is nothing to be done.", "Hands rifle through your bundles.", "A strap is cut.", "Some things are not worth dying for."]
 market_mood = ["The deal is struck.", "Hands are shaken.", "The merchant nods, satisfied.", "You tie the bundle tight.", "It is a fair enough bargain.", "You count the silver twice."]
 
 [traded]
@@ -9,3 +10,7 @@ lines = ["#market_noise# #market_mood#", "#market_mood# #market_noise#"]
 [bought_mule]
 colour = "default"
 lines = ["#market_noise# #market_mood#", "#market_mood# #market_noise#"]
+
+[lost_goods]
+colour = "default"
+lines = ["#market_loss# #market_noise#", "#market_noise# #market_loss#"]

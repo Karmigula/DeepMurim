@@ -169,3 +169,51 @@ def town_line(world, town: int) -> str | None:
     if cheap == dear:
         return None
     return f"Here {cheap} is cheap and {dear} is dear."
+
+
+MULE_THEFT = 0.3
+
+
+def robbery_events(world, player: int, robber: int, place: int, duel_id) -> list[Event]:
+    """A robber takes half of each good, and perhaps the mule (spec §7)."""
+    taken = {g: n // 2 for g, n in carried(world, player).items() if n // 2}
+    mule = bool(world.entity(player).data.get("mule")) \
+        and rng_for(world.world_seed, f"mule:{duel_id}").random() < MULE_THEFT
+    if not taken and not mule:
+        return []
+    return [Event("lost_goods", (player, robber), place, {"goods": taken, "mule": mule, "reason": "robbed"})]
+
+
+def toll_goods(world, player: int, town: int, toll: int) -> dict | None:
+    """Goods worth at least the toll at local prices, the most valuable for their weight first; None if too poor."""
+    pack, paid, worth = carried(world, player), {}, 0
+    for good in sorted(pack, key=lambda g: (-GOODS[g][0] / GOODS[g][1], g)):
+        unit = sell_price(world, town, good)
+        for _ in range(pack[good]):
+            if worth >= toll:
+                break
+            paid[good] = paid.get(good, 0) + 1
+            worth += unit
+    return paid if worth >= toll else None
+
+
+def toll_events(world, player: int, bandit: int, town: int, toll: int) -> list[Event]:
+    goods = toll_goods(world, player, town, toll)
+    if goods is None:
+        return []
+    return [Event("lost_goods", (player, bandit), town, {"goods": goods, "mule": False, "reason": "toll"})]
+
+
+@effect("lost_goods")
+def _lost(world, event) -> None:
+    player, taker = event.actors
+    d = event.data
+    mine, theirs = carried(world, player), dict(world.entity(taker).data.get("goods", {}))
+    for good, n in d["goods"].items():
+        mine[good] = mine.get(good, 0) - n
+        theirs[good] = theirs.get(good, 0) + n
+    changes = {"goods": {g: n for g, n in mine.items() if n > 0}}
+    if d["mule"]:
+        changes["mule"] = False
+    world.update_data(player, **changes)
+    world.update_data(taker, goods=theirs)

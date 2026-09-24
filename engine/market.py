@@ -64,6 +64,16 @@ class MarketMixin:
             return suffix
         return f"{suffix} pack {pack_weight(pack)}/{capacity(self.world, self.player.id)}"
 
+    def _after_duel(self, data: dict) -> list:
+        lines = super()._after_duel(data)
+        if data.get("by") == "opponent" and data.get("verdict") == "rob" and self.combat is None:
+            robber = self.world.entity(self.world.chronicle_entry(data.get("duel")).actors[1]) \
+                if self.world.chronicle_entry(data.get("duel")) else None
+            if robber is not None:
+                lines += self._commit(market.robbery_events(self.world, self.player.id, robber.id,
+                                                            self.place.id, data.get("duel")))
+        return lines
+
     def _do_market(self, _target):
         market.record_visit(self.world, self.player.id, self.place.id)
         self.submenu = "market"

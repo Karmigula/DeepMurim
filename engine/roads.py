@@ -1,6 +1,7 @@
 """Road encounters and grudge challenges in the engine (phase 2 spec §10)."""
 
 import systems.encounters as encounters
+import systems.market as market
 from engine.actions import Action, Choice
 from narrate.outcomes import cap
 from systems.purse import payment_events, silver_of
@@ -38,6 +39,9 @@ class RoadsMixin:
         choices = [Choice("Fight", Action("road", "fight")), Choice("Try to flee", Action("road", "flee"))]
         if e["kind"] == "bandit":
             choices.append(Choice(f"Pay the toll ({e['toll']} silver)", Action("road", "pay")))
+            if silver_of(self.world, self.player.id) < e["toll"] \
+                    and market.toll_goods(self.world, self.player.id, self.place.id, e["toll"]) is not None:
+                choices.append(Choice("Pay the toll in goods", Action("road", "pay_goods")))  # phase 4c
         if e["kind"] != "beast":
             choices.append(Choice("Talk your way past", Action("road", "talk")))
         return choices
@@ -94,6 +98,11 @@ class RoadsMixin:
                 return self._turn([(f"You don't have {e['toll']} silver.", "system")])
             lines = self._commit(payment_events(me, person, place, e["toll"], "toll"))
             return self._turn(lines + self._resolve("paid"))
+        if how == "pay_goods":
+            events = market.toll_events(self.world, me, person, place, e["toll"]) if e["kind"] == "bandit" else []
+            if not events:
+                return self._turn([("You have nothing they would take.", "system")])
+            return self._turn(self._commit(events) + self._resolve("paid"))
         if how == "talk":
             if e["kind"] == "beast":
                 return self._turn([("It does not understand words.", "system")])
