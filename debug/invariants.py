@@ -310,6 +310,11 @@ def check_lineage(world) -> list[str]:
         entity = world.entity(ancestor)
         if entity is None or not entity.data.get("dead") or len(world.targets(ancestor, "buried_at")) != 1:
             out.append(f"ancestor #{ancestor} is not dead and buried")
+        elif entity.data.get("silver", 0) or world.targets(ancestor, "owns") or world.targets(ancestor, "owns_land"):
+            out.append(f"ancestor #{ancestor} still holds silver, items or land")
+    named = player.data.get("named_heir")
+    if named is not None and not player.data.get("dying") and (world.entity(named) is None or world.entity(named).data.get("dead")):
+        out.append(f"the named heir #{named} is dead")
     return out
 
 

@@ -92,7 +92,7 @@ def _succession(world, event) -> None:
         world.unrelate(heir, "located_in")
         world.relate(heir, d["home"], "located_in")
     ancestors = list(world.entity(old).data.get("ancestors", [])) + [old]
-    world.update_data(old, is_player=False, dying=None, named_heir=None)
+    world.update_data(old, is_player=False, death=world.entity(old).data.get("dying"), dying=None, named_heir=None)
     world.update_data(heir, is_player=True, ancestors=ancestors, sworn_to=None, on_duty=False,
                       age=float(world.entity(heir).data.get("age", 18)))
     world.set_meta("player_id", heir)

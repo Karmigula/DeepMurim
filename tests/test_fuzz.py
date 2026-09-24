@@ -204,3 +204,30 @@ def test_a_long_lived_wanderer(tmp_path, seed):
     assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
     assert app.violations == [], app.violations[:5]
     app.shutdown()
+
+
+@pytest.mark.parametrize("seed", [6, 17])
+def test_a_short_dangerous_life(tmp_path, seed, monkeypatch):
+    """Everyone fights to kill and age comes quickly: death, heirs and newcomers again and again, every rule held."""
+    import systems.lives as lives
+    import systems.mortality as mortality
+    for key in mortality.KILL_CHANCE:
+        monkeypatch.setitem(mortality.KILL_CHANCE, key, 1.0)
+    monkeypatch.setattr(lives, "death_chance", lambda age, realm: 0.08)
+    monkeypatch.setattr(encounters, "ENCOUNTER_CHANCE", 2.0)
+    rng = random.Random(seed)
+    app = App(Config(), tmp_path / "saves", tmp_path / "settings.json")
+    app.start_new(f"Mayfly{seed}", world_seed=seed)
+    for step in range(300):
+        game = app.game
+        if game.combat is not None or game.encounter is not None or game.challenger is not None:
+            app.submit(rng.choice(FIGHTING + ["1", "2"]))
+        elif app.choices and rng.random() < 0.5:
+            app.submit(str(rng.randint(1, len(app.choices))))
+        else:
+            app.submit(rng.choice(["meditate season", "challenge", "go north", "go east", "go south", "go west",
+                                   "look", "lineage", "journal", "1", "2"]))
+        keep_playing(app, step)
+    assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
+    assert app.violations == [], app.violations[:5]
+    app.shutdown()

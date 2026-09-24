@@ -326,7 +326,9 @@ def event_brief(world: World, event_id: int, event) -> Brief:
     facts = facts + [f for f in faction_facts(world, player.id, other) if f not in facts]
     if other is not None and not other.data.get("is_player"):
         from narrate.world_text import life_facts  # age and family (phase 4a)
-        facts = facts + [f for f in life_facts(world, other) if f not in facts]
+        from narrate.lineage_text import relation_fact  # and how they stand to you (phase 4b)
+        related = relation_fact(world, player.id, other)
+        facts = ([related] if related else []) + facts + [f for f in life_facts(world, other) if f not in facts]
     if event.kind in OUTCOME_BUILDERS:
         more, extra = OUTCOME_BUILDERS[event.kind](world, event)
         outcome = list(outcome) + list(more)
@@ -358,6 +360,9 @@ def scene_brief(world: World, place_id: int, player_id: int, salt: str) -> Brief
         facts.append("You already know " + ", ".join(known) + ".")
     from narrate.world_text import town_news  # the newest change here the player believes (phase 4a)
     news = town_news(world, place_id, player_id)
+    ancestors = player.data.get("ancestors") or []
+    if ancestors:
+        facts.append(f"You are the heir of {world.entity(ancestors[-1]).name}.")
     if news:
         facts.append(f"Lately here: {news}")
     fame = reputation(world, place_id, apparent_to(world, place_id, player_id))

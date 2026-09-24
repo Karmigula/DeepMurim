@@ -211,6 +211,8 @@ class App:
             self.submit("standing")
         elif key == "f7":
             self.submit("ledger")
+        elif key == "f8":
+            self.submit("lineage")
         elif key == "f4":
             self.sheet_visible = not self.sheet_visible
             self.debug_visible = self.debug_visible and not self.sheet_visible

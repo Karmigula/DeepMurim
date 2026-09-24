@@ -157,6 +157,10 @@ class LineageMixin:
         self.exit_to = "newcomer"
         return self._turn([("Someone new walks into this world.", "system")])
 
+    def _do_lineage(self, _target):
+        from engine.lineage_page import lineage_lines
+        return self._turn(lineage_lines(self.world, self.player.id))
+
     def _do_new_world(self, _target):
         if not self._dying():
             return self._turn([("You are not dead.", "system")])

@@ -2,6 +2,23 @@
 
 from narrate.outcomes import outcome, summary
 
+WORDS = {"child": ("your son", "your daughter"), "spouse": ("your husband", "your wife"),
+         "disciple": ("your disciple", "your disciple"), "sworn_sibling": ("your sworn brother", "your sworn sister"),
+         "parent": ("your father", "your mother"), "master": ("your master", "your master")}
+
+
+def relation_fact(world, player: int, other) -> str | None:
+    """One brief line naming how someone stands to the player (phase 4b spec 7)."""
+    if other is None or other.id == player:
+        return None
+    woman = other.data.get("gender") == "woman"
+    for kin, _, data in world.relations_from(player, "kin_of"):
+        if kin == other.id and data.get("role") in WORDS:
+            return f"{other.name} is {WORDS[data['role']][1 if woman else 0]}."
+    if other.data.get("sworn_to") == player:
+        return f"{other.name} is your sworn follower."
+    return None
+
 
 @outcome("tried", body_facts=False)
 def _tried(world, event):
