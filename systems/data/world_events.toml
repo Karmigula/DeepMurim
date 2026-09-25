@@ -99,3 +99,19 @@ scope = "town"
 chance = 0.05
 sky = false
 stages = { active = 1 }
+
+[realm_opening]
+module = "systems.events.realm_opening"
+scope = "town"
+cycle = "every"
+every = 1
+sky = false
+stages = { foretold = 30, announced = 10, active = 8, aftermath = 20 }
+news = { predicate = "phenomenon", weight = 2.0, stages = ["foretold", "announced"] }
+
+[realm_awakening]
+module = "systems.events.realm_opening"
+scope = "town"
+cycle = "trigger"
+sky = false
+stages = { announced = 3, active = 8, aftermath = 20 }
