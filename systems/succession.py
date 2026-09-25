@@ -53,8 +53,11 @@ def succession_events(world, player: int, heir: int) -> list[Event]:
     for good, n in carried(world, player).items():
         pack[good] = pack.get(good, 0) + n
     goods, _ = fit(pack, capacity(world, heir) + (MULE_CAPACITY if mule else 0))  # the rest is lost at the grave
+    led = [[fid, bool((F.membership(world, heir, fid) or (0, {}))[1].get("status", "member") == "member"
+                      and F.membership(world, heir, fid))]
+           for fid, _, d in F.memberships(world, player) if d.get("role") == "leader"]  # for 4g: was the heir one of them
     return [Event("succession", (player, heir), home, {"kind": kind, "silver": silver, "arts": arts, "home": home,
-                                                       "goods": goods, "mule": mule})]
+                                                       "goods": goods, "mule": mule, "led": led})]
 
 
 def newcomer_town(world, old: int) -> int:

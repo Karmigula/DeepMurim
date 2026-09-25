@@ -16,7 +16,7 @@ def known_factions(world, player: int, town: int) -> list[int]:
     ids = [fid for fid, _, _ in F.memberships(world, player)]
     ids += halls.halls_here(world, town)
     for belief in world.beliefs(player):
-        for named in (belief.variant.get("actor"), belief.variant.get("target")):  # "the X beat the Y" names both
+        for named in (belief.variant.get("actor"), belief.variant.get("target"), *belief.variant.get("factions", ())):
             if isinstance(named, int) and (entity := world.entity(named)) is not None and entity.kind == "faction":
                 ids.append(named)
     for other in world.acquaintances(player):
@@ -75,6 +75,8 @@ def standing_lines(world, player: int, town: int) -> list[Line]:
     trial = world.entity(player).data.get("trial")
     if trial:
         lines.append((f"  Trial: the {world.entity(trial['faction']).name} ({trial['kind']})", "dim"))
+    from engine.crisis_page import succession_lines  # phase 4g: the seats in contest
+    lines += succession_lines(world, player)
     lines += [("", "default"), ("How factions see you:", "heading")]
     for fid in known_factions(world, player, town):
         view = standing(world, fid, apparent_to(world, town, player))

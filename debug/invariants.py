@@ -73,6 +73,7 @@ def check_world(world) -> list[str]:
     problems += check_rankings(world)
     problems += check_tournaments(world)
     problems += check_realms(world)
+    problems += check_crises(world)
     times = world.recent_chronicle_times()
     for before, after in zip(times, times[1:]):
         if after < before:
@@ -224,7 +225,7 @@ def check_factions(world) -> list[str]:
         for fid, rank, data in rows:
             if world.entity(fid) is None or world.entity(fid).kind != "faction":
                 out.append(f"membership points at #{fid}, which is no faction")
-            founder = world.entity(fid).data.get("type") == "player_sect" and data.get("role") == "leader"
+            founder = data.get("role") == "leader"  # a sect founded (3c), or a seat won in a crisis (4g)
             if not 0 <= rank <= (4 if founder else 3):
                 out.append(f"the player holds rank {rank} in #{fid}")
             if data.get("merit", 0) < 0:
@@ -401,6 +402,8 @@ def check_races(world) -> list[str]:
         if settled:
             world._races_checked = occurrence
     for item in world.entities("treasure"):
+        if item.data.get("kind") == "sect_token":
+            continue  # owned or lying where its leader fell: one place, as check_crises holds (4g)
         owners = world.sources(item.id, "owns")
         if len(owners) != (0 if item.data.get("used") else 1):
             out.append(f"treasure #{item.id} has {len(owners)} owners")
@@ -679,4 +682,45 @@ def check_realms(world) -> list[str]:
             if inside != [pos["realm"]] or not 1 <= pos["floor"] <= len(floors) \
                     or not 0 <= pos["chamber"] < len(floors[pos["floor"] - 1]):
                 out.append(f"the player's delve position {pos} does not fit the realm they are in")
+    return out
+
+
+def check_crises(world) -> list[str]:
+    """Succession crises (phase 4g spec 8): one live crisis a faction, pointed at, with the seat empty."""
+    import systems.claimants as C
+    import systems.succession_crisis as SC
+    import systems.world_events as W
+    out, live = [], {}
+    for row in W.index(world):
+        if row[W.TYPE] != SC.KIND:
+            continue
+        occurrence = world.entity(row[W.ID])
+        crisis = occurrence.data["data"]
+        if crisis["phase"] == "settled":
+            continue
+        faction = crisis["faction"]
+        if faction in live:
+            out.append(f"the {world.entity(faction).name} has two live crises")
+        live[faction] = occurrence.id
+        if world.entity(faction).data.get("crisis") != occurrence.id:
+            out.append(f"the {world.entity(faction).name} does not point at its crisis #{occurrence.id}")
+        claimants = {c["person"] for c in crisis["claimants"]}
+        if any(p not in claimants for p in C.staff(world, faction, ("leader",))):
+            out.append(f"the {world.entity(faction).name} has a leader during its crisis")  # a holder must be a claimant
+    for faction in world.entities("faction"):
+        pointed = faction.data.get("crisis")
+        if pointed is not None and SC.live(world, faction.id) is not None and live.get(faction.id) != pointed:
+            out.append(f"the {faction.name} points at #{pointed}, which is no live crisis of theirs")
+    parents: dict = {}
+    for faction in world.entities("faction"):
+        if faction.data.get("parent") is not None:
+            parents[faction.data["parent"]] = parents.get(faction.data["parent"], 0) + 1
+    for parent, count in parents.items():
+        if count > 2:
+            out.append(f"the {world.entity(parent).name} has {count} breakaways")
+    for token in world.entities("treasure"):
+        if token.data.get("kind") == "sect_token":
+            places = len(world.sources(token.id, "owns")) + len(world.targets(token.id, "located_in"))
+            if places != 1:
+                out.append(f"{token.name} is in {places} places")
     return out

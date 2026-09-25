@@ -59,7 +59,7 @@ def test_the_high_ranks_need_a_realm_and_a_friendly_sponsor(game):
         game.perform(Action("gift", sect))
     assert ranks.promotion_block(game.world, game.player.id, sect) is None
     set_membership(game.world, game.player.id, sect, rank=3)
-    assert "as far as anyone can" in ranks.promotion_block(game.world, game.player.id, sect)
+    assert "Only a crisis opens the leader's seat" in ranks.promotion_block(game.world, game.player.id, sect)
 
 
 def test_a_stipend_every_thirty_days(game):

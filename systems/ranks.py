@@ -23,7 +23,7 @@ def promotion_block(world, player: int, faction: int) -> str | None:
     """What stands between the player and the next rank, or None."""
     rank, data = F.membership(world, player, faction)
     if rank >= TOP_RANK:
-        return "You have risen as far as anyone can without leading them."
+        return "Only a crisis opens the leader's seat."  # phase 4g: claim it when it falls empty
     if data.get("merit", 0) < MERIT_NEEDED[rank]:
         return f"You need {MERIT_NEEDED[rank]} merit; you have {data.get('merit', 0)}."
     if realm_index(world.entity(player).data.get("realm", "mortal")) < REALM_NEEDED[rank]:

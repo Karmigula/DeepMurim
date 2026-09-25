@@ -1,0 +1,86 @@
+[symbols]
+crisis_air = ["The hall smells of incense and old grudges.", "Somewhere a bell tolls for the late master.", "Disciples fall silent as you pass.", "White mourning banners stir in the draught.", "Every glance in the hall weighs you.", "Voices stop in the corridor, and start again behind you."]
+
+[crisis_declared]
+colour = "default"
+lines = ["#crisis_air#"]
+
+[crisis_claimed]
+colour = "gold"
+lines = ["#crisis_air# #crisis_air#"]
+
+[crisis_swayed]
+colour = "dim"
+lines = ["#crisis_air#"]
+
+[crisis_champion]
+colour = "default"
+lines = ["#crisis_air#"]
+
+[chambers_searched]
+colour = "dim"
+lines = ["#crisis_air#"]
+
+[will_revealed]
+colour = "gold"
+lines = ["#crisis_air#"]
+
+[will_burned]
+colour = "red"
+lines = ["#crisis_air#"]
+
+[will_taken]
+colour = "default"
+lines = ["#crisis_air#"]
+
+[sect_token_bought]
+colour = "default"
+lines = ["#crisis_air#"]
+
+[sect_token_taken]
+colour = "default"
+lines = ["#crisis_air#"]
+
+[sect_token_won]
+colour = "default"
+lines = ["#crisis_air#"]
+
+[sect_token_handed]
+colour = "default"
+lines = ["#crisis_air#"]
+
+[crisis_trial]
+colour = "default"
+lines = ["#crisis_air#"]
+
+[crisis_settled]
+colour = "gold"
+lines = ["#crisis_air#"]
+
+[crisis_refused]
+colour = "red"
+lines = ["#crisis_air#"]
+
+[crisis_lost]
+colour = "dim"
+lines = ["#crisis_air#"]
+
+[succeeded]
+colour = "gold"
+lines = ["#crisis_air#"]
+
+[stepped_down]
+colour = "gold"
+lines = ["#crisis_air#"]
+
+[regency_ended]
+colour = "default"
+lines = ["#crisis_air#"]
+
+[named_chief]
+colour = "default"
+lines = ["#crisis_air#"]
+
+[deposed]
+colour = "red"
+lines = ["#crisis_air#"]

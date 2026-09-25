@@ -143,7 +143,7 @@ class TournamentMixin:
             events = T.bout_result_events(self.world, purpose["tournament"], purpose["round"], purpose["match"],
                                           me, opponent, data)
             lines += self._commit(events) if events else []
-        elif "raid" in purpose:
+        elif "raid" in purpose and self.world.entity(purpose["raid"]).kind == "world_event":  # not a 3b duty's raid
             won = data.get("result") == "won"
             lines += self._commit(intrigue.defended_events(self.world, purpose["raid"], me, opponent, won))
         elif "lei_tai" in purpose:

@@ -137,3 +137,33 @@ fates far away), `chambers` (guardians, trials), `delvers` (the bands inside) an
 
 **The rules:** `check_realms` in `debug/invariants.py` guards the inheritance (claimed once), who may be inside, the
 ceiling, and the player's place inside.
+
+## 8. Succession crises (phase 4g)
+
+A crisis is a `succession_crisis` occurrence: a trigger type, started by the faction clock (never on a calendar)
+when a leader has died and the seat is in doubt. Its stages carry the framework's fixed names: `announced` is the
+mourning (claims are made), `active` the canvass (camps are made), and the contest is decided as the `aftermath`
+begins. Force of arms (`strife`) runs on after the stages, a season at a time, on the faction clock.
+
+**Where the rules live:**
+- `systems/succession_crisis.py`: `doubt` (why the seat is in doubt: `violence`, `token`, `heir`, `close`),
+  `leaderless_events` (the clock's question), `begin_events`, the contest and the summary far from the player.
+- `systems/claimants.py`: the chief disciple (`heir` on the faction, named once a year), who claims (`declare`,
+  `MAX_CLAIMANTS`), who votes (`voters`), how they lean (`lean`, `PROOF_LEAN`, `AMBITIOUS`).
+- `systems/testament.py`: the will (`WILL_CHANCE`, `WILL_STATES`), the leader's token (`sect_token`, one per faction),
+  deathbed transmission (`TRANSMIT_CHANCE`), the Grand Elder (`EMERGE_CHANCE`, `secluded`).
+- `systems/schism.py`: strife (`YIELD`, `STRIFE_SEASONS`) and breakaways (`PREFIXES`, `MAX_BREAKAWAYS`, `MAX_MINORS`).
+- `systems/regency.py`: a sect the player leads (the heir's claim, `ABSENCE`, stepping down) and regents for a child.
+- `systems/crisis_play.py` and `engine/crisis.py`: what the player can do (declare, claim, sway, champion, search,
+  the token and the will).
+
+**Saved state:**
+- on a faction: `crisis` (its live occurrence), `heir` (the chief disciple), `fallen` (how its leader died),
+  `transmitted`, `history` (one line per crisis), `parent` (a breakaway's), `regent`, `regency_for`, `visited`,
+  `usurped_from`;
+- the occurrence's `data["data"]`: claimants, declared camps, sways, champions, the will, the token, the trial,
+  strife, the outcome and its phase;
+- a Grand Elder is a person `secluded` in the seat's region: in no scene, at no tournament.
+
+**The rules:** `check_crises` in `debug/invariants.py` holds one live crisis a faction, the faction pointing at it,
+no one but a claimant in the leader's seat during it, a token in exactly one place, and at most two breakaways a sect.

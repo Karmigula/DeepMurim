@@ -8,6 +8,7 @@ the same world.
 
 from collections import Counter
 
+import systems.claimants as C
 import systems.lives as lives
 from systems import factions as F
 from systems import halls, wars
@@ -114,12 +115,23 @@ def succession_events(world, faction: int, n: int, staff: dict | None = None) ->
     by_role["elder"] = [p for p, role, _ in anywhere if role == "elder"]
     events = []
     if any(r == "leader" for r, _, _ in table) and not leaders:
-        for pool in ("elder", "keeper", "disciple"):
-            heir = _best(world, by_role[pool])
-            if heir is not None:
-                by_role[pool].remove(heir)
-                events.append(_promotion(world, heir, faction, "leader", 4, None))
-                break
+        from systems.succession_crisis import leaderless_events  # phase 4g: a seat in doubt waits for its crisis
+        held = leaderless_events(world, faction, n)
+        chief = world.entity(faction).data.get("heir")
+        if held is not None:
+            events += held
+        elif isinstance(chief, int) and C.fit(world, chief, faction):
+            for pool in by_role.values():
+                if chief in pool:
+                    pool.remove(chief)
+            events.append(_promotion(world, chief, faction, "leader", 4, None))  # the chief disciple first (4g)
+        else:
+            for pool in ("elder", "keeper", "disciple"):
+                heir = _best(world, by_role[pool])
+                if heir is not None:
+                    by_role[pool].remove(heir)
+                    events.append(_promotion(world, heir, faction, "leader", 4, None))
+                    break
     held = {F.membership(world, p, faction)[1].get("hall") for p in by_role["elder"]}
     for hall in [h for r, _, h in table if r == "elder" and h not in held]:
         for pool in ("keeper", "disciple"):
@@ -215,6 +227,7 @@ def run_season(world, n: int) -> None:
         clashed = {tuple(sorted(e.actors)) for e in clashes if e.kind == "clash"}
         commit(world, wars.mend_events(world, n, clashed))
         for faction in wars.clock_factions(world):
+            commit(world, C.name_chief_events(world, faction, n))  # phase 4g: once a year
             staff = staff_by_town(world, faction)  # one scan serves succession, staffing and power
             promotions = succession_events(world, faction, n, staff)
             if promotions:
@@ -245,7 +258,11 @@ def run_due(world, limit: int = MAX_WORLD_SEASONS) -> int:
 @effect("succeeded")  # not "promoted": 3b ranks owns that kind for the player
 def _succeeded(world, event) -> None:
     person, d = event.actors[0], event.data
-    set_membership(world, person, d["faction"], rank=d["rank"], role=d["role"], hall=d["hall"])
+    if F.membership(world, person, d["faction"]) is None:  # a claimant who was never of them (4g final review)
+        world.relate(person, d["faction"], "member_of", d["rank"],
+                     {"role": d["role"], "hall": d["hall"], "merit": 0, "status": "member", "secret": False})
+    else:
+        set_membership(world, person, d["faction"], rank=d["rank"], role=d["role"], hall=d["hall"], status="member")
     world.update_data(person, occupation=F.title(world, d["faction"], d["rank"]))
 
 
@@ -321,3 +338,5 @@ def _founded_news(world, event, event_id: int) -> None:
 
 import systems.sky  # noqa: E402,F401  phase 4d: the sky's season hooks
 import systems.rankings  # noqa: E402,F401  phase 4d: the Pavilion's informants and yearly lists
+import systems.schism  # noqa: E402,F401  phase 4g: strife between a crisis's camps, season by season
+import systems.regency  # noqa: E402,F401  phase 4g: regents, usurpers, and heirs who must hold the seat
