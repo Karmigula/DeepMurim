@@ -153,7 +153,7 @@ def moves(world, player: int) -> dict[str, bool]:
     barred = (room["kind"] in BLOCKING and room["state"] == "untouched") or blocking(world, player)
     return {"on": not barred and (not last or (room["kind"] == "stair" and floor < len(floors))),
             "back": c > 0 or floor > 1,
-            "leave": floor == 1}
+            "leave": floor == 1 and gate_open(world, realm.id) is not None}  # a shut gate lets no one out (Task 6)
 
 
 def move_events(world, player: int, where: str) -> list[Event]:

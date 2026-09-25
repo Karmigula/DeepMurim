@@ -259,8 +259,8 @@ def seal(world, person: int, realm: int) -> None:
     world.update_data(person, sealed_in={"realm": realm, "season": lives.current_season(world)})
     world.unrelate(person, "located_in")
     world.relate(person, realm, "located_in")
-    for faction, _, data in F.memberships(world, person):
-        if data.get("status", "member") == "member":
+    for faction, _, data in ([] if world.entity(person).data.get("is_player") else F.memberships(world, person)):
+        if data.get("status", "member") == "member":  # the player keeps their posts: their sect waits (Task 6)
             set_membership(world, person, faction, status="missing")
     entity = world.entity(realm)
     if person not in entity.data["sealed"]:
@@ -336,9 +336,13 @@ def stage_events(world, occurrence, stage: str) -> list[Event]:
         return token_events(world, occurrence)
     if stage == "active":
         from systems.chambers import renew_events  # each opening, the chambers renew (Task 4)
-        return renew_events(world, occurrence) + walk_out_events(world, occurrence) + delver_events(world, occurrence)
+        from systems.sealed import unseal_events
+        return (renew_events(world, occurrence) + walk_out_events(world, occurrence) + unseal_events(world, occurrence)
+                + delver_events(world, occurrence))
     if stage == "aftermath":
         player = world.get_meta("player_id")
         if player not in occurrence.data["data"]["entered"]:
             return closing_events(world, occurrence)
+        from systems.sealed import inside_closing_events  # the player was inside: what happened, happened (Task 6)
+        return inside_closing_events(world, occurrence)
     return []

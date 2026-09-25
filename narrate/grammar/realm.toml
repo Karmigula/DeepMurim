@@ -64,3 +64,11 @@ lines = ["#realm_air#"]
 [band_joined]
 colour = "default"
 lines = ["#realm_air#"]
+
+[sealed_season]
+colour = "default"
+lines = ["#realm_air#"]
+
+[exit_searched]
+colour = "default"
+lines = ["#realm_air#"]

@@ -19,6 +19,7 @@ INSIDE_VERBS = frozenset({
     "delve_on", "delve_back", "leave_realm", "take_treasure", "delve_rest",
     "fight_guardian", "slip_past", "attempt_trial", "face_shade", "take_remains",
     "ask_pass", "fight_rival", "join_band",
+    "sealed_cultivate", "search_exit", "heir_carry_on", "succeed", "new_world", "newcomer",
 })
 TRIAL_LABELS = {"formation": "Read the ancient array", "pressure": "Walk into the pressing qi",
                 "mirror": "Face the bronze mirror"}
@@ -183,6 +184,9 @@ class DelveMixin:
             stepped = R.step_events(self.world, self.player.id)
             if stepped:
                 commit(self.world, stepped)  # the world's events, not the player's: nothing to narrate
+            sky.observe(self.world, self.world.entity(self._inside()["realm"]).data["gate"])  # the gate may close now
+            if self.world.entity(self.player.id).data.get("sealed_in"):
+                return self._turn(lines + (self._special_look() or []))
         return self._turn(lines + (self._delve_lines() if self._inside() else []))
 
     def _do_delve_on(self, _target):
@@ -308,3 +312,55 @@ class RivalMixin:
                 and purpose["rival"] in R.here(self.world, self.player.id):
             lines += self._commit(R.rout_events(self.world, self.player.id, purpose["rival"]))
         return lines
+
+
+
+class SealedMixin:
+    """The sealed player's choices (Task 6): a Game base beside DelveMixin."""
+
+    def _special_choices(self):
+        import systems.sealed as S
+        realm = S.sealed_realm(self.world, self.player.id)
+        if realm is None or self.combat is not None or self.focus is not None or self.player.data.get("dying"):
+            return super()._special_choices()
+        choices = []
+        if self.world.entity(realm).data["period"] is not None:
+            choices.append(Choice("Cultivate a season in the dense qi", Action("sealed_cultivate")))
+        choices += [Choice("Search the sealed floors for another way out (a season)", Action("search_exit")),
+                    Choice("Let your heir carry on", Action("heir_carry_on")),
+                    Choice("Look around", Action("look")), Choice("Read your journal", Action("journal"))]
+        return choices, []
+
+    def _special_look(self):
+        import systems.sealed as S
+        realm = S.sealed_realm(self.world, self.player.id)
+        if realm is None:
+            return super()._special_look()
+        entity = self.world.entity(realm)
+        when = "It will open again when its season comes round." if entity.data["period"] is not None \
+            else "It will not open again."
+        return [(f"You are sealed in {entity.name}. {when}", "heading")]
+
+    def _do_sealed_cultivate(self, _target):
+        import systems.sealed as S
+        events = S.season_events(self.world, self.player.id)
+        if not events:
+            return self._turn([("There is no waiting this out.", "system")])
+        lines = self._commit(events)
+        return self._turn(lines + (self._special_look() or []))
+
+    def _do_search_exit(self, _target):
+        import systems.sealed as S
+        events = S.search_events(self.world, self.player.id)
+        if not events:
+            return self._turn([("You are not sealed in anywhere.", "system")])
+        self._commit(events)
+        return self._do_look(None)
+
+    def _do_heir_carry_on(self, _target):
+        import systems.sealed as S
+        events = S.lost_events(self.world, self.player.id)
+        if not events:
+            return self._turn([("You are not sealed in anywhere.", "system")])
+        self._commit(events)
+        return self._do_look(None)

@@ -57,6 +57,8 @@ class LineageMixin:
         if self._dying():
             grave = self.world.targets(self.player.id, "buried_at")
             town = self.world.entity(grave[0]) if grave else None
+            if town is not None and town.kind == "secret_realm":  # lost to a realm: its gate's land (4f)
+                town = self.world.entity(town.data["gate"])
             if town is not None and town.kind == "town":
                 return {"type": "scene", "terrain": town.data["terrain"], "settlement": town.data["kind"],
                         "watch": 3, "hall": None}

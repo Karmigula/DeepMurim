@@ -227,3 +227,25 @@ def _joined(world, event):
 @summary("band_joined")
 def _joined_line(world, entry, names, place, other):
     return f"Travelled with {other}'s band in {place}."
+
+
+
+@outcome("sealed_season", body_facts=False)
+def _season(world, event):
+    return ["A season passes in the realm's thick qi. You grow; you grow older."], {}
+
+
+@summary("sealed_season")
+def _season_line(world, entry, names, place, other):
+    return f"Cultivated a season sealed in {place}."
+
+
+@outcome("exit_searched", body_facts=False)
+def _searched(world, event):
+    return (["Behind a cracked mural a draught of outside air: a way out."] if event.data["found"]
+            else ["A season of searching finds only walls."]), {}
+
+
+@summary("exit_searched")
+def _searched_line(world, entry, names, place, other):
+    return "Found a hidden way out of a sealed realm." if entry.data["found"] else "Searched a sealed realm for a way out."
