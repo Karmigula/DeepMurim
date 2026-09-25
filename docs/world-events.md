@@ -42,7 +42,7 @@ time a stage is observed (every world season, and every time the player sees the
 |---|---|---|
 | `eligible(world, place, n)` | after the chance roll (for `every`: only at a place whose turn it is), before it starts in season `n` | bool |
 | `places(world, n, rng)` | `every` types, each season: where it would be held | a list of places |
-| `summary(world, place, n, rng)` | `every` types whose place the player is not at: settle it in a line, with no occurrence | a list of events |
+| `summary(world, place, n, rng)` | `every` types whose place the player is not at: settle it in a line, with no occurrence | a list of events, or `None` to hold it in full after all |
 | `start_data(world, place, n, rng)` | when it starts | a dict kept on the occurrence (`None`: do not start) |
 | `on_stage(world, occurrence, stage)` | the first time a stage is observed (`foretold`, `announced`, `active`, `aftermath`, `over`) | a list of events to commit |
 | `on_observe(world, occurrence)` | every observation of a begun occurrence (a tournament's days pass) | a list of events to commit |

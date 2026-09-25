@@ -35,6 +35,14 @@ class TournamentMixin:
         betting = T.here(world, town, T.KINDS, ("active",))
         if betting is not None and wagers.open_matches(world, betting) and wagers.stake_limit(world, me) >= 1:
             extras.append(Choice("Visit the bookmaker", Action("bookmaker", betting)))
+        honour = T.honourable(world, me, town)
+        if honour is not None:
+            name = world.entity(honour[1]).name
+            if T.honour_block(world, me, honour[1], "reward") is None:
+                extras.append(Choice(f"Reward {name}, the champion ({T.CHAMPION_REWARD} silver)",
+                                     Action("reward_champion", honour[0])))
+            if T.honour_block(world, me, honour[1], "disciple") is None:
+                extras.append(Choice(f"Take {name}, the champion, as your disciple", Action("take_champion", honour[0])))
         platform = T.here(world, town, ("lei_tai",), ("active",))
         if platform is not None and T.lei_tai_open(world, platform, me):
             holder = world.entity(platform).data["data"]["holder"]
@@ -193,13 +201,16 @@ class TournamentMixin:
         return self._turn(self._commit(events))
 
     def _do_accept_invitation(self, faction):
-        from systems.membership import joined_events
+        from systems.membership import joined_events, refusal
         invitations = dict(self.player.data.get("invitations", {}))
         elder = invitations.get(str(faction))
         if elder is None:
             return self._turn([("No one has invited you.", "system")])
         del invitations[str(faction)]
         self.world.update_data(self.player.id, invitations=invitations)
+        why = refusal(self.world, self.player.id, faction, self.place.id)  # no trial, but every other rule of joining
+        if why:
+            return self._turn([(why, "system")])
         return self._turn(self._commit(joined_events(self.world, self.player.id, elder, faction, self.place.id, False)))
 
     # --- dark interventions (phase 4e spec 5.4) ----------------------------------------------------
@@ -262,3 +273,19 @@ class TournamentMixin:
         if why:
             return self._turn([(why, "system")])
         return self._turn(self._commit(wagers.bet_events(world, occurrence, r, i, on, stake, me)))
+
+    # --- presiding: honouring the champion (phase 4e spec 3) ------------------------------------
+    def _honour(self, occurrence, how: str):
+        found = T.honourable(self.world, self.player.id, self.place.id)
+        if found is None or found[0] != occurrence:
+            return self._turn([("There is no champion of yours to honour here.", "system")])
+        why = T.honour_block(self.world, self.player.id, found[1], how)
+        if why:
+            return self._turn([(why, "system")])
+        return self._turn(self._commit(T.honour_events(self.world, occurrence, self.player.id, found[1], how)))
+
+    def _do_reward_champion(self, occurrence):
+        return self._honour(occurrence, "reward")
+
+    def _do_take_champion(self, occurrence):
+        return self._honour(occurrence, "disciple")

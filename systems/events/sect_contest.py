@@ -84,9 +84,14 @@ def _rewarded(world, event) -> None:
     set_membership(world, event.actors[0], d["faction"], rank=d["rank"], merit=d["merit"])
 
 
-def summary(world, seat: int, n: int, rng) -> list[Event]:
-    """A contest far from the player (plan ruling 9): a champion by lot, weighted by realm, and their reward."""
+def summary(world, seat: int, n: int, rng) -> list[Event] | None:
+    """A contest far from the player (plan ruling 9): a champion by lot, weighted by realm, and their reward.
+    None for the player's own sect: they may come to compete or preside, so it is held in full."""
     faction = _faction_at(world, seat)
+    player = world.get_meta("player_id")
+    mine = F.membership(world, player, faction) if faction is not None and player is not None else None
+    if mine and mine[1].get("status", "member") == "member":
+        return None
     field = _disciples(world, faction) if faction is not None else []
     field = [p for p in field if not world.entity(p).data.get("is_player")]
     if not field:

@@ -31,7 +31,7 @@ def watchable(world, occurrence_id: int, player: int) -> tuple[int, int, dict] |
     today = T.day(occurrence, world.time)
     for r, matches in enumerate(occurrence.data["data"]["rounds"]):
         for i, m in enumerate(matches):
-            if m["how"] is None and m["day"] == today and None not in (m["a"], m["b"]) and player not in (m["a"], m["b"]):
+            if m["how"] is None and m["day"] == today and T.alive(world, m["a"]) and T.alive(world, m["b"])                     and player not in (m["a"], m["b"]):
                 return r, i, m
     return None
 
@@ -103,7 +103,8 @@ def notice_events(world, occurrence, r: int, winner) -> list[Event]:
     person = world.entity(winner)
     already = F.membership(world, winner, faction)
     if person.data.get("is_player"):
-        offer = "gift" if already else "invite"
+        from systems.membership import refusal  # the sect's own rules still hold; they reward what they cannot take
+        offer = "gift" if already or refusal(world, winner, faction, occurrence.data["place"]) else "invite"
     elif already or any(world.entity(f).data.get("type") in F.MARTIAL for f, _, d in F.memberships(world, winner)
                         if d.get("status", "member") == "member"):
         return []

@@ -71,3 +71,7 @@ lines = ["#tour_crowd#", "#tour_crowd# #tour_crowd#"]
 [contest_rewarded]
 colour = "gold"
 lines = ["#tour_crowd#", "#tour_clerk#"]
+
+[champion_honoured]
+colour = "gold"
+lines = ["#tour_crowd#", "#tour_crowd# #tour_crowd#"]

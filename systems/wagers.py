@@ -13,13 +13,15 @@ from world.events import Event, commit, effect, listen
 
 MARGIN = 0.10
 MAX_SHARE = 0.10
+P_BOUNDS = (0.05, 0.95)  # no bookmaker prices a bout as a certainty, however famous one side is
+MIN_ODDS = 1.05  # a winning bet returns more than its stake
 
 
 def open_matches(world, occurrence_id: int) -> list[tuple[int, int, dict]]:
-    """Matches one can bet on: both fighters known, not yet settled."""
+    """Matches one can bet on: both fighters known and still here to fight, not yet settled."""
     t = world.entity(occurrence_id).data["data"]
     return [(r, i, m) for r, ms in enumerate(t["rounds"]) for i, m in enumerate(ms)
-            if m["how"] is None and m["a"] is not None and m["b"] is not None]
+            if m["how"] is None and T.alive(world, m["a"]) and T.alive(world, m["b"])]
 
 
 def odds(world, occurrence_id: int, r: int, i: int) -> dict[int, float]:
@@ -28,8 +30,8 @@ def odds(world, occurrence_id: int, r: int, i: int) -> dict[int, float]:
     m = occurrence.data["data"]["rounds"][r][i]
     s = T.strengths(world, occurrence.data["place"], [m["a"], m["b"]])
     a, b = 1 + max(0.0, s[m["a"]]), 1 + max(0.0, s[m["b"]])
-    p = a / (a + b)
-    return {m["a"]: round((1 - MARGIN) / p, 2), m["b"]: round((1 - MARGIN) / (1 - p), 2)}
+    p = min(P_BOUNDS[1], max(P_BOUNDS[0], a / (a + b)))
+    return {m["a"]: round(max(MIN_ODDS, (1 - MARGIN) / p), 2), m["b"]: round(max(MIN_ODDS, (1 - MARGIN) / (1 - p)), 2)}
 
 
 def stake_limit(world, player: int) -> int:

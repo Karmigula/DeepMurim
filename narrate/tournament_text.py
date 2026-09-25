@@ -385,3 +385,17 @@ def _contest_rewarded_line(world, entry, names, place, other):
 @summary("contest_summarized")
 def _contest_summarized_line(world, entry, names, place, other):
     return f"Won the {world.entity(entry.data['faction']).name}'s contest in {place}."
+
+
+
+@outcome("champion_honoured", body_facts=False)
+def _champion_honoured(world, event):
+    champion = world.entity(event.actors[1]).name
+    if event.data["how"] == "reward":
+        return [f"Before the sect you press {event.data['silver']} silver on {champion}, the contest's champion."], {}
+    return [f"Before the sect you take {champion}, the contest's champion, as your own disciple."], {}
+
+
+@summary("champion_honoured")
+def _champion_honoured_line(world, entry, names, place, other):
+    return f"{'Rewarded' if entry.data['how'] == 'reward' else 'Took as a disciple'} {other}, champion of the contest in {place}."

@@ -212,8 +212,9 @@ def _every_events(world, kind: str, spec: dict, n: int) -> list[Event]:
         if eligible is not None and not eligible(world, where, n):
             continue  # asked only of places whose turn it is, so a costly check runs rarely
         summary = _hook(kind, "summary")
-        if summary is not None and not _near(world, where):
-            events += summary(world, where, n, rng)  # nobody near: the type settles itself in a line (4e ruling 9)
+        settled = summary(world, where, n, rng) if summary is not None and not _near(world, where) else None
+        if settled is not None:
+            events += settled  # nobody near: the type settles itself in a line (4e ruling 9); None: hold it after all
             continue
         starts = n * W.SEASON + rng.randrange(DAYS_PER_SEASON) * WATCHES_PER_DAY
         if W.schedule(spec, starts)[3] <= world.time:

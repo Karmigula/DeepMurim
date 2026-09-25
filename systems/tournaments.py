@@ -273,7 +273,8 @@ def _next_events(world, occurrence_id: int) -> list[Event]:
         for i, m in enumerate(matches):
             if m["how"] is not None:
                 continue
-            if _due(t, r, m, now_day, over, player):
+            if _due(t, r, m, now_day, over, player) or not (alive(world, m["a"]) and alive(world, m["b"])):
+                # a fighter dead or vanished forfeits at once (spec §4.3): nobody fights, watches or bets on it
                 due.append(_settle(world, occurrence, r, i, m, max(now_day, m["day"])))  # a round's matches are apart
             else:
                 waiting = True
@@ -420,7 +421,7 @@ def on_stage(world, occurrence, stage: str, invite) -> list[Event]:
 
 
 KEPT = ("kind", "size", "round_days", "champion", "finished", "prize", "title", "edition", "faction", "presiding",
-        "disqualified", "intrigue")
+        "disqualified", "intrigue", "honoured")
 
 
 def compact_events(occurrence) -> list[Event]:
@@ -634,3 +635,52 @@ def _challenged(world, event) -> None:
     t = occurrence.data["data"]
     world.update_data(occurrence.id, data={**t, "holder": player if event.data["won"] else holder,
                                            "challenged": t.get("challenged", []) + [player]})
+
+
+# --- presiding (phase 4e spec 3): the founder honours the champion ---------------------------------
+
+CHAMPION_REWARD = 20
+
+
+def honourable(world, player: int, town: int) -> tuple[int, int] | None:
+    """(contest, champion) for a finished contest here the player presided over and has not yet honoured."""
+    for row in W.index(world):
+        if row[W.TYPE] != "sect_contest" or row[W.PLACE] != town:
+            continue
+        t = world.entity(row[W.ID]).data["data"]
+        if t.get("presiding") == player and t.get("finished") and not t.get("honoured")                 and t.get("champion") is not None and alive(world, t["champion"]):
+            return row[W.ID], t["champion"]
+    return None
+
+
+def honour_block(world, player: int, champion: int, how: str) -> str | None:
+    if how == "reward" and silver_of(world, player) < CHAMPION_REWARD:
+        return f"You have not {CHAMPION_REWARD} silver to give."
+    if how == "disciple":
+        from systems.agendas import _kin
+        age = float(world.entity(champion).data.get("age", 30))
+        if not 12 <= age <= 30:
+            return "They are not of an age to be taught."
+        if _kin(world, champion, "master"):
+            return "They already have a master."
+    return None
+
+
+def honour_events(world, occurrence_id: int, player: int, champion: int, how: str) -> list[Event]:
+    events = [Event("champion_honoured", (player, champion), world.entity(occurrence_id).data["place"],
+                    {"occurrence": occurrence_id, "how": how, "silver": CHAMPION_REWARD if how == "reward" else 0})]
+    if how == "disciple":  # the win is the bond: no warmth asked (spec §3)
+        from systems.bonds import disciple_events
+        events += disciple_events(world, player, champion, world.entity(occurrence_id).data["place"])
+    return events
+
+
+@effect("champion_honoured")
+def _honoured_champion(world, event) -> None:
+    player, champion = event.actors
+    d = event.data
+    occurrence = world.entity(d["occurrence"])
+    world.update_data(occurrence.id, data={**occurrence.data["data"], "honoured": d["how"]})
+    if d["silver"]:
+        world.update_data(player, silver=silver_of(world, player) - d["silver"])
+        world.update_data(champion, silver=silver_of(world, champion) + d["silver"])
