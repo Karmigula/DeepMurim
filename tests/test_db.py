@@ -193,3 +193,14 @@ def test_the_drift_check_looks_only_at_what_was_read_since_the_last_one(tmp_path
     assert w.cache_drift() == [] and len(reads) == 1  # one entity handed out since: one row read, not fifty
     monkeypatch.setattr(w, "_conn", real)
     w.close()
+
+
+def test_dropping_spent_entities_keeps_the_rest_in_memory(tmp_path):
+    w = World.create(tmp_path / "k.world", 1)
+    keep = w.add_entity("person", "Old Wu", {})
+    spent = w.add_entity("price_event", "Glut", {"until": 3})
+    kept = w.entity(keep)
+    w.entity(spent)
+    w.drop_entities_until("price_event", "until", 5)
+    assert w.entity(spent) is None and w.entity(keep) is kept  # only what was deleted is forgotten
+    w.close()

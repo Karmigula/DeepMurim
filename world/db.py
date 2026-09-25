@@ -373,8 +373,10 @@ class World:
 
     def drop_entities_until(self, kind: str, key: str, value) -> None:
         """Delete entities of this kind whose data[key] is at most `value` (phase 4c: spent price events)."""
-        self._conn.execute(f"delete from entities where kind = ? and json_extract(data, '$.{key}') <= ?", (kind, value))
-        self._entities.clear()
+        where = f"kind = ? and json_extract(data, '$.{key}') <= ?"
+        for (gone,) in self._conn.execute(f"select id from entities where {where}", (kind, value)).fetchall():
+            self._entities.pop(gone, None)  # forget only what is deleted: this runs every season
+        self._conn.execute(f"delete from entities where {where}", (kind, value))
 
     def entities(self, kind: str) -> list[Entity]:
         rows = self._conn.execute(
