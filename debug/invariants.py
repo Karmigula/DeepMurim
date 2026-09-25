@@ -225,7 +225,7 @@ def check_factions(world) -> list[str]:
         for fid, rank, data in rows:
             if world.entity(fid) is None or world.entity(fid).kind != "faction":
                 out.append(f"membership points at #{fid}, which is no faction")
-            founder = world.entity(fid).data.get("type") == "player_sect" and data.get("role") == "leader"
+            founder = data.get("role") == "leader"  # a sect founded (3c), or a seat won in a crisis (4g)
             if not 0 <= rank <= (4 if founder else 3):
                 out.append(f"the player holds rank {rank} in #{fid}")
             if data.get("merit", 0) < 0:

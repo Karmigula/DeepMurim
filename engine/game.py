@@ -11,6 +11,7 @@ import sqlite3
 import systems.cultivation as cultivation
 import systems.talk as talk
 import systems.travel as travel
+from engine.crisis import CrisisMixin
 from engine.delve import ChamberMixin, DelveMixin, RivalMixin, SealedMixin
 from engine.actions import Action, Choice, Turn
 from engine.dealings import DealingsMixin
@@ -81,7 +82,7 @@ HELP = [
 ]
 
 
-class Game(SealedMixin, RivalMixin, ChamberMixin, DelveMixin, LineageMixin, MarketMixin, SkyMixin, TournamentMixin, WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, LeavingMixin, LawMixin, LandMixin, FoundingMixin, SectMixin, SeasonsMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
+class Game(CrisisMixin, SealedMixin, RivalMixin, ChamberMixin, DelveMixin, LineageMixin, MarketMixin, SkyMixin, TournamentMixin, WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, LeavingMixin, LawMixin, LandMixin, FoundingMixin, SectMixin, SeasonsMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
     def __init__(self, world: World, narrator: Narrator | None = None) -> None:
         self.world = world
         self.narrator = narrator or ProceduralNarrator()
