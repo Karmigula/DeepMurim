@@ -119,9 +119,10 @@ def progress_words(progress: float) -> str:
 
 
 def _place(world: World, place_id: int) -> PlaceBrief:
-    town = world.entity(place_id)
+    place = world.entity(place_id)
+    town = world.entity(place.data["gate"]) if place.kind == "secret_realm" else place  # inside: the gate's land (4f)
     return PlaceBrief(
-        town.name, town.data["kind"], region_of(world, town.id).name, town.data["terrain"],
+        place.name, town.data["kind"], region_of(world, town.id).name, town.data["terrain"],
         season_of(world.time), WATCH_NAMES[world.time % 4],
     )
 

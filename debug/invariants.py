@@ -667,4 +667,15 @@ def check_realms(world) -> list[str]:
                 out.append(f"{p.name} (#{person}) is inside {entity.name} but neither entered it nor is sealed there")
             if not sealed and open_ and cap is not None and T.realm_of(world, person) > cap:
                 out.append(f"{p.name} (#{person}) is inside {entity.name} above its ceiling")
+    player = world.get_meta("player_id")
+    if player is not None and world.entity(player) is not None:
+        pos = world.entity(player).data.get("delve")
+        inside = [r for r in world.targets(player, "located_in") if r in realms]
+        if pos is None and inside and player not in world.entity(inside[0]).data["sealed"]:
+            out.append("the player is inside a realm with no delve position")
+        if pos is not None:
+            floors = world.entity(pos["realm"]).data["floors"] if pos["realm"] in realms else []
+            if inside != [pos["realm"]] or not 1 <= pos["floor"] <= len(floors) \
+                    or not 0 <= pos["chamber"] < len(floors[pos["floor"] - 1]):
+                out.append(f"the player's delve position {pos} does not fit the realm they are in")
     return out

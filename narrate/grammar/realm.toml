@@ -1,0 +1,30 @@
+[symbols]
+realm_air = ["The air is thick with old qi.", "Dust hangs in the lamplight of no lamp.", "Somewhere water drips on stone.", "The walls are carved with forms no one has practised in a thousand years.", "Your breath comes slow in the dense air.", "Far off, something vast shifts in its sleep."]
+
+[realm_entered]
+colour = "default"
+lines = ["#realm_air#", "#realm_air# #realm_air#"]
+
+[sneak_caught]
+colour = "default"
+lines = ["#realm_air#"]
+
+[delve_moved]
+colour = "dim"
+lines = ["#realm_air#"]
+
+[realm_left]
+colour = "default"
+lines = ["#realm_air#"]
+
+[chamber_looted]
+colour = "gold"
+lines = ["#realm_air#"]
+
+[delve_rested]
+colour = "dim"
+lines = ["#realm_air#"]
+
+[token_bought]
+colour = "default"
+lines = ["#realm_air#"]
