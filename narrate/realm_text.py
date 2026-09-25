@@ -249,3 +249,47 @@ def _searched(world, event):
 @summary("exit_searched")
 def _searched_line(world, entry, names, place, other):
     return "Found a hidden way out of a sealed realm." if entry.data["found"] else "Searched a sealed realm for a way out."
+
+
+
+def stage_words(world, occurrence, stage: str) -> str:
+    """What the streets of the gate town say at an opening's stage."""
+    name = world.entity(occurrence.data["data"]["realm"]).name
+    if stage in ("foretold", "announced"):
+        days = max(1, (occurrence.data["active"][0] - world.time + 3) // 4)
+        return f"Heralds cry that the gate of {name} will open here in {days} days."
+    return f"The gate of {name} stands open in this town."
+
+
+def realm_facts(world, town: int, player: int) -> list[str]:
+    """The scene's secret realm: a gate here, heralded or standing open (spec §6)."""
+    import systems.secret_realms as SR
+    import systems.world_events as W
+    facts = []
+    for realm in SR.realms(world):
+        occurrence = SR.opening_of(world, realm)
+        if occurrence is None or world.entity(realm).data["gate"] != town:
+            continue
+        live = world.entity(occurrence)
+        stage = W.stage_at(live.data, world.time)
+        if stage == "active":
+            days = max(0, (live.data["active"][1] - world.time + 3) // 4)
+            facts.append(f"The gate of {world.entity(realm).name} stands open here; it closes in {days} days.")
+        elif stage in ("foretold", "announced"):
+            facts.append(stage_words(world, live, stage))
+    return facts
+
+
+@summary("guardian_slipped")
+def _slipped_line(world, entry, names, place, other):
+    return f"{'Slipped past' if entry.data['passed'] else 'Was seen by'} a realm guardian in {place}."
+
+
+@outcome("unsealed", body_facts=False)
+def _unsealed(world, event):
+    return [f"Light: the gate of {world.entity(event.data['realm']).name} stands open again."], {}
+
+
+@summary("unsealed")
+def _unsealed_line(world, entry, names, place, other):
+    return f"Saw {world.entity(entry.data['realm']).name} open again after years sealed inside."

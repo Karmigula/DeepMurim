@@ -16,7 +16,7 @@ INSIDE_VERBS = frozenset({
     "look", "journal", "help", "unknown", "ambiguous", "buy_token", "back", "more_menu", "people", "talk", "farewell", "ask",
     "ask_about", "news", "rumours", "tell_menu", "standing", "ledger", "lineage", "rankings", "tournaments", "realms",
     "intent", "flee", "yield_duel", "verdict", "use_menu", "use", "challenge", "spar",
-    "delve_on", "delve_back", "leave_realm", "take_treasure", "delve_rest",
+    "delve_on", "delve_back", "leave_realm", "take_treasure", "delve_rest", "realms",
     "fight_guardian", "slip_past", "attempt_trial", "face_shade", "take_remains",
     "ask_pass", "fight_rival", "join_band",
     "sealed_cultivate", "search_exit", "heir_carry_on", "succeed", "new_world", "newcomer",
@@ -53,6 +53,9 @@ class DelveMixin:
         if why:
             return self._turn([(why, "system")])
         self._commit(D.enter_events(self.world, realm, self.player.id, how))
+        seen = list(self.player.data.get("realms_seen", []))
+        if realm not in seen:
+            self.world.update_data(self.player.id, realms_seen=seen + [realm])
         return self._do_look(None)
 
     def _conversation_extras(self, npc) -> list:
@@ -103,7 +106,45 @@ class DelveMixin:
                   if (p.data.get("delve_at") or [None])[:2] == [floor, c]]  # placed by Task 5
         if others:
             lines.append(("Here: " + ", ".join(others) + ".", "dim"))
+        near = [p for p in people_at(self.world, realm.id, exclude=self.player.id)
+                if not p.data.get("realm_spirit") and (p.data.get("delve_at") or [None])[0] == floor
+                and p.data["delve_at"][:2] != [floor, c]]
+        if near:
+            lines.append(("You hear others somewhere on this floor.", "dim"))
         return lines
+
+    def _realm_news(self) -> list:
+        """The heralds of an opening here, and its gate standing open: each stage told once (spec §6)."""
+        import systems.secret_realms as SR
+        from narrate.realm_text import stage_words
+        world, town = self.world, self.place.id
+        before = dict(self.player.data.get("realm_heralds", {}))
+        told, lines, seen = dict(before), [], list(self.player.data.get("realms_seen", []))
+        for realm in SR.realms(world):
+            occurrence = SR.opening_of(world, realm)
+            if occurrence is None or world.entity(realm).data["gate"] != town:
+                continue
+            stage = SR.stage_of(world, occurrence)
+            if stage in ("foretold", "announced", "active") and told.get(str(occurrence)) != stage:
+                told[str(occurrence)] = stage
+                lines.append((stage_words(world, world.entity(occurrence), stage), "dim"))
+            if stage == "active" and realm not in seen:
+                seen.append(realm)  # you have seen its gate: it is on your page now
+        live = {str(SR.opening_of(world, r)) for r in SR.realms(world)}
+        told = {k: v for k, v in told.items() if k in live}
+        if told != before or seen != list(self.player.data.get("realms_seen", [])):
+            world.update_data(self.player.id, realm_heralds=told, realms_seen=seen)
+        return lines
+
+    def _after_arrival(self) -> list:
+        return super()._after_arrival() + ([] if self._inside() else self._realm_news())
+
+    def _after_look(self) -> list:
+        return super()._after_look() + ([] if self._inside() else self._realm_news())
+
+    def _do_realms(self, _target):
+        from engine.realm_page import realms_lines
+        return self._turn(realms_lines(self.world, self.player.id))
 
     def _special_look(self):
         if not self._inside():  # outside, or the gate closed on the scene (Task 6)

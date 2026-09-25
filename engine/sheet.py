@@ -66,6 +66,8 @@ def sheet_lines(world: World, player_id: int) -> list[Line]:
     lines += sheet_sky_lines(world, player_id)
     from engine.tournament_page import sheet_tournament_lines  # phase 4e
     lines += sheet_tournament_lines(world, player_id)
+    from engine.realm_page import sheet_realm_lines  # phase 4f
+    lines += sheet_realm_lines(world, player_id)
     return lines
 
 

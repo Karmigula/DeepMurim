@@ -72,3 +72,7 @@ lines = ["#realm_air#"]
 [exit_searched]
 colour = "default"
 lines = ["#realm_air#"]
+
+[unsealed]
+colour = "gold"
+lines = ["#realm_air#"]

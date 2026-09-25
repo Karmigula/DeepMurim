@@ -23,7 +23,7 @@ GLOBAL = {
     "tell": Action("tell_menu"), "standing": Action("standing"), "factions": Action("standing"), "ledger": Action("ledger"), "lineage": Action("lineage"), "market": Action("market"), "prices": Action("prices"),
     "seek": Action("seek"), "swallow": Action("swallow"), "sky": Action("sky"),
     "rankings": Action("rankings"), "lists": Action("rankings"),
-    "enter": Action("enter_realm"), "enter realm": Action("enter_realm"), "deeper": Action("delve_on"),
+    "realms": Action("realms"), "secret realms": Action("realms"), "enter": Action("enter_realm"), "enter realm": Action("enter_realm"), "deeper": Action("delve_on"),
     "on": Action("delve_on"), "up": Action("delve_back"), "leave realm": Action("leave_realm"),
     "tournaments": Action("tournaments"), "tournament": Action("tournaments"), "bracket": Action("bracket"),
     "odds": Action("odds"), "bookmaker": Action("odds"), "register": Action("register"), "watch": Action("watch"),
