@@ -25,7 +25,7 @@ def _ancestor(world, person: int) -> str:
     from systems.rankings import best_rank  # phase 4d: a family's pride
     rank = best_rank(world, person)
     return f"  {p.name}, died {how} in {where}, aged {int(death.get('age') or p.data.get('age', 0))}" \
-        + (f", once {rank}" if rank else "")
+        + (f", once {rank}" if rank else "") + "".join(f"; {title}" for title in p.data.get("titles", []))
 
 
 def lineage_lines(world, player: int) -> list[Line]:

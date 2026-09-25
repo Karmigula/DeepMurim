@@ -4,8 +4,10 @@ import systems.arena as arena
 import systems.intrigue as intrigue
 import systems.tournaments as T
 import systems.wagers as wagers
+import systems.world_events as W
 from engine.actions import Action, Choice
-from narrate.tournament_text import KIND_NAMES
+from engine.tournament_page import bracket_lines, known, tournaments_lines
+from narrate.tournament_text import KIND_NAMES, stage_line
 
 
 class TournamentMixin:
@@ -58,13 +60,34 @@ class TournamentMixin:
         return lines + [(f"The herald calls your name: today you fight {self.world.entity(call[3]).name} "
                          f"at {KIND_NAMES[kind]}.", "dim")]
 
+    def _tournament_news(self) -> list:
+        """A line for each tournament here at a stage the player has not yet seen: heralds, the opening day."""
+        world, town = self.world, self.place.id
+        before = dict(self.player.data.get("tour_seen", {}))
+        seen, lines = dict(before), []
+        for row in W.index(world):
+            if row[W.PLACE] != town or row[W.DONE] or row[W.TYPE] not in T.KINDS + ("lei_tai",):
+                continue
+            occurrence = world.entity(row[W.ID])
+            stage = W.stage_at(occurrence.data, world.time)
+            if stage in ("announced", "active") and seen.get(str(row[W.ID])) != stage:
+                seen[str(row[W.ID])] = stage
+                lines.append((stage_line(world, occurrence, stage), "dim"))
+        live = {str(row[W.ID]) for row in W.index(world) if not row[W.DONE]}
+        seen = {k: v for k, v in seen.items() if k in live}
+        if seen != before:
+            world.update_data(self.player.id, tour_seen=seen)
+        return lines
+
     def _after_look(self) -> list:
-        return super()._after_look() + self._herald()
+        return super()._after_look() + self._tournament_news() + self._herald()
 
     def _after_arrival(self) -> list:
-        return super()._after_arrival() + self._herald()
+        return super()._after_arrival() + self._tournament_news() + self._herald()
 
     def _do_register(self, occurrence):
+        if occurrence is None:  # typed: the tournament taking names here
+            occurrence = T.here(self.world, self.place.id, T.KINDS, ("announced",))
         why = T.register_block(self.world, occurrence, self.player.id) if isinstance(occurrence, int) else "There is nothing to enter here."
         if why:
             return self._turn([(why, "system")])
@@ -136,6 +159,10 @@ class TournamentMixin:
         options = super()._submenu_options()
         if self.focus is None and self.submenu == "wagers" and self._betting_on is not None:
             options["wagers"] = (self._board(self._betting_on)[1], Action("back"))
+        if self.focus is None and self.submenu == "tournaments":
+            options["tournaments"] = ([Choice(f"The bracket in {self.world.entity(self.world.entity(oid).data['place']).name}",
+                                              Action("bracket", oid)) for oid in known(self.world, self.player.id)],
+                                      Action("back"))
         return options
 
     def _do_bookmaker(self, occurrence):
@@ -158,6 +185,8 @@ class TournamentMixin:
 
     # --- watching and invitations (phase 4e spec 5.2) ------------------------------------------
     def _do_watch(self, occurrence):
+        if occurrence is None:  # typed: today's bouts here
+            occurrence = T.here(self.world, self.place.id, T.KINDS, ("active",))
         events = arena.watch_events(self.world, occurrence, self.player.id) if isinstance(occurrence, int) else []
         if not events:
             return self._turn([("There is no bout to watch here now.", "system")])
@@ -195,3 +224,41 @@ class TournamentMixin:
         lines = self._commit(intrigue.ask_events(self.world, occurrence, self.player.id))
         self._betting_on, self.submenu = occurrence, "wagers"
         return self._turn(lines)
+
+    # --- the pages (phase 4e spec 6) ---------------------------------------------------------------
+    def _do_tournaments(self, _target):
+        self.submenu = "tournaments"
+        return self._turn(tournaments_lines(self.world, self.player.id))
+
+    def _do_bracket(self, occurrence):
+        found = known(self.world, self.player.id)
+        if occurrence is None:  # typed: the one here, else the one you are in, else the newest you know of
+            here = [oid for oid in found if self.world.entity(oid).data["place"] == self.place.id]
+            mine = [oid for oid in found if self.player.id in self.world.entity(oid).data["data"].get("entrants", [])]
+            occurrence = (here or mine or found or [None])[-1]
+        if occurrence not in found:
+            return self._turn([("You know of no such tournament.", "system")])
+        return self._turn(bracket_lines(self.world, self.player.id, occurrence))
+
+    def _do_odds(self, _target):
+        occurrence = T.here(self.world, self.place.id, T.KINDS, ("active",))
+        if occurrence is None:
+            return self._turn([("No bookmaker takes bets here.", "system")])
+        return self._do_bookmaker(occurrence)
+
+    def _do_bet_on(self, target):
+        world, me = self.world, self.player.id
+        occurrence = T.here(world, self.place.id, T.KINDS, ("active",))
+        if occurrence is None or not isinstance(target, tuple) or len(target) != 2:
+            return self._turn([("No bookmaker takes bets here.", "system")])
+        name, stake = target
+        words = str(name).lower().split()
+        found = [(r, i, p) for r, i, m in wagers.open_matches(world, occurrence) for p in (m["a"], m["b"])
+                 if words and all(any(part.startswith(w) for part in world.entity(p).name.lower().split()) for w in words)]
+        if len(found) != 1:
+            return self._turn([("Bet on whom? Name one fighter on the odds board.", "system")])
+        r, i, on = found[0]
+        why = wagers.bet_block(world, occurrence, r, i, on, stake, me)
+        if why:
+            return self._turn([(why, "system")])
+        return self._turn(self._commit(wagers.bet_events(world, occurrence, r, i, on, stake, me)))

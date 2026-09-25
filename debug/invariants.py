@@ -561,6 +561,8 @@ def check_people(game, turn) -> list[str]:
     if here:
         known |= {p.name.lower() for p in people_at(world, here[0])}
     known |= {p.name.lower() for p in world.entities("persona") if p.data.get("of") == player_id}
+    from engine.tournament_page import posted_names  # a bracket posted where you can read it (phase 4e)
+    known |= {world.entity(p).name.lower() for p in posted_names(world, player_id)}
     known |= {world.entity(k).name.lower() for k, _, _ in world.relations_from(player_id, "kin_of")}  # your family
     for ancestor in player.data.get("ancestors", []):  # and your forebears, and who killed them (phase 4b)
         forebear = world.entity(ancestor)

@@ -215,6 +215,8 @@ class App:
             self.submit("lineage")
         elif key == "f10":
             self.submit("rankings")
+        elif key == "f11":
+            self.submit("tournaments")
         elif key == "f4":
             self.sheet_visible = not self.sheet_visible
             self.debug_visible = self.debug_visible and not self.sheet_visible

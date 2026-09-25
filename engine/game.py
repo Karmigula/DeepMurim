@@ -74,6 +74,7 @@ HELP = [
     ("  challenge | spar | strike | feint | guard | probe | flee | yield | spare | rob | cripple | kill", "system"),
     ("  news | ask about <name> | tell | rumours | wear mask | remove mask | standing (F6) | ledger (F7) | lineage (F8) | market | prices", "system"),
     ("  sky | rankings (F10) | seek | swallow", "system"),
+    ("  tournaments (F11) | bracket | register | watch | odds | bet <fighter> <silver>", "system"),
     ("  F2 swap art side | F3 hide art | F4 character sheet | F9 report a bug | F12 debug | Esc menu", "system"),
 ]
 

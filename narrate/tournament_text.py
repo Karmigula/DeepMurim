@@ -8,6 +8,67 @@ KIND_NAMES = {"grand_assembly": "the Grand Martial Assembly", "dragon_phoenix": 
 PLACES = {2: "second", 3: "among the last four"}
 
 
+def event_name(world, t: dict) -> str:
+    """What people call this tournament: a sect's contest carries the sect's name."""
+    if t["kind"] == "sect_contest" and t.get("faction") is not None:
+        return f"the {world.entity(t['faction']).name}'s contest"
+    return KIND_NAMES[t["kind"]]
+
+
+def stage_line(world, occurrence, stage: str) -> str:
+    """What the streets say when a tournament here reaches a new stage (heralds, the opening day)."""
+    t = occurrence.data["data"]
+    if t["kind"] == "lei_tai":
+        holder = t.get("holder")
+        return "A lei tai platform goes up in the square" + (f"; {world.entity(holder).name} holds it." if holder else ".")
+    if stage == "announced":
+        return f"Heralds cry {event_name(world, t)} through the streets: registration is open."
+    return f"{cap(event_name(world, t))} opens today; the draw is posted in the square."
+
+
+def _today(world, occurrence) -> str:
+    import systems.tournaments as T
+    t = occurrence.data["data"]
+    if t.get("finished"):
+        champion = t.get("champion")
+        return f"{world.entity(champion).name} is champion." if champion is not None else "it ended without a champion."
+    today = T.day(occurrence, world.time)
+    for r, matches in enumerate(t["rounds"]):
+        waiting = [m for m in matches if m["how"] is None]
+        if not waiting:
+            continue
+        label = "the final" if r == len(t["rounds"]) - 1 else f"round {r + 1}"
+        when = "today" if waiting[0]["day"] == today else f"on day {waiting[0]['day']}"
+        fighters = [p for m in waiting for p in (m["a"], m["b"]) if p is not None]
+        if not fighters:
+            return f"{label} {when}."
+        strength = T.strengths(world, occurrence.data["place"], fighters)  # the bookmaker's view, the town's belief
+        favourite = max(fighters, key=lambda p: (strength[p], -p))
+        return f"{label} {when}; the odds favour {world.entity(favourite).name}."
+    return "the last bout is being fought."
+
+
+def tournament_facts(world, town: int, player: int) -> list[str]:
+    """The scene's tournament: registration, today's round and the favourite; a lei tai's holder (spec §6)."""
+    import systems.tournaments as T
+    import systems.world_events as W
+    facts = []
+    oid = T.here(world, town, T.KINDS, ("announced", "active"))
+    if oid is not None:
+        occurrence = world.entity(oid)
+        name = cap(event_name(world, occurrence.data["data"]))
+        if W.stage_at(occurrence.data, world.time) == "announced":
+            days = max(1, (occurrence.data["active"][0] - world.time + 3) // 4)
+            facts.append(f"{name}: registration is open; the bouts begin in {days} days.")
+        else:
+            facts.append(f"{name}: {_today(world, occurrence)}")
+    platform = T.here(world, town, ("lei_tai",), ("active",))
+    holder = world.entity(platform).data["data"].get("holder") if platform is not None else None
+    if holder is not None:
+        facts.append(f"A lei tai stands in the square; {world.entity(holder).name} holds it.")
+    return facts
+
+
 def _bested_story(world, variant, viewer) -> str:
     winner, loser = who(world, variant.get("actor"), viewer), who(world, variant.get("target"), viewer)
     event = KIND_NAMES.get(variant.get("kind"), "a tournament")
@@ -305,3 +366,22 @@ def _exposed(world, event):
 @summary("exposed")
 def _exposed_line(world, entry, names, place, other):
     return f"Exposed a fixed bout in {place}."
+
+
+
+@outcome("contest_rewarded", body_facts=False)
+def _contest_rewarded(world, event):
+    faction = world.entity(event.data["faction"]).name
+    if world.entity(event.actors[0]).data.get("is_player"):
+        return [f"The {faction} marks your win: {event.data['merit']} merit, and a step up in rank."], {}
+    return [f"{world.entity(event.actors[0]).name} is raised a rank in the {faction}."], {}
+
+
+@summary("contest_rewarded")
+def _contest_rewarded_line(world, entry, names, place, other):
+    return f"Was rewarded by the {world.entity(entry.data['faction']).name} for winning its contest."
+
+
+@summary("contest_summarized")
+def _contest_summarized_line(world, entry, names, place, other):
+    return f"Won the {world.entity(entry.data['faction']).name}'s contest in {place}."

@@ -23,6 +23,8 @@ GLOBAL = {
     "tell": Action("tell_menu"), "standing": Action("standing"), "factions": Action("standing"), "ledger": Action("ledger"), "lineage": Action("lineage"), "market": Action("market"), "prices": Action("prices"),
     "seek": Action("seek"), "swallow": Action("swallow"), "sky": Action("sky"),
     "rankings": Action("rankings"), "lists": Action("rankings"),
+    "tournaments": Action("tournaments"), "tournament": Action("tournaments"), "bracket": Action("bracket"),
+    "odds": Action("odds"), "bookmaker": Action("odds"), "register": Action("register"), "watch": Action("watch"),
     "wear mask": Action("wear_mask"), "mask": Action("wear_mask"), "put on mask": Action("wear_mask"),
     "remove mask": Action("remove_mask"), "unmask": Action("remove_mask"), "take off mask": Action("remove_mask"),
 }
@@ -33,6 +35,7 @@ PREFIX_VERBS = {
 }
 FILLER = {"to", "about", "with", "the"}
 WORD = re.compile(r"[a-z0-9']+")
+BET = re.compile(r"bet (?:on )?([a-z' -]+?) (\d+)")  # bet <fighter> <silver> (phase 4e)
 
 
 def _words(text: str) -> list[str]:
@@ -50,6 +53,9 @@ def parse(text: str, choices: list[Choice], extra: list[Choice] = ()) -> Action 
         return choices[n - 1].action if 1 <= n <= len(choices) else Action("unknown", cleaned)
     if lowered in GLOBAL:
         return GLOBAL[lowered]
+    bet = BET.fullmatch(lowered)
+    if bet:
+        return Action("bet_on", (bet.group(1), int(bet.group(2))))
     head, _, rest = lowered.partition(" ")
     verbs = PREFIX_VERBS.get(head)
     verbs = (verbs,) if isinstance(verbs, str) else verbs

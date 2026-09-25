@@ -67,3 +67,7 @@ lines = ["#tour_bookie#", "#tour_bookie# #tour_crowd#"]
 [exposed]
 colour = "default"
 lines = ["#tour_crowd#", "#tour_crowd# #tour_crowd#"]
+
+[contest_rewarded]
+colour = "gold"
+lines = ["#tour_crowd#", "#tour_clerk#"]
