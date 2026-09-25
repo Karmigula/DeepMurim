@@ -249,7 +249,7 @@ def _regent_rules(world, event, event_id: int) -> None:
     if won is None or won["kind"] != "regent":
         return
     child = next((c["person"] for c in crisis["claimants"] if c["kind"] in ("chief", "blood")), None)
-    if child is not None:
+    if child is not None and C.age_of(world, child) < C.ADULT:  # a grown ward beaten: no regency (4g final review)
         world.update_data(event.data["faction"], regency_for=child)
         world.update_data(winner, regent_of=event.data["faction"])
 

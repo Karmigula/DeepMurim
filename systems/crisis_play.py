@@ -236,8 +236,9 @@ def my_trial(world, occurrence, player: int) -> tuple[int, int] | None:
     if not trial.get("pending"):
         return None
     for side, other in ((trial["a"], trial["b"]), (trial["b"], trial["a"])):
-        if trial["champions"][str(side)] == player:
-            return side, trial["champions"][str(other)]
+        foe = trial["champions"][str(other)]
+        if trial["champions"][str(side)] == player and alive(world, foe):  # no duel with the dead
+            return side, foe
     return None
 
 

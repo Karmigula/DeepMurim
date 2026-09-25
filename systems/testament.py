@@ -70,6 +70,11 @@ def put(world, token: int, owner: int | None = None, place: int | None = None) -
 def _last_breath(world, event, event_id: int) -> None:
     """The token stays where the leader fell; a natural death may pass the leader's strength to the heir."""
     killer, victim = event.actors[0], event.actors[-1]
+    for token in world.targets(victim, "owns"):  # the dead hold nothing: a token lies where they fell
+        entity = world.entity(token)
+        if entity is not None and entity.kind == "treasure" and entity.data.get("kind") == "sect_token":
+            seat = world.entity(entity.data["faction"]).data.get("seat")
+            put(world, token, place=event.place if event.place is not None else seat)
     for fid, _, data in F.memberships(world, victim):
         faction = world.entity(fid)
         if data.get("role") != "leader" or faction.data.get("type") not in F.STAFFED or faction.data.get("dissolved"):
@@ -119,8 +124,10 @@ def _takes_up_the_token(world, event, event_id: int) -> None:
         return
     token = token_of(world, d["faction"])
     seat = world.entity(d["faction"]).data.get("seat")
-    if token is not None and holder(world, token) is None and lies_at(world, token) == seat:
-        put(world, token, owner=event.actors[0])
+    held = holder(world, token) if token is not None else None
+    of_them = held is not None and held != event.actors[0] and C.role_in(world, held, d["faction"]) is not None
+    if token is not None and ((held is None and lies_at(world, token) == seat) or of_them):
+        put(world, token, owner=event.actors[0])  # a member hands it over to the new leader (spec 4.5, 4.9)
     world.update_data(d["faction"], transmitted=None)
 
 

@@ -237,7 +237,9 @@ def decide_events(world, occurrence) -> list[Event]:
     trial = {"a": a, "b": b, "champions": fighters, "winner": None, "pending": False}
     player = world.get_meta("player_id")
     if player in fighters.values():
-        return [Event("crisis_trial", (), place, {"occurrence": occurrence.id, "trial": {**trial, "pending": True}})]
+        waiting = a if fighters[str(a)] == player else b  # the side the player fights for (4g final review)
+        return [Event("crisis_trial", (), place, {"occurrence": occurrence.id,
+                                                  "trial": {**trial, "pending": True, "waiting": waiting}})]
     rng = rng_for(world.world_seed, f"crisis:{occurrence.id}:trial")
     winner = a if rng.random() < trial_chance(world, fighters[str(a)], fighters[str(b)]) else b
     return trial_events(world, occurrence, trial, winner, rng)
@@ -258,8 +260,11 @@ def trial_events(world, occurrence, trial: dict, winner: int, rng) -> list[Event
 def forfeit_events(world, occurrence) -> list[Event]:
     """The player's side never came to the trial: the other side wins it."""
     trial = crisis_of(occurrence)["trial"]
-    player = world.get_meta("player_id")
-    winner = trial["b"] if trial["champions"][str(trial["a"])] == player else trial["a"]
+    waiting = trial.get("waiting", trial["a"] if trial["champions"][str(trial["a"])] == world.get_meta("player_id")
+                        else trial["b"])
+    other = trial["b"] if waiting == trial["a"] else trial["a"]
+    foe = trial["champions"][str(other)]
+    winner = waiting if not alive(world, foe) and alive(world, waiting) else other  # a dead foe cannot win it
     return trial_events(world, occurrence, trial, winner, rng_for(world.world_seed, f"crisis:{occurrence.id}:forfeit"))
 
 
@@ -280,6 +285,9 @@ def settle_events(world, occurrence, winner, how: str) -> list[Event]:
     """The seat is filled: the winner leads, each other claimant remembers who beat them (spec 4.9)."""
     crisis, place = crisis_of(occurrence), occurrence.data["place"]
     faction = crisis["faction"]
+    if winner is not None and not alive(world, winner):  # the dead take no seat: the living claimants' best
+        standing = standing_claimants(world, crisis)
+        winner = standing[0]["person"] if standing else None
     if winner is None:  # every claimant fell: the elders put forward one of their own
         winner = C._best(world, C.staff(world, faction, ("elder",)) or C.staff(world, faction, ("keeper",)))
         how = "chosen"
@@ -355,6 +363,8 @@ def _summarised(world, event, event_id: int) -> None:
     losers = [c["person"] for c in standing if c["person"] != winner]
     commit(world, [Event("crisis_lost", (winner, loser), event.place, {"faction": faction},
                          witnesses=(Witness(loser, "wronged", 0.6),)) for loser in losers]
+           + [Event("deposed", (holder, winner), event.place, {"faction": faction})  # 4g final review
+              for holder in C.staff(world, faction, ("leader",)) if holder != winner]
            + [_promotion(world, winner, faction, "leader", 4, None)])
     _record(world, faction, d["claimants"], winner, "far")
     _told(world, event.place, event_id, winner, faction, [c["person"] for c in d["claimants"]], "far")

@@ -258,7 +258,11 @@ def run_due(world, limit: int = MAX_WORLD_SEASONS) -> int:
 @effect("succeeded")  # not "promoted": 3b ranks owns that kind for the player
 def _succeeded(world, event) -> None:
     person, d = event.actors[0], event.data
-    set_membership(world, person, d["faction"], rank=d["rank"], role=d["role"], hall=d["hall"], status="member")
+    if F.membership(world, person, d["faction"]) is None:  # a claimant who was never of them (4g final review)
+        world.relate(person, d["faction"], "member_of", d["rank"],
+                     {"role": d["role"], "hall": d["hall"], "merit": 0, "status": "member", "secret": False})
+    else:
+        set_membership(world, person, d["faction"], rank=d["rank"], role=d["role"], hall=d["hall"], status="member")
     world.update_data(person, occupation=F.title(world, d["faction"], d["rank"]))
 
 

@@ -13,6 +13,7 @@ from narrate.crisis_text import claim_words
 from narrate.gossip_text import rumour_text
 from systems import factions as F
 from systems.beliefs import known_people
+from world.gen.materialize import people_at
 
 WATCHES_PER_DAY = 4
 PHASE_WORDS = {"mourning": "the mourning: claims are made", "canvass": "the canvass: the camps are made",
@@ -38,13 +39,20 @@ def _will_words(world, crisis: dict, player: int) -> str:
     return "no will has been read"
 
 
-def _token_words(world, crisis: dict, player: int) -> str:
+def _named(world, person: int, player: int, known: set, fallback: str) -> str:
+    """A name the player has heard of or sees; otherwise words that name no one (spec 5, 4g final review)."""
+    if person == player:
+        return "you"
+    return world.entity(person).name if person in known else fallback
+
+
+def _token_words(world, crisis: dict, player: int, known: set = frozenset()) -> str:
     token = crisis.get("token")
     holder = T.holder(world, token) if token is not None else None
     if holder == player:
         return "you hold the leader's token"
     if holder is not None and SC.claimant(crisis, holder) is not None:
-        return f"{world.entity(holder).name} holds the leader's token"
+        return f"{_named(world, holder, player, known, 'a claimant you have not met')} holds the leader's token"
     return "where the leader's token lies, you do not know"
 
 
@@ -57,7 +65,8 @@ def succession_lines(world, player: int) -> list[Line]:
         if occurrence is None:
             continue
         if heard is None:
-            heard = set(known_people(world, player))
+            here = world.targets(player, "located_in")
+            heard = set(known_people(world, player)) | {p.id for p in (people_at(world, here[0]) if here else [])}
         crisis = SC.crisis_of(occurrence)
         lines += [("", "default"), (f"Succession: the {world.entity(fid).name}", "heading"),
                   (f"  {PHASE_WORDS.get(crisis['phase'], crisis['phase'])}, {_days(world, occurrence)} days left",
@@ -66,9 +75,10 @@ def succession_lines(world, player: int) -> list[Line]:
         mine = crisis.get("declared", {}).get(str(player))
         for c in SC.standing_claimants(world, crisis):
             person = c["person"]
-            proofs = [p for p in C.proofs(world, crisis, c) if p != "token" or "holds" in _token_words(world, crisis, player)]
+            proofs = [p for p in C.proofs(world, crisis, c)
+                      if p != "token" or "holds" in _token_words(world, crisis, player, heard)]
             known = [world.entity(b).name for b in backing.get(person, []) if b != person and (b in heard or b == player)]
-            name = "you" if person == player else world.entity(person).name
+            name = _named(world, person, player, heard, "a claimant you have not met")
             tag = " (your camp)" if mine == person and person != player else ""
             lines.append((f"  {name}, {claim_words(c['kind'])}{tag}"
                           + (f"; proofs: {', '.join(proofs)}" if proofs else "")
@@ -79,11 +89,12 @@ def succession_lines(world, player: int) -> list[Line]:
             lines.append((f"  Undecided: {', '.join(wavering)}", "dim"))
         spent = sum(1 for stage in crisis.get("swayed", {}).values() if stage == crisis["phase"])
         lines.append((f"  You have worked on {spent} this stage. {_will_words(world, crisis, player).capitalize()}; "
-                      f"{_token_words(world, crisis, player)}.", "dim"))
+                      f"{_token_words(world, crisis, player, heard)}.", "dim"))
         trial = crisis.get("trial") or {}
         if trial.get("pending"):
             a, b = trial["champions"][str(trial["a"])], trial["champions"][str(trial["b"])]
-            lines.append((f"  A trial of arms waits: {world.entity(a).name} against {world.entity(b).name}.", "red"))
+            lines.append((f"  A trial of arms waits: {_named(world, a, player, heard, 'an unknown champion')} against "
+                          f"{_named(world, b, player, heard, 'an unknown champion')}.", "red"))
     return lines
 
 
