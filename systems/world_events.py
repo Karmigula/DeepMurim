@@ -26,7 +26,8 @@ FACTOR_MIN, FACTOR_MAX = 0.25, 4.0
 KEEP_INDEXED = 44 * SEASON  # the life clock replays up to 40 missed seasons in full (4a) and asks about them
 DATA = Path(__file__).parent / "data" / "world_events.toml"
 DEFAULTS = {"module": None, "scope": "town", "cycle": "season", "chance": 0.0, "stages": {}, "modifiers": {},
-            "prices": {}, "readings": [], "news": None}
+            "prices": {}, "readings": [], "news": None, "every": 0, "sky": True,
+            "stagger": False}
 TYPES: dict[str, dict] = {}
 ID, TYPE, SCOPE, PLACE, X, Y, STARTS, ACTIVE_FROM, ACTIVE_TO, OVER_AT, DONE = range(11)
 
@@ -114,10 +115,11 @@ def covers(row: list, place: int | None, xy) -> bool:
 
 
 def showing(world, place: int | None, at: int | None = None) -> list[list]:
-    """Index rows over `place` that have begun and are not yet over at `at`."""
+    """Index rows over `place` that have begun and are not yet over at `at`: the sky's (not tournaments, 4e)."""
     at = world.time if at is None else at
     xy = place_xy(world, place)
-    return [row for row in index(world) if row[STARTS] <= at < row[OVER_AT] and covers(row, place, xy)]
+    return [row for row in index(world) if row[STARTS] <= at < row[OVER_AT] and covers(row, place, xy)
+            and TYPES.get(row[TYPE], DEFAULTS)["sky"]]
 
 
 def factor(world, place: int | None, key: str, at: int | None = None) -> float:

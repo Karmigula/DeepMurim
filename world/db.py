@@ -53,6 +53,8 @@ INDEXES = (
     "create index if not exists beliefs_knower on beliefs(knower)",
     "create index if not exists memories_feeling on memories(feeling)",
     "create index if not exists beliefs_actor on beliefs(json_extract(variant, '$.actor'))",
+    "create index if not exists beliefs_knower_actor on beliefs(knower, json_extract(variant, '$.actor'))",  # 4e
+    "create index if not exists facts_predicate on facts(predicate)",  # 4e: the newest lists a town has heard
 )
 SCHEMA += ";\n".join(INDEXES) + ";\n"
 
@@ -574,6 +576,23 @@ class World:
             params.append(str(obj))
         rows = self._conn.execute(sql + " order by b.fact_id, b.knower", params)
         return [(_belief(row[:9]), _fact(row[9:])) for row in rows]
+
+    def renown_among(self, knower: int, actors) -> dict[int, float]:
+        """What this knower's beliefs weigh for each of these actors, summed in SQL (the beliefs_actor index)."""
+        actors = list(actors)
+        rows = self._conn.execute(
+            "select json_extract(b.variant, '$.actor'), sum(f.weight * b.confidence) from beliefs b "
+            f"join facts f on f.id = b.fact_id where b.knower = ? and json_extract(b.variant, '$.actor') in "
+            f"({','.join('?' * len(actors))}) group by 1", [knower, *actors])
+        return {actor: total for actor, total in rows}
+
+    def newest_known(self, knower: int, predicate: str, key: str) -> tuple[Belief, Fact] | None:
+        """The belief of this predicate with the greatest variant `key` (the first learned among equals)."""
+        row = self._conn.execute(
+            f"select {_BELIEF_COLUMNS}, {_FACT_COLUMNS} from facts f cross join beliefs b on b.fact_id = f.id "
+            f"where f.predicate = ? and b.knower = ? order by json_extract(b.variant, '$.' || ?) desc, "
+            "b.fact_id limit 1", (predicate, knower, key)).fetchone()  # from the few facts of the kind, not the many beliefs
+        return (_belief(row[:9]), _fact(row[9:])) if row else None
 
     def _known_facts(self, knower: int) -> list[tuple[Belief, Fact]]:
         rows = self._conn.execute(

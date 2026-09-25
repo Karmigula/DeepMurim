@@ -81,8 +81,19 @@ def load_modules() -> None:
 
 def observe(world, place: int | None = None) -> list[int]:
     load_modules()
+    now, xy = world.time, W.place_xy(world, place)
+    watched = [row[W.ID] for row in W.index(world) if not row[W.DONE] and now >= row[W.STARTS]
+               and (place is None or W.covers(row, place, xy))]
     events = stage_events(world, place)
-    return commit(world, events) if events else []
+    ids = commit(world, events) if events else []
+    for occurrence_id in watched:  # every observation, not just new stages: a tournament's days (4e)
+        occurrence = world.entity(occurrence_id)
+        hook = _hook(occurrence.data["type"], "on_observe")
+        if hook is not None:
+            more = hook(world, occurrence)
+            if more:
+                commit(world, more)
+    return ids
 
 
 @effect("world_event_stage")
@@ -160,6 +171,9 @@ def season_events(world, n: int) -> list[Event]:
     events = []
     for kind in sorted(W.TYPES):
         spec = W.TYPES[kind]
+        if spec["cycle"] == "every":
+            events += _every_events(world, kind, spec, n)
+            continue
         if spec["cycle"] != "season" or spec["chance"] <= 0:
             continue
         for place, path in _places(world, spec["scope"]):
@@ -180,6 +194,40 @@ def season_events(world, n: int) -> list[Event]:
             if data is not None:
                 events += start_events(world, kind, where, starts, data)
     return events
+
+
+def _every_events(world, kind: str, spec: dict, n: int) -> list[Event]:
+    """A fixed-period type (a tournament every 12 seasons, 4e): its module's `places` says where it is held."""
+    every = spec["every"]
+    if every <= 0:
+        return []
+    rng = rng_for(world.world_seed, f"sky:{kind}:{n}")
+    places = _hook(kind, "places")
+    events = []
+    for where in (places(world, n, rng) if places is not None else [None]):
+        key = f"sky:{kind}:offset:{where}" if spec["stagger"] else f"sky:{kind}:offset"
+        if (n + rng_for(world.world_seed, key).randrange(every)) % every:
+            continue  # `stagger`: each place keeps its own turn, so a year's sect contests do not all fall at once
+        eligible = _hook(kind, "eligible")
+        if eligible is not None and not eligible(world, where, n):
+            continue  # asked only of places whose turn it is, so a costly check runs rarely
+        summary = _hook(kind, "summary")
+        if summary is not None and not _near(world, where):
+            events += summary(world, where, n, rng)  # nobody near: the type settles itself in a line (4e ruling 9)
+            continue
+        starts = n * W.SEASON + rng.randrange(DAYS_PER_SEASON) * WATCHES_PER_DAY
+        if W.schedule(spec, starts)[3] <= world.time:
+            continue  # long over: a catch-up never starts old events now
+        make = _hook(kind, "start_data")
+        data = make(world, where, n, rng) if make is not None else {}
+        if data is not None:
+            events += start_events(world, kind, where, starts, data)
+    return events
+
+
+def _near(world, place) -> bool:
+    player = world.get_meta("player_id")
+    return player is not None and place in world.targets(player, "located_in")
 
 
 def observe_all(world, n: int) -> list[Event]:

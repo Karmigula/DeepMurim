@@ -30,7 +30,7 @@ from world.gen.materialize import people_at
 from world.seed import rng_for
 import systems.facts  # noqa: E402,F401  (deeds become facts)
 
-MODES = ("duel", "spar", "encounter", "test")
+MODES = ("duel", "spar", "encounter", "test", "bout")  # bout: a tournament match (phase 4e)
 GENTLE_MODES = ("spar", "test")
 SPAR_EXCHANGES = 3
 TEST_EXCHANGES = 3
@@ -267,6 +267,8 @@ def exchange_events(world, d: Duel, intent: str) -> list[Event]:
 
 
 def _ending(d: Duel, data: dict, n: int):
+    if d.mode == "bout" and data["gave_up"] == "flee":
+        return "verdict"  # they stepped off the platform: the bout is yours (4e plan ruling 2)
     if data["fled"]:
         return ("fled", "fled")
     if data["gave_up"] == "flee":
@@ -354,7 +356,10 @@ def _end_event(world, d: Duel, result: str, reason: str, rng, harm: dict, exchan
         "fragment": None, "purpose": d.purpose, "killed": False, "left_for_dead": False,
     }
     witnesses = []
-    if result == "lost":
+    if result == "lost" and d.mode == "bout":  # a bout's winner spares: killing is forbidden (4e spec 4.4)
+        data.update(verdict="spare", by="opponent", insight=5.0 * gap if gap > 0 else 0.0)
+        witnesses.append(Witness(d.opponent, "respect" if exchanges >= 4 else "contempt", 0.5))
+    elif result == "lost":
         hateful = any(m.feeling in HATEFUL for m in world.memories(d.opponent, about=d.player))
         chosen, amount, crippled = npc_verdict(rng, opponent, silver_of(world, d.player), hateful)
         from systems.mortality import lethal  # losing can be the end (phase 4b spec 3.2)
@@ -400,8 +405,10 @@ def verdict_events(world, d: Duel, choice: str) -> list[Event]:
     beast = bool(world.entity(d.opponent).data.get("beast"))
     if d.stage != "verdict" or choice not in (BEAST_VERDICTS if beast else VERDICTS):
         return []
-    if choice == "kill" and d.mode not in ("duel", "encounter"):
+    if choice == "kill" and d.mode not in ("duel", "encounter", "bout"):
         return []
+    if d.mode == "bout" and choice not in ("spare", "kill"):
+        return []  # a bout ends in mercy or disgrace, not robbery (4e spec 4.4)
     rng = rng_for(world.world_seed, f"duel:{d.duel_id}:verdict")
     reason = "broken" if d.harm["opponent"] >= BROKEN else "yielded"
     events = [_end_event(world, d, "won", reason, rng, d.harm, d.exchange, verdict=choice)]

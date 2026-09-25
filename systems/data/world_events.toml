@@ -65,3 +65,12 @@ chance = 0.01
 stages = { announced = 3, active = 30 }
 readings = ["heaven's iron for a great blade", "a star's grief", "a hero's birth"]
 news = { predicate = "phenomenon", weight = 1.5, stages = ["announced"] }
+
+[grand_assembly]
+module = "systems.events.grand_assembly"
+scope = "town"
+cycle = "every"
+every = 12
+sky = false
+stages = { foretold = 60, announced = 20, active = 8, aftermath = 30 }
+news = { predicate = "phenomenon", weight = 2.5, stages = ["foretold", "announced"] }

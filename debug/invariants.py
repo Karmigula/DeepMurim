@@ -71,6 +71,7 @@ def check_world(world) -> list[str]:
     problems += check_sky(world)
     problems += check_races(world)
     problems += check_rankings(world)
+    problems += check_tournaments(world)
     times = world.recent_chronicle_times()
     for before, after in zip(times, times[1:]):
         if after < before:
@@ -329,6 +330,38 @@ def check_rankings(world) -> list[str]:
             out.append(f"#{person} is a Young Dragon but the Pavilion believes them older than {R.YOUNG_AGE}")
     if not out:
         world._rankings_checked = key
+    return out
+
+
+def check_tournaments(world) -> list[str]:
+    """Phase 4e spec 7, rules 1-2: a sound bracket, each winner advancing once, one champion at most."""
+    import systems.tournaments as T
+    import systems.world_events as W
+    out = []
+    for row in W.index(world):
+        if row[W.TYPE] not in T.KINDS:
+            continue
+        t = world.entity(row[W.ID]).data["data"]
+        rounds = t.get("rounds") or []
+        if not rounds:
+            continue
+        who = f"tournament #{row[W.ID]}"
+        if len(rounds[0]) * 2 != t["size"] or t["size"] & (t["size"] - 1):
+            out.append(f"{who} has a bracket of {len(rounds[0]) * 2} for a size of {t['size']}")
+        for r, matches in enumerate(rounds):
+            if r and len(matches) * 2 != len(rounds[r - 1]):
+                out.append(f"{who} round {r + 1} has {len(matches)} matches")
+            for i, m in enumerate(matches):
+                if m["winner"] is not None and m["winner"] not in (m["a"], m["b"]):
+                    out.append(f"{who} round {r + 1} match {i + 1} has a winner who did not fight in it")
+                if m["how"] is not None and m["on"] is not None and m["on"] < m["day"]:
+                    out.append(f"{who} round {r + 1} match {i + 1} was settled before its day")
+                if m["how"] is not None and r + 1 < len(rounds):
+                    up = rounds[r + 1][i // 2]["a" if i % 2 == 0 else "b"]
+                    if up != m["winner"]:
+                        out.append(f"{who} round {r + 1} match {i + 1}'s winner did not advance")
+        if t.get("finished") and t.get("champion") != rounds[-1][0]["winner"]:
+            out.append(f"{who} crowned someone other than the final's winner")
     return out
 
 

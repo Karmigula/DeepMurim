@@ -5,7 +5,7 @@ from systems.combat_core import condition_of
 
 YOU = {"strike": "strike", "feint": "feint", "guard": "guard", "probe": "probe for an opening"}
 THEM = {"strike": "strikes", "feint": "feints", "guard": "guards", "probe": "probes for an opening"}
-MODE_WORDS = {"duel": "a duel", "spar": "a friendly spar", "encounter": "a fight", "test": "a test of skill"}
+MODE_WORDS = {"duel": "a duel", "spar": "a friendly spar", "encounter": "a fight", "test": "a test of skill", "bout": "a tournament bout"}
 GROUP = {"won": "won", "spar_won": "won", "passed": "won", "lost": "lost", "spar_lost": "lost", "failed": "lost"}
 
 

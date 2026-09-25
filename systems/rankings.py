@@ -233,11 +233,11 @@ world_clock.SEASON_HOOKS.append(season_hook)
 
 def latest(world, knower: int) -> dict | None:
     """The newest lists this knower has heard of: {"year", "lists", "time"}."""
-    best = None
-    for belief, fact in world.known_facts(knower):
-        if fact.predicate == "published" and (best is None or belief.variant.get("year", 0) > best["year"]):
-            best = {"year": belief.variant.get("year", 0), "lists": fact.data.get("lists", {}), "time": fact.time}
-    return best
+    found = world.newest_known(knower, "published", "year")  # one row, however many lists an old town heard (4e)
+    if found is None:
+        return None
+    belief, fact = found
+    return {"year": belief.variant.get("year", 0), "lists": fact.data.get("lists", {}), "time": fact.time}
 
 
 def rank_of(lists: dict, person: int) -> tuple[str, int] | None:
