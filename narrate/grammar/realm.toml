@@ -52,3 +52,15 @@ lines = ["#realm_air#"]
 [remains_taken]
 colour = "default"
 lines = ["#realm_air#"]
+
+[pass_asked]
+colour = "default"
+lines = ["#realm_air#"]
+
+[band_routed]
+colour = "default"
+lines = ["#realm_air#"]
+
+[band_joined]
+colour = "default"
+lines = ["#realm_air#"]

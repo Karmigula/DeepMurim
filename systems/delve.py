@@ -17,7 +17,7 @@ from world.seed import rng_for
 
 STEP, STAIR, REST = 2, 1, 1  # watches
 SNEAK_BASE, SNEAK_PER_AGILITY, SNEAK_BOUNDS = 0.2, 0.03, (0.05, 0.6)
-BLOCKING = frozenset({"guardian", "rivals"})
+BLOCKING = frozenset({"guardian"})  # a band bars the way by being there, not by the chamber's kind (Task 5)
 
 
 # --- where the player is -------------------------------------------------------------------------
@@ -149,7 +149,8 @@ def moves(world, player: int) -> dict[str, bool]:
     realm, floor, c, room = found
     floors = realm.data["floors"]
     last = c == len(floors[floor - 1]) - 1
-    barred = room["kind"] in BLOCKING and room["state"] == "untouched"
+    from systems.delvers import blocking
+    barred = (room["kind"] in BLOCKING and room["state"] == "untouched") or blocking(world, player)
     return {"on": not barred and (not last or (room["kind"] == "stair" and floor < len(floors))),
             "back": c > 0 or floor > 1,
             "leave": floor == 1}

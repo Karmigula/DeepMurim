@@ -194,3 +194,36 @@ def _remains(world, event):
 @summary("remains_taken")
 def _remains_line(world, entry, names, place, other):
     return f"Took what the fallen left in {place}."
+
+
+
+@outcome("pass_asked", body_facts=False)
+def _pass_asked(world, event):
+    head = world.entity(event.actors[1]).name
+    return ([f"{head} looks you over, then waves you by."] if event.data["granted"]
+            else [f"{head} does not move from your path."]), {}
+
+
+@summary("pass_asked")
+def _pass_line(world, entry, names, place, other):
+    return f"{'Was let pass by' if entry.data['granted'] else 'Was refused passage by'} {other} in {place}."
+
+
+@outcome("band_routed", body_facts=False)
+def _routed(world, event):
+    return [f"{world.entity(event.actors[1]).name}'s band gives way before you."], {}
+
+
+@summary("band_routed")
+def _routed_line(world, entry, names, place, other):
+    return f"Routed {other}'s band in {place}."
+
+
+@outcome("band_joined", body_facts=False)
+def _joined(world, event):
+    return [f"You fall in with {world.entity(event.actors[1]).name}'s band."], {}
+
+
+@summary("band_joined")
+def _joined_line(world, entry, names, place, other):
+    return f"Travelled with {other}'s band in {place}."

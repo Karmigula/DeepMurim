@@ -2,6 +2,9 @@
 
 import systems.chambers as C
 import systems.delve as D
+import systems.delvers as R
+import systems.secret_realms as SR
+from world.events import commit
 import systems.sky as sky
 from engine.actions import Action, Choice
 from narrate.realm_text import chamber_line
@@ -15,6 +18,7 @@ INSIDE_VERBS = frozenset({
     "intent", "flee", "yield_duel", "verdict", "use_menu", "use", "challenge", "spar",
     "delve_on", "delve_back", "leave_realm", "take_treasure", "delve_rest",
     "fight_guardian", "slip_past", "attempt_trial", "face_shade", "take_remains",
+    "ask_pass", "fight_rival", "join_band",
 })
 TRIAL_LABELS = {"formation": "Read the ancient array", "pressure": "Walk into the pressing qi",
                 "mirror": "Face the bronze mirror"}
@@ -118,6 +122,16 @@ class DelveMixin:
             out.append(Choice(TRIAL_LABELS[room["contents"]["trial"]], Action("attempt_trial")))
         if C.inheritance_open(world, me):
             out.append(Choice(f"Kneel before {realm.data['master']['name']}", Action("face_shade")))
+        occurrence = SR.opening_of(world, realm.id)  # at any stage: the gate may have shut this very step
+        for i in R.here(world, me):
+            team = world.entity(occurrence).data["data"]["teams"][i]
+            head = world.entity(R.leader(world, team))
+            if me not in team.get("let_pass", []) and team.get("with") != me:
+                out += [Choice(f"Ask {head.name} to let you pass", Action("ask_pass", i)),
+                        Choice(f"Fight {head.name}", Action("fight_rival", i))]
+            if team.get("with") is None and R.join_events(world, me, i):
+                out.append(Choice(f"Travel with {head.name}'s band for a floor", Action("join_band", i)))
+            out.append(Choice(f"Talk to {head.name}", Action("talk", head.id)))
         for item in room["contents"].get("remains", []):
             out.append(Choice(f"Take {world.entity(item).name} from the fallen", Action("take_remains", item)))
         return out
@@ -161,6 +175,14 @@ class DelveMixin:
         if not events:
             return self._turn([(refusal, "system")])
         lines = self._commit(events)
+        if self._inside():  # a band sharing your chamber may strike first; then every band takes its step (Task 5)
+            foe = R.ambusher(self.world, self.player.id)
+            if foe is not None:
+                lines.append((f"{self.world.entity(foe).name} strikes without a word!", "red"))
+                return self._turn(lines + self._start_duel(foe, "duel", purpose={"rival": R.here(self.world, self.player.id)[0]}))
+            stepped = R.step_events(self.world, self.player.id)
+            if stepped:
+                commit(self.world, stepped)  # the world's events, not the player's: nothing to narrate
         return self._turn(lines + (self._delve_lines() if self._inside() else []))
 
     def _do_delve_on(self, _target):
@@ -247,3 +269,42 @@ class ChamberMixin:
             lines += self._commit(C.shade_events(self.world, me, purpose, data.get("result") == "passed"))
         return lines
 
+
+
+
+class RivalMixin:
+    """The bands' verbs (Task 5): a Game base beside DelveMixin."""
+
+    def _band(self, i):
+        return isinstance(i, int) and i in R.here(self.world, self.player.id)
+
+    def _do_ask_pass(self, i):
+        if not self._band(i):
+            return self._turn([("No band stands here.", "system")])
+        lines = self._commit(R.pass_events(self.world, self.player.id, i))
+        if R.blocking(self.world, self.player.id):
+            foe = R.ambusher(self.world, self.player.id)
+            if foe is not None:
+                return self._turn(lines + self._start_duel(foe, "duel", purpose={"rival": i}))
+        return self._turn(lines + self._delve_lines())
+
+    def _do_fight_rival(self, i):
+        if not self._band(i):
+            return self._turn([("No band stands here.", "system")])
+        occurrence = SR.opening_of(self.world, self._inside()["realm"])
+        head = R.leader(self.world, self.world.entity(occurrence).data["data"]["teams"][i])
+        return self._turn(self._start_duel(head, "duel", purpose={"rival": i}))
+
+    def _do_join_band(self, i):
+        events = R.join_events(self.world, self.player.id, i) if self._band(i) else []
+        if not events:
+            return self._turn([("They will not have you along.", "system")])
+        return self._turn(self._commit(events) + self._delve_lines())
+
+    def _after_duel(self, data: dict) -> list:
+        lines = super()._after_duel(data)
+        purpose = data.get("purpose") or {}
+        if "rival" in purpose and data.get("result") == "won" and self._inside() \
+                and purpose["rival"] in R.here(self.world, self.player.id):
+            lines += self._commit(R.rout_events(self.world, self.player.id, purpose["rival"]))
+        return lines
