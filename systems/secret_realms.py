@@ -159,7 +159,8 @@ def opening_of(world, realm: int) -> int | None:
 
 
 def on_stage(world, occurrence, stage: str) -> list[Event]:
-    return []
+    from systems.realm_gates import stage_events
+    return stage_events(world, occurrence, stage)
 
 
 def on_observe(world, occurrence) -> list[Event]:

@@ -72,6 +72,7 @@ def check_world(world) -> list[str]:
     problems += check_races(world)
     problems += check_rankings(world)
     problems += check_tournaments(world)
+    problems += check_realms(world)
     times = world.recent_chronicle_times()
     for before, after in zip(times, times[1:]):
         if after < before:
@@ -630,3 +631,40 @@ def check_turn(game, turn, recent_narration: Sequence[str]) -> list[str]:
             if entry.kind == "breakthrough" and entry.data.get("realm_after", 0) - entry.data.get("realm_before", 0) > 1:
                 problems.append("a breakthrough skipped a realm")
     return problems
+
+
+def check_realms(world) -> list[str]:
+    """Phase 4f spec 7, rules 1, 2 and 4: one inheritance, no one inside who should not be, the ceiling holds."""
+    import systems.realm_gates as G
+    import systems.secret_realms as SR
+    import systems.tournaments as T
+    import systems.world_events as W
+    out = []
+    realms = world.get_meta("secret_realms") or []
+    live = {}  # realm -> its live opening, from one pass over the sky index
+    for row in W.index(world):
+        if row[W.TYPE] in SR.OPENINGS and not row[W.DONE]:
+            occurrence = world.entity(row[W.ID])
+            live[occurrence.data["data"]["realm"]] = occurrence
+    for realm in realms:
+        entity = world.entity(realm)
+        claims = entity.data.get("claims", 0)
+        if claims > 1 or (claims == 1) != (entity.data["inheritance_claimed_by"] is not None):
+            out.append(f"{entity.name}'s inheritance was claimed {claims} times")
+        inside = world.sources(realm, "located_in")
+        if not inside:
+            continue
+        occurrence = live.get(realm)
+        t = occurrence.data["data"] if occurrence is not None else {}
+        open_ = occurrence is not None and W.stage_at(occurrence.data, world.time) == "active"
+        cap = G.ceiling_of(world, realm)
+        for person in inside:
+            p = world.entity(person)
+            if p is None or p.kind != "person" or p.data.get("realm_spirit"):
+                continue
+            sealed = person in entity.data["sealed"]
+            if not sealed and person not in t.get("entered", []):  # entered this opening: sealed when it closes
+                out.append(f"{p.name} (#{person}) is inside {entity.name} but neither entered it nor is sealed there")
+            if not sealed and open_ and cap is not None and T.realm_of(world, person) > cap:
+                out.append(f"{p.name} (#{person}) is inside {entity.name} above its ceiling")
+    return out
