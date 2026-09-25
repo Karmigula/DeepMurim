@@ -17,7 +17,7 @@ from world.events import Event, commit, effect, listen
 from world.seed import rng_for
 
 GUARDIAN_BASE, GUARDIAN_PER_REALM = 0.5, 0.15
-INHERIT_BASE, INHERIT_PER_REALM, INHERIT_BOUNDS = 0.1, 0.15, (0.02, 0.6)
+INHERIT_CHANCE = 0.1  # a band's: the shade stands one realm above whoever comes (plan ruling 4)
 CLASH_DEATH = 0.5
 AMBUSH_CHANCE = 0.5
 PASS_SCORE, WARM_SCORE = -0.3, 1.0
@@ -128,9 +128,7 @@ def step_events(world, player: int) -> list[Event]:
                 extra.append(Event("died", (weakest, weakest), realm.id, {"cause": "realm", "world": True}))
         elif room["kind"] == "inheritance" and realm.data["inheritance_claimed_by"] is None \
                 and [f, c] != [pos["floor"], pos["chamber"]]:
-            shade = G.shade_realm(world, best)
-            chance = _clamp(INHERIT_BASE + INHERIT_PER_REALM * (realm_of(world, best) - shade + 1), INHERIT_BOUNDS)
-            if rng.random() < chance:
+            if rng.random() < INHERIT_CHANCE:
                 extra.append(Event("inheritance_won", (best,), realm.id, {"realm": realm.id}))
         elif c < len(floors[f - 1]) - 1:
             step["at"] = [f, c + 1]
@@ -217,7 +215,7 @@ def _came_out(world, event, event_id: int) -> None:
             for person in t["teams"][step["team"]]["members"]:
                 if alive(world, person):
                     variant = make_variant("delved", person, None, place=place_name(world, gate))
-                    variant["realm_name"] = realm.name
+                    variant.update(realm_name=realm.name, realm_id=realm.id)
                     record_fact(world, person, "delved", None, place=gate, weight=1.0, variant=variant)
 
 

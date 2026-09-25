@@ -123,3 +123,104 @@ def test_the_sealed_may_break_through(game):
     assert Action("breakthrough") in [c.action for c in turn.all_choices]
     turn = game.perform(Action("breakthrough"))
     assert not any("must wait until you are out" in t for t, _ in turn.lines)
+
+
+# --- the deferred minors, fixed before merge -------------------------------------------------------
+
+def test_an_entity_listed_by_kind_and_changed_in_memory_is_caught(tmp_path):
+    from world.db import World
+    w = World.create(tmp_path / "m.world", 1)
+    eid = w.add_entity("thing", "Jar", {"full": True})
+    w.cache_drift()
+    [jar] = w.entities("thing")
+    jar.data["full"] = False  # a bug: edited in place, never written
+    assert w.cache_drift() == [f"entity #{eid} (Jar) was changed in memory but not saved"]
+    w.close()
+
+
+def tell(world, me, predicate, realm, place):
+    from systems.beliefs import believe
+    from systems.facts import make_variant, record_fact
+    variant = make_variant(predicate, me, None, place="somewhere")
+    variant.update(realm_name=world.entity(realm).name, realm_id=realm)
+    fact = record_fact(world, me, predicate, None, place=place, variant=variant, spread=False)
+    believe(world, me, fact, variant, None, 0.7, 2, "gossip")
+
+
+def test_a_tale_names_its_own_realm_not_one_that_shares_its_name(game):
+    from engine.realm_page import known
+    world, me = game.world, game.player.id
+    first, second, _ = SR.ensure_realms(world)
+    world.rename_entity(second, world.entity(first).name) if hasattr(world, "rename_entity") else \
+        world._conn.execute("update entities set name = ? where id = ?", (world.entity(first).name, second))
+    world._entities.pop(second, None)
+    tell(world, me, "delved", second, game.place.id)
+    assert known(world, me) == [second]
+
+
+def test_a_realm_known_only_from_a_tale_keeps_its_way_in_hidden(game):
+    from engine.realm_page import RULE_WORDS, realm_line
+    world, me = game.world, game.player.id
+    realm = SR.ensure_realms(world)[0]
+    tell(world, me, "delved", realm, game.place.id)
+    line = realm_line(world, me, realm)
+    rule = world.entity(realm).data["rule"]
+    assert RULE_WORDS[rule["kind"]].format(value=(rule["value"] or "").replace("-", " ")) not in line
+    assert "its way in unknown to you" in line
+
+
+def test_an_npc_inheritance_is_a_plain_chance(game, monkeypatch):
+    from systems import founding
+    world, town = game.world, game.place.id
+    monkeypatch.setattr(G, "INHERIT_CHANCE", 1.0)
+    monkeypatch.setattr(G, "OUT_BASE", 1.0)
+    realm = SR.ensure_realms(world)[0]
+    world.update_data(realm, gate=town, rule={"kind": "open", "value": None})
+    band = founding.make_person(world, "test:heir", town, occupation="wandering swordsman", age=25, realm="third-rate")
+    data = {**SR.opening_data(realm), "delvers": [band], "teams": [{"faction": None, "members": [band]}]}
+    commit(world, sky.start_events(world, "realm_opening", town, world.time, data))
+    occurrence = world.entity(W.index(world)[-1][W.ID])
+    [closed] = [e for e in G.closing_events(world, occurrence) if e.kind == "realm_closed"]
+    assert closed.data["inherited"] == band
+
+
+def test_a_death_in_a_realm_has_words(game):
+    from systems.mortality import epitaph
+    world, me = game.world, game.player.id
+    world.update_data(me, dying={"cause": "realm", "place": game.place.id, "killer": None})
+    assert "in a secret realm" in epitaph(world, me)
+
+
+def test_a_token_is_offered_only_for_a_realm_you_know_and_names_it(game):
+    from systems import founding
+    world, me, town = game.world, game.player.id, game.place.id
+    realm = SR.ensure_realms(world)[0]
+    holder = founding.make_person(world, "test:holder", town, occupation="wandering swordsman", age=30)
+    token = world.add_entity("treasure", "a jade token", {"kind": "token", "realm": realm, "used": False, "value": 120})
+    world.relate(holder, token, "owns")
+    world.update_data(me, silver=500)
+    turn = game.perform(Action("talk", holder))
+    assert Action("buy_token", holder) not in [c.action for c in turn.all_choices]
+    world.update_data(me, realms_seen=[realm])
+    turn = game.perform(Action("talk", holder))
+    [offer] = [c for c in turn.all_choices if c.action == Action("buy_token", holder)]
+    assert world.entity(realm).name in offer.label
+
+
+def test_listing_by_kind_keeps_the_drift_rule_cheap_but_catches_everyone_in_turn(tmp_path):
+    import world.db as db
+    from world.db import World
+    w = World.create(tmp_path / "m.world", 1)
+    ids = [w.add_entity("thing", f"Jar{i}", {"full": True}) for i in range(10 * db.DRIFT_WINDOW)]
+    w.cache_drift()
+    reads = []
+    w._conn.set_trace_callback(lambda sql: reads.append(sql) if sql.startswith("select data") else None)
+    w.entities("thing")[-1].data["full"] = False  # the last one listed: caught only when its turn comes
+    found = []
+    for turn in range(11):
+        reads.clear()
+        found += w.cache_drift()
+        assert len(reads) <= db.DRIFT_WINDOW
+        w.entities("thing")  # every turn lists them all again
+    assert found == [f"entity #{ids[-1]} (Jar{len(ids) - 1}) was changed in memory but not saved"]
+    w.close()

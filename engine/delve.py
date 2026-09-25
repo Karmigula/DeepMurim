@@ -68,8 +68,12 @@ class DelveMixin:
         extras = super()._conversation_extras(npc)
         token = D.token_offer(self.world, npc.id, self.player.id)
         if token is not None:
-            price = D.TOKEN_PRICE * self.world.entity(token).data["value"]
-            extras.append(Choice(f"Buy their jade token ({price} silver)", Action("buy_token", npc.id)))
+            from engine.realm_page import known
+            realm = self.world.entity(token).data["realm"]
+            if realm in known(self.world, self.player.id):  # they speak of it only to one who knows the realm
+                price = D.TOKEN_PRICE * self.world.entity(token).data["value"]
+                extras.append(Choice(f"Buy their jade token for {self.world.entity(realm).name} ({price} silver)",
+                                     Action("buy_token", npc.id)))
         return extras
 
     def _do_buy_token(self, holder):

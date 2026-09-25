@@ -182,6 +182,7 @@ def _entity(row) -> Entity | None:
 
 
 ENTITY_CACHE = 4096  # decoded entities kept between reads; the oldest go first
+DRIFT_WINDOW = 64  # entities listed by kind that one drift check reads back, in turn: all are reached, cheaply
 
 
 class World:
@@ -198,6 +199,8 @@ class World:
         self._entities: dict[int, Entity] = {}
         self._meta: dict = {}  # scalar meta values (the clock, the seed): a season reads `time` hundreds of times
         self._handed: set[int] = set()  # read since the last drift check: only these can have been edited in place
+        self._listed: set[int] = set()  # handed out by entities(kind): checked DRIFT_WINDOW at a time, in id order
+        self._drift_cursor = 0
         self._acquainted: dict[int, tuple[int, dict[int, int]]] = {}
 
     def _cached(self, key, compute):
@@ -363,7 +366,12 @@ class World:
         Only those handed out since the last check, so the per-turn rules stay cheap in a long game."""
         out = []
         handed, self._handed = self._handed, set()
-        for entity_id in sorted(handed):
+        later = sorted(i for i in self._listed if i > self._drift_cursor)[:DRIFT_WINDOW]
+        window = later + sorted(i for i in self._listed if i <= self._drift_cursor)[:DRIFT_WINDOW - len(later)]
+        if window:  # an entity edited in place stays edited in the cache: its turn in the window will come
+            self._drift_cursor = window[-1]
+            self._listed.difference_update(window)
+        for entity_id in sorted(handed.union(window)):
             remembered = self._entities.get(entity_id)
             if remembered is None:
                 continue
@@ -401,6 +409,7 @@ class World:
                 entity = _entity(row)
                 self._remember(entity)
             found.append(entity)
+        self._listed.update(e.id for e in found)  # the drift rule reaches them a window at a time
         return found
 
     def update_data(self, entity_id: int, **changes) -> None:

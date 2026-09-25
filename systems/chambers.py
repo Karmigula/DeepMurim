@@ -214,7 +214,7 @@ def _claimed(world, event) -> None:
 def _claimed_news(world, event, event_id: int) -> None:
     player, realm = event.actors[0], world.entity(event.data["realm"])
     variant = make_variant("inherited", player, None, place=realm.name)
-    variant.update(realm_name=realm.name, master=realm.data["master"]["name"])
+    variant.update(realm_name=realm.name, realm_id=realm.id, master=realm.data["master"]["name"])
     record_fact(world, player, "inherited", None, place=realm.id, source_event=event_id, weight=3.0, variant=variant)
 
 

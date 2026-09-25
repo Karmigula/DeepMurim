@@ -18,7 +18,7 @@ TALES = frozenset({"delved", "took", "inherited", "sealed"})
 
 
 def _beliefs(world, player: int):
-    """(heralded realms: {realm: (occurrence, stage)}, tales: {realm name: [(predicate, actor)]}) from beliefs."""
+    """(heralded realms: {realm: (occurrence, stage)}, tales: {realm id: [(predicate, actor)]}) from beliefs."""
     heralded, tales = {}, {}
     for belief, fact in world.known_facts_about([player], predicate="phenomenon"):
         occurrence = world.entity(fact.data.get("occurrence")) if fact.data.get("occurrence") else None
@@ -26,16 +26,16 @@ def _beliefs(world, player: int):
             heralded[occurrence.data["data"]["realm"]] = (occurrence.id, belief.variant.get("stage"))
     for predicate in sorted(TALES):
         for belief, fact in world.known_facts_about([player], predicate=predicate):
-            name = belief.variant.get("realm_name")
-            if name:
-                tales.setdefault(name, []).append((predicate, belief.variant.get("actor")))
+            realm = belief.variant.get("realm_id")
+            if realm is not None:  # by id: newborn realms' names can repeat over the centuries
+                tales.setdefault(realm, []).append((predicate, belief.variant.get("actor")))
     return heralded, tales
 
 
 def known(world, player: int) -> list[int]:
     heralded, tales = _beliefs(world, player)
     seen = set(world.entity(player).data.get("realms_seen", []))
-    return [r for r in SR.realms(world) if r in seen or r in heralded or world.entity(r).name in tales]
+    return [r for r in SR.realms(world) if r in seen or r in heralded or r in tales]
 
 
 def realm_line(world, player: int, realm: int, heralded=None, tales=None) -> str:
@@ -44,7 +44,8 @@ def realm_line(world, player: int, realm: int, heralded=None, tales=None) -> str
     entity = world.entity(realm)
     gate = entity.data["gate"]
     rule = entity.data["rule"]
-    words = RULE_WORDS[rule["kind"]].format(value=(rule["value"] or "").replace("-", " "))
+    seen = realm in world.entity(player).data.get("realms_seen", [])
+    words = RULE_WORDS[rule["kind"]].format(value=(rule["value"] or "").replace("-", " "))         if seen or realm in heralded else "its way in unknown to you"  # a tale tells of the inside, not the gate
     occurrence = D.gate_open(world, realm)
     if occurrence is not None and realm in world.entity(player).data.get("realms_seen", []):
         when = f"the gate stands open, closing in {D.days_left(world, occurrence)} days"
@@ -55,7 +56,7 @@ def realm_line(world, player: int, realm: int, heralded=None, tales=None) -> str
     else:
         when = "when it opens again, no one has told you"
     tokens = len(G.tokens_of(world, player, realm))
-    told = tales.get(entity.name, [])
+    told = tales.get(realm, [])
     heirs = [world.entity(actor).name for predicate, actor in told if predicate == "inherited" and actor is not None]
     inside = realm in world.entity(player).data.get("realms_seen", [])
     legacy = f"claimed by {heirs[0]}" if heirs else "unclaimed, as far as you know" if inside else "unknown"
@@ -70,7 +71,7 @@ def realms_lines(world, player: int) -> list[Line]:
     lines: list[Line] = [("Secret realms", "heading")]
     heralded, tales = _beliefs(world, player)
     seen = set(world.entity(player).data.get("realms_seen", []))
-    found = [r for r in SR.realms(world) if r in seen or r in heralded or world.entity(r).name in tales]
+    found = [r for r in SR.realms(world) if r in seen or r in heralded or r in tales]
     if not found:
         return lines + [("  You know of no secret realm. Heralds cry their openings; survivors tell of them.", "dim")]
     return lines + [(realm_line(world, player, r, heralded, tales), "dim") for r in found]

@@ -110,7 +110,7 @@ def _entered(world, event) -> None:
 def _caught(world, event, event_id: int) -> None:
     player = event.actors[0]
     variant = make_variant("trespassed", player, None, place=place_name(world, event.place))
-    variant["realm_name"] = world.entity(event.data["realm"]).name
+    variant.update(realm_name=world.entity(event.data["realm"]).name, realm_id=event.data["realm"])
     record_fact(world, player, "trespassed", None, place=event.place, source_event=event_id, weight=1.0,
                 variant=variant)
 
@@ -136,7 +136,7 @@ def _left(world, event) -> None:
 def _came_out(world, event, event_id: int) -> None:
     player = event.actors[0]
     variant = make_variant("delved", player, None, place=place_name(world, event.place))
-    variant["realm_name"] = world.entity(event.data["realm"]).name
+    variant.update(realm_name=world.entity(event.data["realm"]).name, realm_id=event.data["realm"])
     record_fact(world, player, "delved", None, place=event.place, source_event=event_id, weight=1.0, variant=variant)
 
 
@@ -207,7 +207,7 @@ def _took(world, event, event_id: int) -> None:
     """Known to whoever was there; it leaves the realm only with a survivor (spec §5)."""
     player, d = event.actors[0], event.data
     variant = make_variant("took", player, None, place=world.entity(d["realm"]).name)
-    variant.update(realm_name=world.entity(d["realm"]).name, prize=d["prize"]["kind"])
+    variant.update(realm_name=world.entity(d["realm"]).name, realm_id=d["realm"], prize=d["prize"]["kind"])
     record_fact(world, player, "took", None, place=d["realm"], source_event=event_id, weight=1.0, variant=variant)
 
 
@@ -227,9 +227,10 @@ def token_offer(world, holder: int, player: int) -> int | None:
 
 
 def buy_events(world, player: int, holder: int) -> list[Event]:
+    from engine.realm_page import known
     from systems.purse import silver_of
     token = token_offer(world, holder, player)
-    if token is None:
+    if token is None or world.entity(token).data["realm"] not in known(world, player):
         return []
     price = TOKEN_PRICE * world.entity(token).data["value"]
     if silver_of(world, player) < price:

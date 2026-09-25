@@ -27,7 +27,7 @@ HEADS = frozenset({"leader", "elder"})  # a sect's heads stay home: the young ge
 WANDERER_CHANCE, MAX_WANDERERS = 0.3, 3
 OUT_BASE, OUT_PER_FLOOR, DEAD_CHANCE = 0.6, 0.05, 0.25
 LOOT_CHANCE = 0.5
-INHERIT_PER_MARGIN = 0.1
+INHERIT_CHANCE = 0.1  # an NPC's: the shade stands one realm above whoever comes (plan ruling 4)
 SEALED_GROWTH = 3.0  # the dense qi of a realm: three times the cultivation
 WEAPON_VALUE = 1500
 
@@ -245,8 +245,7 @@ def closing_events(world, occurrence, still_inside: bool = False) -> list[Event]
     survivors = [int(p) for p, f in fates.items() if f == "out"]
     if realm.data["inheritance_claimed_by"] is None and survivors:
         best = max(survivors, key=lambda p: (realm_of(world, p), -p))
-        margin = realm_of(world, best) - shade_realm(world, best) + 2  # 1: a chance of 0.1 each opening
-        if rng.random() < INHERIT_PER_MARGIN * max(0, margin):
+        if rng.random() < INHERIT_CHANCE:
             inherited = best
     gate = occurrence.data["place"]
     events = [Event("realm_closed", (), gate, {"occurrence": occurrence.id, "realm": realm.id, "fates": fates,
@@ -317,22 +316,22 @@ def _closed_news(world, event, event_id: int) -> None:
         p = int(person)
         if fate == "out":
             variant = make_variant("delved", p, None, place=where)
-            variant["realm_name"] = realm.name
+            variant.update(realm_name=realm.name, realm_id=realm.id)
             record_fact(world, p, "delved", None, place=event.place, source_event=event_id, weight=1.0,
                         variant=variant)
         elif fate == "sealed":
             variant = make_variant("sealed", p, None, place=where)
-            variant["realm_name"] = realm.name
+            variant.update(realm_name=realm.name, realm_id=realm.id)
             record_fact(world, p, "sealed", None, place=event.place, source_event=event_id, weight=1.5,
                         variant=variant)
     for person, prize in d["loot"].items():
         variant = make_variant("took", int(person), None, place=where)
-        variant.update(realm_name=realm.name, prize=prize["kind"])
+        variant.update(realm_name=realm.name, realm_id=realm.id, prize=prize["kind"])
         record_fact(world, int(person), "took", None, place=event.place, source_event=event_id, weight=1.0,
                     variant=variant)
     if d["inherited"] is not None:
         variant = make_variant("inherited", d["inherited"], None, place=where)
-        variant.update(realm_name=realm.name, master=realm.data["master"]["name"])
+        variant.update(realm_name=realm.name, realm_id=realm.id, master=realm.data["master"]["name"])
         record_fact(world, d["inherited"], "inherited", None, place=event.place, source_event=event_id, weight=3.0,
                     variant=variant)
 

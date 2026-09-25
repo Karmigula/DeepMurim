@@ -13,10 +13,9 @@ from world.seed import rng_for
 DEVIATION_DEATH = 0.5
 WHITE_HAIR = 10          # years before the lifespan when the warning comes
 DEATH_WEIGHT = 3.0
-CAUSES = {
-    "sealed": "sealed in a secret realm","age": "of old age", "illness": "of illness", "deviation": "of qi deviation",
+CAUSES = {"age": "of old age", "illness": "of illness", "deviation": "of qi deviation",
           "killed": "at the hands of {killer}", "executed": "under the executioner's blade",
-          "beasts": "to the beasts"}
+          "beasts": "to the beasts", "sealed": "sealed in a secret realm", "realm": "in a secret realm"}
 
 
 def player_lived_to(world, player: int) -> int:

@@ -95,6 +95,7 @@ def test_a_token_can_be_bought_from_its_holder(game):
     token = world.add_entity("treasure", "a jade token", {"kind": "token", "realm": realm, "used": False, "value": 120})
     world.relate(holder, token, "owns")
     world.update_data(me, silver=500)
+    game.perform(Action("look"))  # the open gate, seen: now you know the realm its token is for
     turn = game.perform(Action("talk", holder))
     assert Action("buy_token", holder) in actions(turn)
     game.perform(Action("buy_token", holder))

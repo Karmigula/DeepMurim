@@ -113,7 +113,7 @@ def test_rival_sects_clash_when_they_meet(game, monkeypatch):
 
 
 def test_a_band_can_win_the_inheritance_first(game, monkeypatch):
-    monkeypatch.setattr(R, "INHERIT_BOUNDS", (1.0, 1.0))
+    monkeypatch.setattr(R, "INHERIT_CHANCE", 1.0)
     world, town = game.world, game.place.id
     rival = band(world, town, "heir")
     realm, occurrence = open_with_bands(game, [[room("stair")], [room("inheritance")]], [rival])

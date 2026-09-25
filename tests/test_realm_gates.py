@@ -159,7 +159,7 @@ def test_a_sealed_leader_whose_post_was_filled_walks_out_an_elder(game):
 
 def test_an_inheritance_is_claimed_once(game, monkeypatch):
     monkeypatch.setattr(G, "OUT_BASE", 1.0)
-    monkeypatch.setattr(G, "INHERIT_PER_MARGIN", 10.0)
+    monkeypatch.setattr(G, "INHERIT_CHANCE", 1.0)
     world = game.world
     realm, occurrence = opening(game)
     at(game, occurrence, "active")
