@@ -60,6 +60,9 @@ class FightMixin:
 
     def _verdict_choices(self) -> list[Choice]:
         opponent = self.world.entity(self.combat.opponent)
+        if self.combat.mode == "bout":  # a tournament: mercy wins the bout, a kill disqualifies (phase 4e)
+            return [Choice(f"Spare {opponent.name} and win the bout", Action("verdict", "spare")),
+                    Choice(f"Kill {opponent.name} (you will be disqualified)", Action("verdict", "kill"))]
         if opponent.data.get("beast"):
             return [Choice(f"Let {opponent.name} limp away", Action("verdict", "spare")),
                     Choice(f"Kill {opponent.name}", Action("verdict", "kill"))]

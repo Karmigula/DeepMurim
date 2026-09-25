@@ -1,0 +1,32 @@
+[symbols]
+tour_crowd = ["The crowd roars.", "Somewhere a gong is struck.", "The stands murmur and shift.", "A child on someone's shoulders points at you.", "Bookmakers' boys run through the crowd.", "Dust rises from the platform."]
+tour_clerk = ["A clerk writes your name in a thick ledger.", "An official looks you over and nods.", "Your name is called out to no one in particular.", "A servant hands you a wooden tally with a number on it."]
+tour_shame = ["Silence falls over the stands.", "Someone spits.", "The judges stand as one.", "Nobody will meet your eyes."]
+
+[registered]
+colour = "default"
+lines = ["#tour_clerk#", "#tour_clerk# #tour_crowd#"]
+
+[bond_refunded]
+colour = "default"
+lines = ["#tour_clerk#", "#tour_clerk# #tour_crowd#"]
+
+[match_resolved]
+colour = "default"
+lines = ["#tour_crowd#", "#tour_crowd# #tour_crowd#"]
+
+[tournament_won]
+colour = "gold"
+lines = ["#tour_crowd# #tour_crowd#"]
+
+[disqualified]
+colour = "default"
+lines = ["#tour_shame#", "#tour_shame# #tour_shame#"]
+
+[lei_tai_challenged]
+colour = "default"
+lines = ["#tour_crowd#", "#tour_crowd# #tour_crowd#"]
+
+[lei_tai_held]
+colour = "gold"
+lines = ["#tour_crowd#"]

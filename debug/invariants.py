@@ -356,6 +356,10 @@ def check_tournaments(world) -> list[str]:
                     out.append(f"{who} round {r + 1} match {i + 1} has a winner who did not fight in it")
                 if m["how"] is not None and m["on"] is not None and m["on"] < m["day"]:
                     out.append(f"{who} round {r + 1} match {i + 1} was settled before its day")
+                loser = m["b"] if m["winner"] == m["a"] else m["a"]
+                if m["how"] == "bout" and loser is not None and m["winner"] is not None \
+                        and (world.entity(loser).data.get("death") or {}).get("killer") == m["winner"]:
+                    out.append(f"{who}: #{m['winner']} killed #{loser} in a bout and was not disqualified")
                 if m["how"] is not None and r + 1 < len(rounds):
                     up = rounds[r + 1][i // 2]["a" if i % 2 == 0 else "b"]
                     if up != m["winner"]:

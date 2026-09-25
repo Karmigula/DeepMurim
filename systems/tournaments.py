@@ -385,3 +385,187 @@ def on_stage(world, occurrence, stage: str, invite) -> list[Event]:
 def on_observe(world, occurrence) -> list[Event]:
     resolve(world, occurrence.id)
     return []
+
+
+# --- the player in a tournament (phase 4e spec 3, 4.3-4.4) -------------------------------------
+
+BONDS = {"grand_assembly": 100, "dragon_phoenix": 30}
+RULES = {"grand_assembly": "Only fighters of Second-rate and above may enter the Assembly.",
+         "dragon_phoenix": "The Meet is for those of thirty or under.",
+         "sect_contest": "Only the sect's own may enter its contest."}
+
+
+def stage(world, occurrence_id: int) -> str:
+    return W.stage_at(world.entity(occurrence_id).data, world.time)
+
+
+def here(world, town: int, kinds, stages) -> int | None:
+    """A tournament of one of these kinds in this town, at one of these stages."""
+    for row in W.index(world):
+        if row[W.TYPE] in kinds and row[W.PLACE] == town and not row[W.DONE] and stage(world, row[W.ID]) in stages:
+            return row[W.ID]
+    return None
+
+
+def sponsor_of(world, player: int) -> int | None:
+    """A faction that vouches for the player: one they belong to, or one that welcomes them (3b standing)."""
+    from systems.standing import standing
+    mine = sorted(f for f, _, d in F.memberships(world, player) if d.get("status", "member") == "member"
+                  and world.entity(f).data.get("type") in F.STAFFED | {"player_sect"})
+    if mine:
+        return mine[0]
+    for faction in world.entities("faction"):
+        if faction.data.get("type") in F.STAFFED and not faction.data.get("dissolved") \
+                and standing(world, faction.id, player).score >= 1:
+            return faction.id
+    return None
+
+
+def _ranked(world, player: int) -> bool:
+    from systems.rankings import latest, rank_of_you
+    known = latest(world, player)
+    return bool(known and rank_of_you(world, known["lists"], player))
+
+
+def can_preside(world, occurrence_id: int, player: int) -> bool:
+    t = world.entity(occurrence_id).data["data"]
+    return t["kind"] == "sect_contest" and world.entity(t["faction"]).data.get("founder") == player
+
+
+def register_block(world, occurrence_id: int, player: int) -> str | None:
+    occurrence = world.entity(occurrence_id)
+    t = occurrence.data["data"]
+    if stage(world, occurrence_id) != "announced":
+        return "Registration is not open."
+    if player in t["registered"] or t.get("presiding") == player:
+        return "You are already entered."
+    if not qualifies(world, occurrence, player):
+        return RULES.get(t["kind"], "You may not enter.")
+    bond = BONDS.get(t["kind"], 0)
+    if bond and sponsor_of(world, player) is None and not _ranked(world, player) \
+            and world.entity(player).data.get("silver", 0) < bond:
+        return f"You need a sponsor, a place on the Pavilion's lists, or a bond of {bond} silver."
+    return None
+
+
+def register_events(world, occurrence_id: int, player: int, preside: bool = False) -> list[Event]:
+    t = world.entity(occurrence_id).data["data"]
+    bond = 0 if preside or sponsor_of(world, player) is not None or _ranked(world, player) else BONDS.get(t["kind"], 0)
+    return [Event("registered", (player,), world.entity(occurrence_id).data["place"],
+                  {"occurrence": occurrence_id, "bond": bond, "preside": preside})]
+
+
+@effect("registered")
+def _registered(world, event) -> None:
+    player, d = event.actors[0], event.data
+    occurrence = world.entity(d["occurrence"])
+    t = dict(occurrence.data["data"])
+    if d["preside"]:
+        t["presiding"] = player
+    else:
+        t["registered"] = t["registered"] + [player]
+    if d["bond"]:
+        t["bonds"] = {**t.get("bonds", {}), str(player): d["bond"]}
+        world.update_data(player, silver=silver_of(world, player) - d["bond"])
+    world.update_data(occurrence.id, data=t)
+
+
+@listen("match_resolved")
+def _bond_back(world, event, event_id: int) -> None:
+    d = event.data
+    t = world.entity(d["occurrence"]).data["data"]
+    bond = t.get("bonds", {}).get(str(d["winner"]))
+    if d["round"] == 0 and bond:
+        commit(world, [Event("bond_refunded", (d["winner"],), event.place, {"occurrence": d["occurrence"], "silver": bond})])
+
+
+@effect("bond_refunded")
+def _refunded(world, event) -> None:
+    person, d = event.actors[0], event.data
+    occurrence = world.entity(d["occurrence"])
+    bonds = {k: v for k, v in occurrence.data["data"].get("bonds", {}).items() if k != str(person)}
+    world.update_data(occurrence.id, data={**occurrence.data["data"], "bonds": bonds})
+    world.update_data(person, silver=silver_of(world, person) + d["silver"])
+
+
+def player_call(world, player: int, town: int) -> tuple[int, int, int, int] | None:
+    """(tournament, round, match, opponent) if the herald calls the player here today."""
+    for row in W.index(world):
+        if row[W.TYPE] not in KINDS or row[W.PLACE] != town or row[W.DONE]:
+            continue
+        occurrence = world.entity(row[W.ID])
+        t = occurrence.data["data"]
+        if not t["rounds"] or t["finished"] or world.time >= occurrence.data["active"][1]:
+            continue
+        today = day(occurrence, world.time)
+        for r, matches in enumerate(t["rounds"]):
+            for i, m in enumerate(matches):
+                if m["how"] is None and m["day"] == today and player in (m["a"], m["b"]):
+                    other = m["b"] if m["a"] == player else m["a"]
+                    if other is not None and alive(world, other):
+                        return row[W.ID], r, i, other
+    return None
+
+
+def bout_result_events(world, occurrence_id: int, r: int, i: int, player: int, opponent: int, data: dict) -> list[Event]:
+    occurrence = world.entity(occurrence_id)
+    m = occurrence.data["data"]["rounds"][r][i]
+    if m["how"] is not None:
+        return []
+    today = day(occurrence, world.time)
+    if data.get("result") == "won" and data.get("verdict") == "kill":
+        return [Event("disqualified", (player,), occurrence.data["place"], {"occurrence": occurrence_id, "victim": opponent}),
+                match_event(occurrence, r, i, None, player, "disqualified", max(today, m["day"]))]
+    if data.get("result") == "won":
+        winner = player
+    elif data.get("result") == "drawn":  # the judges favour the fighter the crowd believed stronger
+        town = occurrence.data["place"]
+        winner = max((player, opponent), key=lambda p: (belief_strength(world, town, p), -p))
+    else:
+        winner = opponent
+    loser = opponent if winner == player else player
+    return [match_event(occurrence, r, i, winner, loser, "bout", max(today, m["day"]))]
+
+
+def forfeit_events(world, occurrence_id: int, player: int) -> list[Event]:
+    call = player_call(world, player, world.entity(occurrence_id).data["place"])
+    if call is None or call[0] != occurrence_id:
+        return []
+    occurrence = world.entity(occurrence_id)
+    _, r, i, other = call
+    return [match_event(occurrence, r, i, other, player, "forfeit", day(occurrence, world.time))]
+
+
+@effect("disqualified")
+def _disqualified(world, event) -> None:
+    occurrence = world.entity(event.data["occurrence"])
+    t = occurrence.data["data"]
+    world.update_data(occurrence.id, data={**t, "disqualified": t.get("disqualified", []) + [event.actors[0]]})
+
+
+@listen("disqualified")
+def _disgraced(world, event, event_id: int) -> None:
+    killer, victim = event.actors[0], event.data["victim"]
+    variant = make_variant("disgraced", killer, victim, place=place_name(world, event.place))
+    record_fact(world, killer, "disgraced", victim, place=event.place, source_event=event_id, weight=2.0,
+                variant=variant)
+
+
+def lei_tai_open(world, occurrence_id: int, player: int) -> bool:
+    t = world.entity(occurrence_id).data["data"]
+    return stage(world, occurrence_id) == "active" and t["holder"] not in (None, player) \
+        and alive(world, t["holder"]) and player not in t.get("challenged", [])
+
+
+def lei_tai_result_events(world, occurrence_id: int, player: int, holder: int, won: bool) -> list[Event]:
+    return [Event("lei_tai_challenged", (player, holder), world.entity(occurrence_id).data["place"],
+                  {"occurrence": occurrence_id, "won": won})]
+
+
+@effect("lei_tai_challenged")
+def _challenged(world, event) -> None:
+    player, holder = event.actors
+    occurrence = world.entity(event.data["occurrence"])
+    t = occurrence.data["data"]
+    world.update_data(occurrence.id, data={**t, "holder": player if event.data["won"] else holder,
+                                           "challenged": t.get("challenged", []) + [player]})

@@ -30,6 +30,7 @@ from engine.world_mixin import WorldMixin
 from engine.lineage import LineageMixin
 from engine.market import MarketMixin
 from engine.sky import SkyMixin
+from engine.tournament import TournamentMixin
 from engine.standing_page import standing_lines
 from engine.ledger import ledger_lines
 from engine.masks import MasksMixin
@@ -77,7 +78,7 @@ HELP = [
 ]
 
 
-class Game(LineageMixin, MarketMixin, SkyMixin, WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, LeavingMixin, LawMixin, LandMixin, FoundingMixin, SectMixin, SeasonsMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
+class Game(LineageMixin, MarketMixin, SkyMixin, TournamentMixin, WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, LeavingMixin, LawMixin, LandMixin, FoundingMixin, SectMixin, SeasonsMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
     def __init__(self, world: World, narrator: Narrator | None = None) -> None:
         self.world = world
         self.narrator = narrator or ProceduralNarrator()

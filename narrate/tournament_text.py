@@ -36,3 +36,103 @@ def _lei_tai_story(world, variant, viewer) -> str:
 
 
 SPECIAL_PHRASES["held_lei_tai"] = _lei_tai_story
+
+
+
+def _disgraced_story(world, variant, viewer) -> str:
+    return cap(f"{who(world, variant.get('actor'), viewer)} killed {who(world, variant.get('target'), viewer)} "
+               f"on the platform in {variant.get('place') or 'a tournament'} and was thrown out in disgrace.")
+
+
+SPECIAL_PHRASES["disgraced"] = _disgraced_story
+
+
+@outcome("registered", body_facts=False)
+def _registered(world, event):
+    d = event.data
+    kind = world.entity(d["occurrence"]).data["type"]
+    if d["preside"]:
+        return [f"You will preside over {KIND_NAMES[kind]}."], {}
+    bond = f" You post a bond of {d['bond']} silver." if d["bond"] else ""
+    return [f"You are entered in {KIND_NAMES[kind]}.{bond}"], {}
+
+
+@summary("registered")
+def _registered_line(world, entry, names, place, other):
+    kind = world.entity(entry.data["occurrence"]).data["type"]
+    return f"{'Presided over' if entry.data['preside'] else 'Entered'} {KIND_NAMES[kind]} in {place}."
+
+
+@outcome("bond_refunded", body_facts=False)
+def _refunded(world, event):
+    return [f"Your bond of {event.data['silver']} silver is returned."], {}
+
+
+@summary("bond_refunded")
+def _refunded_line(world, entry, names, place, other):
+    return f"Had a tournament bond of {entry.data['silver']} silver returned."
+
+
+@outcome("match_resolved", body_facts=False)
+def _resolved(world, event):
+    d = event.data
+    me = world.get_meta("player_id")
+    if d["how"] == "forfeit":
+        return ([f"You forfeit your bout."] if d["loser"] == me else [f"{world.entity(d['loser']).name} forfeits."]), {}
+    if d["how"] == "disqualified":
+        return ["The judges strike your name from the bracket."], {}
+    won = d["winner"] == me
+    other = world.entity(d["loser"] if won else d["winner"]).name
+    return [f"You win the bout against {other}." if won else f"{other} wins the bout."], {}
+
+
+@summary("match_resolved")
+def _resolved_line(world, entry, names, place, other):
+    d = entry.data
+    me = world.get_meta("player_id")
+    if d["how"] == "disqualified":
+        return f"Was disqualified from a tournament in {place}."
+    if d["winner"] == me:
+        return f"Won a bout in round {d['round'] + 1} in {place}."
+    return f"Lost a bout in round {d['round'] + 1} in {place}."
+
+
+@outcome("tournament_won", body_facts=False)
+def _won(world, event):
+    return [f"You are crowned: {event.data['title']}. The prize is {event.data['prize']} silver."], {}
+
+
+@summary("tournament_won")
+def _won_line(world, entry, names, place, other):
+    return f"Won the tournament in {place}: {entry.data['title']}."
+
+
+@outcome("disqualified", body_facts=False)
+def _dq(world, event):
+    return [f"You have killed {world.entity(event.data['victim']).name} on the platform."], {}
+
+
+@summary("disqualified")
+def _dq_line(world, entry, names, place, other):
+    return f"Killed an opponent in a bout in {place}, and was disgraced."
+
+
+@outcome("lei_tai_challenged", body_facts=False)
+def _lei_tai(world, event):
+    holder = world.entity(event.actors[1]).name
+    return [f"You take the platform from {holder}." if event.data["won"] else f"{holder} keeps the platform."], {}
+
+
+@summary("lei_tai_challenged")
+def _lei_tai_line(world, entry, names, place, other):
+    return f"{'Took' if entry.data['won'] else 'Failed to take'} the lei tai in {place} from {other}."
+
+
+@outcome("lei_tai_held", body_facts=False)
+def _held(world, event):
+    return [f"You hold the platform at dusk. The patron pays you {event.data['purse']} silver."], {}
+
+
+@summary("lei_tai_held")
+def _held_line(world, entry, names, place, other):
+    return f"Held the lei tai in {place} and took the purse."
