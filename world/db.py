@@ -9,7 +9,7 @@ import json
 import sqlite3
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 SCHEMA_VERSION = 2
@@ -181,13 +181,22 @@ def _entity(row) -> Entity | None:
     return Entity(row[0], row[1], row[2], row[3], row[4], json.loads(row[5]))
 
 
+ENTITY_CACHE = 4096  # decoded entities kept between reads; the oldest go first
+
+
 class World:
     def __init__(self, conn: sqlite3.Connection, path: Path) -> None:
+        # WAL's recommended level: commits stop waiting on the disk; a power cut may lose the last turn, never the file
+        conn.execute("pragma synchronous = normal")
         self._conn = conn
         self.path = path
         self._depth = 0
         self._cache: dict = {}
         self._cache_mark = -1
+        # Every entity read decoded its JSON again: an arrival read the same 61 people 4,000 times. Entities are
+        # snapshots; update_data stores a new one, a rollback or a bulk delete clears them all (cache_drift checks).
+        self._entities: dict[int, Entity] = {}
+        self._handed: set[int] = set()  # read since the last drift check: only these can have been edited in place
         self._acquainted: dict[int, tuple[int, dict[int, int]]] = {}
 
     def _cached(self, key, compute):
@@ -282,6 +291,7 @@ class World:
             self._depth -= 1
             if self._depth == 0:
                 self._conn.execute("rollback")
+                self._entities.clear()  # what the transaction wrote is gone
             raise
         self._depth -= 1
         if self._depth == 0:
@@ -318,9 +328,36 @@ class World:
         return cursor.lastrowid
 
     def entity(self, entity_id: int) -> Entity | None:
-        return _entity(self._conn.execute(
+        found = self._entities.get(entity_id)
+        if found is not None:
+            self._handed.add(entity_id)
+            return found
+        found = _entity(self._conn.execute(
             "select id, kind, name, seed_path, created_at, data from entities where id = ?", (entity_id,)
         ).fetchone())
+        if found is not None:
+            self._remember(found)
+            self._handed.add(entity_id)
+        return found
+
+    def _remember(self, entity: Entity) -> None:
+        self._entities[entity.id] = entity
+        if len(self._entities) > ENTITY_CACHE:
+            del self._entities[next(iter(self._entities))]
+
+    def cache_drift(self) -> list[str]:
+        """Entities whose remembered data differs from the save: someone edited `.data` in place (debug rule).
+        Only those handed out since the last check, so the per-turn rules stay cheap in a long game."""
+        out = []
+        handed, self._handed = self._handed, set()
+        for entity_id in sorted(handed):
+            remembered = self._entities.get(entity_id)
+            if remembered is None:
+                continue
+            row = self._conn.execute("select data from entities where id = ?", (entity_id,)).fetchone()
+            if row is None or json.loads(row[0]) != remembered.data:
+                out.append(f"entity #{entity_id} ({remembered.name}) was changed in memory but not saved")
+        return out
 
     def entity_by_seed(self, seed_path: str) -> Entity | None:
         return _entity(self._conn.execute(
@@ -337,6 +374,7 @@ class World:
     def drop_entities_until(self, kind: str, key: str, value) -> None:
         """Delete entities of this kind whose data[key] is at most `value` (phase 4c: spent price events)."""
         self._conn.execute(f"delete from entities where kind = ? and json_extract(data, '$.{key}') <= ?", (kind, value))
+        self._entities.clear()
 
     def entities(self, kind: str) -> list[Entity]:
         rows = self._conn.execute(
@@ -350,6 +388,7 @@ class World:
             raise KeyError(entity_id)
         merged = {**current.data, **changes}
         self._conn.execute("update entities set data = ? where id = ?", (json.dumps(merged), entity_id))
+        self._remember(replace(current, data=merged))  # a new snapshot: whoever holds the old one keeps it
 
     # --- relations --------------------------------------------------------
     def relate(self, a: int, b: int, kind: str, value: float = 0.0, data: dict | None = None) -> None:

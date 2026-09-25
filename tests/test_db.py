@@ -100,3 +100,96 @@ def test_non_json_version_is_a_save_error(tmp_path):
     w.close()
     with pytest.raises(SaveError):
         World.open(path)
+
+
+def test_a_save_syncs_at_checkpoints_not_every_commit(tmp_path):
+    """WAL with synchronous = NORMAL: a crash of the game loses nothing, a power cut at most the last turn,
+    and the file is never corrupted; each turn no longer waits on the disk (phase 4e)."""
+    path = tmp_path / "s.world"
+    created = World.create(path, 3)
+    assert created._conn.execute("pragma synchronous").fetchone()[0] == 1  # NORMAL
+    created.close()
+    opened = World.open(path)
+    assert opened._conn.execute("pragma synchronous").fetchone()[0] == 1
+    assert opened._conn.execute("pragma journal_mode").fetchone()[0] == "wal"
+    opened.close()
+
+
+def test_a_read_entity_is_kept_until_it_changes(tmp_path):
+    w = World.create(tmp_path / "c.world", 1)
+    eid = w.add_entity("thing", "Jar", {"full": True})
+    first = w.entity(eid)
+    assert w.entity(eid) is first  # served from memory, not decoded again
+    w.update_data(eid, full=False)
+    assert w.entity(eid).data["full"] is False and first.data["full"] is True  # a new snapshot; the old one stands
+    w.close()
+
+
+def test_a_rollback_forgets_what_was_cached(tmp_path):
+    w = World.create(tmp_path / "r.world", 1)
+    eid = w.add_entity("thing", "Jar", {"full": True})
+    w.entity(eid)
+    with pytest.raises(RuntimeError):
+        with w.transaction():
+            w.update_data(eid, full=False)
+            raise RuntimeError("the turn fails")
+    assert w.entity(eid).data["full"] is True
+    w.close()
+
+
+def test_dropped_entities_are_not_served_from_memory(tmp_path):
+    w = World.create(tmp_path / "d.world", 1)
+    eid = w.add_entity("price_event", "Glut", {"until": 3})
+    w.entity(eid)
+    w.drop_entities_until("price_event", "until", 5)
+    assert w.entity(eid) is None
+    w.close()
+
+
+def test_an_entity_changed_in_memory_but_never_saved_is_caught(tmp_path):
+    w = World.create(tmp_path / "m.world", 1)
+    eid = w.add_entity("thing", "Jar", {"full": True})
+    w.entity(eid).data["full"] = False  # a bug: edited in place, never written
+    assert w.cache_drift() == [f"entity #{eid} (Jar) was changed in memory but not saved"]
+    w.close()
+
+
+def test_the_entity_cache_is_bounded(tmp_path, monkeypatch):
+    import world.db as db
+    monkeypatch.setattr(db, "ENTITY_CACHE", 3)
+    w = World.create(tmp_path / "b.world", 1)
+    ids = [w.add_entity("thing", f"Jar {i}", {}) for i in range(5)]
+    first = w.entity(ids[0])
+    for eid in ids[1:]:
+        w.entity(eid)
+    assert len(w._entities) == 3 and w.entity(ids[0]) is not first  # the oldest was let go and read again
+    w.close()
+
+
+def test_the_debug_rules_catch_an_entity_edited_in_memory(tmp_path):
+    from debug.invariants import check_world
+    w = World.create(tmp_path / "rules.world", 1)
+    eid = w.add_entity("thing", "Jar", {"full": True})
+    w.entity(eid).data["full"] = False
+    assert any("changed in memory but not saved" in p for p in check_world(w))
+    w.close()
+
+
+def test_the_drift_check_looks_only_at_what_was_read_since_the_last_one(tmp_path, monkeypatch):
+    w = World.create(tmp_path / "t.world", 1)
+    ids = [w.add_entity("thing", f"Jar {i}", {}) for i in range(50)]
+    for eid in ids:
+        w.entity(eid)
+    w.cache_drift()
+    w.entity(ids[0])
+    reads = []
+    real = w._conn
+
+    class Counting:
+        def execute(self, sql, *args):
+            reads.append(sql)
+            return real.execute(sql, *args)
+    monkeypatch.setattr(w, "_conn", Counting())
+    assert w.cache_drift() == [] and len(reads) == 1  # one entity handed out since: one row read, not fifty
+    monkeypatch.setattr(w, "_conn", real)
+    w.close()

@@ -76,6 +76,7 @@ def check_world(world) -> list[str]:
     for before, after in zip(times, times[1:]):
         if after < before:
             problems.append(f"chronicle time went backwards ({before} -> {after})")
+    problems += world.cache_drift()  # an entity's .data edited in place and never saved (the entity cache)
     return problems
 
 
