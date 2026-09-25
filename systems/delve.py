@@ -117,8 +117,8 @@ def _caught(world, event, event_id: int) -> None:
 
 def leave_events(world, player: int) -> list[Event]:
     pos = position(world, player)
-    if not pos or pos["floor"] != 1:
-        return []
+    if not pos or world.entity(player).data.get("sealed_in") or not moves(world, player).get("leave"):
+        return []  # a shut gate lets no one out, typed or chosen (4f final review)
     realm = pos["realm"]
     return [Event("realm_left", (player,), world.entity(realm).data["gate"],
                   {"realm": realm, "occurrence": SR.opening_of(world, realm)})]

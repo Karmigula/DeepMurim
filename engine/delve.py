@@ -8,7 +8,8 @@ from world.events import commit
 import systems.sky as sky
 from engine.actions import Action, Choice
 from narrate.realm_text import chamber_line
-from systems.realms import realm_title
+from systems.bodies import load_body
+from systems.realms import MAX_REALM, REALMS, realm_title
 from systems.time import format_date
 from world.gen.materialize import people_at
 
@@ -20,6 +21,11 @@ INSIDE_VERBS = frozenset({
     "fight_guardian", "slip_past", "attempt_trial", "face_shade", "take_remains",
     "ask_pass", "fight_rival", "join_band",
     "sealed_cultivate", "search_exit", "heir_carry_on", "succeed", "new_world", "newcomer",
+})
+SEALED_VERBS = frozenset({
+    "look", "journal", "help", "unknown", "ambiguous", "back", "more_menu", "standing", "ledger", "lineage", "rankings",
+    "tournaments", "realms", "breakthrough", "sealed_cultivate", "search_exit", "heir_carry_on", "succeed",
+    "new_world", "newcomer",
 })
 TRIAL_LABELS = {"formation": "Read the ancient array", "pressure": "Walk into the pressing qi",
                 "mirror": "Face the bronze mirror"}
@@ -81,6 +87,10 @@ class DelveMixin:
 
     # --- inside ----------------------------------------------------------------------------------
     def _gate(self, action):
+        if self.world.entity(self.player.id).data.get("sealed_in"):
+            if action.verb not in SEALED_VERBS:
+                return self._turn([("The gate is shut; there is only the realm, and waiting.", "system")])
+            return super()._gate(action)
         if self._inside() and self.combat is None and not self.player.data.get("dying") \
                 and action.verb not in INSIDE_VERBS:
             realm = self.world.entity(self._inside()["realm"])
@@ -367,6 +377,9 @@ class SealedMixin:
         choices = []
         if self.world.entity(realm).data["period"] is not None:
             choices.append(Choice("Cultivate a season in the dense qi", Action("sealed_cultivate")))
+        body = load_body(self.world, self.player.id)
+        if body.bottleneck and body.realm < MAX_REALM:  # years of dense qi reach a bottleneck (4f final review)
+            choices.append(Choice(f"Attempt breakthrough to {REALMS[body.realm + 1].name}", Action("breakthrough")))
         choices += [Choice("Search the sealed floors for another way out (a season)", Action("search_exit")),
                     Choice("Let your heir carry on", Action("heir_carry_on")),
                     Choice("Look around", Action("look")), Choice("Read your journal", Action("journal"))]

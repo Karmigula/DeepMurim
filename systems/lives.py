@@ -40,7 +40,7 @@ def key(entity) -> str:
 def simulated(entity) -> bool:
     d = entity.data
     return entity.kind == "person" and not d.get("is_player") and not d.get("dead") and not d.get("beast") \
-        and not d.get("sealed_in")  # a secret realm's sealed live when they walk out (4f spec 4.4)
+        and not d.get("sealed_in") and not d.get("realm_spirit")  # the sealed live when they walk out; spirits never
 
 
 def lived_to(world, person: int) -> int:

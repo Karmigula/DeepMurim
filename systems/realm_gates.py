@@ -222,7 +222,9 @@ def shade_realm(world, challenger: int) -> int:
     return min(len(REALMS) - 1, realm_of(world, challenger) + 1)
 
 
-def closing_events(world, occurrence) -> list[Event]:
+def closing_events(world, occurrence, still_inside: bool = False) -> list[Event]:
+    """The gate closes: each delver's fate rolled. `still_inside`: only those not already out are rolled for
+    (the player went in, and left or fell before the end)."""
     t = occurrence.data["data"]
     if t["closed"]:
         return []
@@ -231,7 +233,7 @@ def closing_events(world, occurrence) -> list[Event]:
     rng = rng_for(world.world_seed, f"realm:{occurrence.id}:close")
     fates, loot = {}, {}
     for person in t["delvers"]:
-        if not alive(world, person):
+        if not alive(world, person) or (still_inside and world.targets(person, "located_in") != [realm.id]):
             continue
         depth = min(floors, max(1, realm_of(world, person)))
         roll, out = rng.random(), OUT_BASE - OUT_PER_FLOOR * max(0, depth - 2)
@@ -292,6 +294,10 @@ def _closed(world, event) -> None:
     for person, fate in d["fates"].items():
         if fate == "sealed":
             seal(world, int(person), d["realm"])
+        elif fate == "out" and world.targets(int(person), "located_in") == [d["realm"]]:
+            world.update_data(int(person), delve_at=None)  # a band still inside walks out at the gate
+            world.unrelate(int(person), "located_in")
+            world.relate(int(person), occurrence.data["place"], "located_in")
     if d["inherited"] is not None:
         inherit(world, d["inherited"], d["realm"])
     realm = world.entity(d["realm"])
@@ -343,6 +349,9 @@ def stage_events(world, occurrence, stage: str) -> list[Event]:
         player = world.get_meta("player_id")
         if player not in occurrence.data["data"]["entered"]:
             return closing_events(world, occurrence)
+        realm = occurrence.data["data"]["realm"]
+        if not alive(world, player) or world.targets(player, "located_in") != [realm]:
+            return closing_events(world, occurrence, still_inside=True)  # left or fell early: no one saw the rest
         from systems.sealed import inside_closing_events  # the player was inside: what happened, happened (Task 6)
         return inside_closing_events(world, occurrence)
     return []

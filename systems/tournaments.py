@@ -108,6 +108,11 @@ def positions(size: int) -> list[int]:
     return order
 
 
+def _in_a_realm(world, person: int) -> bool:
+    return bool(world.entity(person).data.get("sealed_in")) or any(
+        world.entity(place).kind == "secret_realm" for place in world.targets(person, "located_in"))
+
+
 def pool(world, occurrence, ok, size: int, wanderer) -> list[int]:
     """Whom the organisers invite: each staffed sect's best who qualifies, the ranked names the host town
     knows of, then wanderers to fill the bracket (spec §4.1)."""
@@ -129,6 +134,7 @@ def pool(world, occurrence, ok, size: int, wanderer) -> list[int]:
     for names in (known["lists"].values() if known else []):
         found += [p for p in names if p not in found and alive(world, p)
                   and not world.entity(p).data.get("is_player") and ok(p)]
+    found = [p for p in found if not _in_a_realm(world, p)]  # no one in a secret realm hears the call (4f review)
     found = [p for p in found if p not in registered]
     rng = rng_for(world.world_seed, f"tournament:{occurrence.id}:wanderers")
     i = 0
