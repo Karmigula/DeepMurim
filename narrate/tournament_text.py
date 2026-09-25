@@ -136,3 +136,37 @@ def _held(world, event):
 @summary("lei_tai_held")
 def _held_line(world, entry, names, place, other):
     return f"Held the lei tai in {place} and took the purse."
+
+
+
+def _fixed_story(world, variant, viewer) -> str:
+    return cap(f"{who(world, variant.get('actor'), viewer)} bet against themselves in {variant.get('place') or 'a tournament'} "
+               "and lost the bout. People are talking about a fix.")
+
+
+SPECIAL_PHRASES["fixed"] = _fixed_story
+
+
+@outcome("bet_placed", body_facts=False)
+def _bet(world, event):
+    d = event.data
+    return [f"You stake {d['stake']} silver on {world.entity(d['on']).name} at {d['odds']:.2f} to 1."], {}
+
+
+@summary("bet_placed")
+def _bet_line(world, entry, names, place, other):
+    return f"Bet {entry.data['stake']} silver on {world.entity(entry.data['on']).name} in {place}."
+
+
+@outcome("bet_settled", body_facts=False)
+def _settled(world, event):
+    d = event.data
+    if d["void"]:
+        return [f"The bet is void; your {d['payout']} silver is returned."], {}
+    return [f"Your bet pays {d['payout']} silver." if d["payout"] else "Your bet is lost."], {}
+
+
+@summary("bet_settled")
+def _settled_line(world, entry, names, place, other):
+    d = entry.data
+    return "Had a bet voided." if d["void"] else f"Won {d['payout']} silver on a bet." if d["payout"] else "Lost a bet."

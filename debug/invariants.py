@@ -364,6 +364,11 @@ def check_tournaments(world) -> list[str]:
                     up = rounds[r + 1][i // 2]["a" if i % 2 == 0 else "b"]
                     if up != m["winner"]:
                         out.append(f"{who} round {r + 1} match {i + 1}'s winner did not advance")
+        for n, bet in enumerate(t.get("bets", [])):
+            if bet["stake"] > bet["silver"] * 0.1 + 1e-9:
+                out.append(f"{who} bet {n + 1} staked more than a tenth of the bettor's silver")
+            if t.get("finished") and not bet["settled"]:
+                out.append(f"{who} has an open bet ({n + 1}) after it ended")
         if t.get("finished") and t.get("champion") != rounds[-1][0]["winner"]:
             out.append(f"{who} crowned someone other than the final's winner")
         if not t.get("finished"):

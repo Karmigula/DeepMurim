@@ -1,6 +1,7 @@
 [symbols]
 tour_crowd = ["The crowd roars.", "Somewhere a gong is struck.", "The stands murmur and shift.", "A child on someone's shoulders points at you.", "Bookmakers' boys run through the crowd.", "Dust rises from the platform."]
 tour_clerk = ["A clerk writes your name in a thick ledger.", "An official looks you over and nods.", "Your name is called out to no one in particular.", "A servant hands you a wooden tally with a number on it."]
+tour_bookie = ["The bookmaker licks his thumb and counts.", "A chit changes hands.", "The odds board is rewritten in chalk.", "Somebody groans at the board.", "The bookmaker's boy runs off with your chit."]
 tour_shame = ["Silence falls over the stands.", "Someone spits.", "The judges stand as one.", "Nobody will meet your eyes."]
 
 [registered]
@@ -30,3 +31,11 @@ lines = ["#tour_crowd#", "#tour_crowd# #tour_crowd#"]
 [lei_tai_held]
 colour = "gold"
 lines = ["#tour_crowd#"]
+
+[bet_placed]
+colour = "default"
+lines = ["#tour_bookie#", "#tour_bookie# #tour_crowd#"]
+
+[bet_settled]
+colour = "default"
+lines = ["#tour_bookie#", "#tour_bookie# #tour_crowd#"]
