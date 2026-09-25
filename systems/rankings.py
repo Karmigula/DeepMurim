@@ -178,14 +178,15 @@ def scores(world, pav: int) -> dict[int, float]:
     return out
 
 
-def believed_ages(world, pav: int) -> dict[int, int]:
-    """How old the Pavilion thinks people are: the newest age it was told, plus the years since."""
+def believed_ages(world, pav: int, at: int | None = None) -> dict[int, int]:
+    """How old the Pavilion thinks people are at `at` (default: now): the newest age it was told, plus the years since."""
+    at = world.time if at is None else at
     newest: dict = {}
     for belief, fact in world.known_facts(pav):
         who, age = belief.variant.get("actor"), belief.variant.get("age")
-        if who is not None and age is not None and (who not in newest or fact.time > newest[who][1]):
+        if who is not None and age is not None and fact.time <= at and (who not in newest or fact.time > newest[who][1]):
             newest[who] = (age, fact.time)
-    return {who: int(age + (world.time - t) // YEAR) for who, (age, t) in newest.items()}
+    return {who: int(age + (at - t) // YEAR) for who, (age, t) in newest.items()}
 
 
 # --- publishing ------------------------------------------------------------------------------------

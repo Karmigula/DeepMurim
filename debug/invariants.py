@@ -326,7 +326,8 @@ def check_rankings(world) -> list[str]:
     for person in seen | set(d["lists"].get("young", [])):
         if person not in believed:
             out.append(f"#{person} is ranked but the Pavilion holds no belief about them")
-    ages = R.believed_ages(world, pav)
+    published = world.chronicle_of_kind("rankings_published")  # judged as the Pavilion saw them then (4f ruling 24)
+    ages = R.believed_ages(world, pav, published[-1].time if published else None)
     for person in d["lists"].get("young", []):
         if ages.get(person, R.YOUNG_AGE + 1) > R.YOUNG_AGE:
             out.append(f"#{person} is a Young Dragon but the Pavilion believes them older than {R.YOUNG_AGE}")
