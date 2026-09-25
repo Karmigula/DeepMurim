@@ -5,6 +5,7 @@ import systems.encounters as encounters
 import systems.lives as lives
 import systems.sky as sky
 import systems.succession_crisis as SC
+import systems.testament as T
 import systems.world_clock as clock
 from debug.invariants import check_crises
 from engine.game import Game
@@ -26,6 +27,7 @@ def game(tmp_path):
 def calm(monkeypatch):
     monkeypatch.setattr(encounters, "CHALLENGE_CHANCE", 0.0)
     monkeypatch.setattr(encounters, "ENCOUNTER_CHANCE", 0.0)
+    monkeypatch.setattr(T, "TRANSMIT_CHANCE", 0.0)  # tests that want a transmission ask for one
 
 
 def a_sect(game, kind="orthodox_sect"):

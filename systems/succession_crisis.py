@@ -10,11 +10,13 @@ decided when the `aftermath` begins (plan ruling 1).
 
 import systems.claimants as C
 import systems.sky as sky
+import systems.testament as T
 import systems.world_events as W
 from systems import factions as F
 from systems.facts import make_variant, place_name, record_fact
 from systems.tournaments import alive, realm_of
 from world.events import Event, effect, listen
+from world.seed import rng_for
 
 KIND = "succession_crisis"
 VIOLENT = frozenset({"killed", "executed", "feud", "clash", "raid"})
@@ -122,6 +124,9 @@ def _begun(world, event, event_id: int) -> None:
     row = next(r for r in reversed(W.index(world)) if r[W.TYPE] == KIND and r[W.PLACE] == event.data["place"])
     faction = event.data["data"]["faction"]
     world.update_data(faction, crisis=row[W.ID], fallen=None)
+    occurrence = world.entity(row[W.ID])
+    rng = rng_for(world.world_seed, f"crisis:{occurrence.id}:mourning")
+    world.update_data(occurrence.id, data=T.at_mourning(world, crisis_of(occurrence), rng))
 
 
 # --- the stages -------------------------------------------------------------------------------
@@ -137,10 +142,17 @@ def on_stage(world, occurrence, stage: str) -> list[Event]:
     return []
 
 
+def _searched(world, occurrence, stage: str) -> None:
+    """The camps turn the late master's rooms over at each stage's change (spec 4.4)."""
+    rng = rng_for(world.world_seed, f"crisis:{occurrence.id}:search:{stage}")
+    world.update_data(occurrence.id, data=T.camps_search(world, crisis_of(occurrence), rng))
+
+
 @effect("crisis_phase")
 def _phase(world, event) -> None:
     occurrence = world.entity(event.data["occurrence"])
     world.update_data(occurrence.id, data={**crisis_of(occurrence), "phase": event.data["phase"]})
+    _searched(world, world.entity(occurrence.id), event.data["phase"])
 
 
 @listen("crisis_heralded")

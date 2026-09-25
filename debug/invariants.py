@@ -402,6 +402,8 @@ def check_races(world) -> list[str]:
         if settled:
             world._races_checked = occurrence
     for item in world.entities("treasure"):
+        if item.data.get("kind") == "sect_token":
+            continue  # owned or lying where its leader fell: one place, as check_crises holds (4g)
         owners = world.sources(item.id, "owns")
         if len(owners) != (0 if item.data.get("used") else 1):
             out.append(f"treasure #{item.id} has {len(owners)} owners")
@@ -708,4 +710,9 @@ def check_crises(world) -> list[str]:
         pointed = faction.data.get("crisis")
         if pointed is not None and SC.live(world, faction.id) is not None and live.get(faction.id) != pointed:
             out.append(f"the {faction.name} points at #{pointed}, which is no live crisis of theirs")
+    for token in world.entities("treasure"):
+        if token.data.get("kind") == "sect_token":
+            places = len(world.sources(token.id, "owns")) + len(world.targets(token.id, "located_in"))
+            if places != 1:
+                out.append(f"{token.name} is in {places} places")
     return out

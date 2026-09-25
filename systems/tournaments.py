@@ -109,7 +109,7 @@ def positions(size: int) -> list[int]:
 
 
 def _in_a_realm(world, person: int) -> bool:
-    return bool(world.entity(person).data.get("sealed_in")) or any(
+    return bool(world.entity(person).data.get("sealed_in")) or bool(world.entity(person).data.get("secluded")) or any(
         world.entity(place).kind == "secret_realm" for place in world.targets(person, "located_in"))
 
 

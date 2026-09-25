@@ -80,7 +80,8 @@ class SkyMixin:
 
     def _treasures(self) -> list:
         found = [self.world.entity(i) for i in self.world.targets(self.player.id, "owns")]
-        return [t for t in found if t is not None and t.kind == "treasure"]
+        return [t for t in found if t is not None and t.kind == "treasure"
+                and t.data.get("kind") != "sect_token"]  # a sect's token is no treasure to sell (4g)
 
     def _general_extras(self) -> list:
         extras = super()._general_extras()
