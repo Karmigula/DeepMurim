@@ -47,3 +47,23 @@ lines = ["#tour_crowd#", "#tour_crowd# #tour_crowd#"]
 [noticed]
 colour = "default"
 lines = ["#tour_crowd#"]
+
+[raided]
+colour = "default"
+lines = ["#tour_shame#", "#tour_crowd# #tour_shame#"]
+
+[vanished]
+colour = "default"
+lines = ["#tour_crowd#"]
+
+[defended]
+colour = "default"
+lines = ["#tour_crowd#", "#tour_crowd# #tour_crowd#"]
+
+[asked_bookmaker]
+colour = "default"
+lines = ["#tour_bookie#", "#tour_bookie# #tour_crowd#"]
+
+[exposed]
+colour = "default"
+lines = ["#tour_crowd#", "#tour_crowd# #tour_crowd#"]

@@ -81,6 +81,8 @@ def _resolved(world, event):
         return ([f"You forfeit your bout."] if d["loser"] == me else [f"{world.entity(d['loser']).name} forfeits."]), {}
     if d["how"] == "disqualified":
         return ["The judges strike your name from the bracket."], {}
+    if d["how"] == "void":
+        return ["The final is declared void: no one is crowned."], {}
     won = d["winner"] == me
     other = world.entity(d["loser"] if won else d["winner"]).name
     return [f"You win the bout against {other}." if won else f"{other} wins the bout."], {}
@@ -92,6 +94,8 @@ def _resolved_line(world, entry, names, place, other):
     me = world.get_meta("player_id")
     if d["how"] == "disqualified":
         return f"Was disqualified from a tournament in {place}."
+    if d["how"] == "void":
+        return f"Saw the final in {place} declared void."
     if d["winner"] == me:
         return f"Won a bout in round {d['round'] + 1} in {place}."
     return f"Lost a bout in round {d['round'] + 1} in {place}."
@@ -140,6 +144,11 @@ def _held_line(world, entry, names, place, other):
 
 
 def _fixed_story(world, variant, viewer) -> str:
+    if variant.get("how"):  # a fixed bout (spec §5.4), not a bet against oneself
+        victim, rival = who(world, variant.get("actor"), viewer), who(world, variant.get("target"), viewer)
+        done = "was poisoned before" if variant["how"] == "poisoned" else "was paid to lose"
+        return cap(f"{victim} {done} the bout against {rival} at "
+                   f"{KIND_NAMES.get(variant.get('kind'), 'a tournament')} in {variant.get('place') or 'a crowded city'}.")
     return cap(f"{who(world, variant.get('actor'), viewer)} bet against themselves in {variant.get('place') or 'a tournament'} "
                "and lost the bout. People are talking about a fix.")
 
@@ -205,3 +214,94 @@ def _noticed(world, event):
 @summary("noticed")
 def _noticed_line(world, entry, names, place, other):
     return f"Was noticed by {names[0]} of the {world.entity(entry.data['faction']).name} in {place}."
+
+
+
+def _raided_story(world, variant, viewer) -> str:
+    return cap(f"Demonic cultists stormed {KIND_NAMES.get(variant.get('kind'), 'a tournament')} "
+               f"in {variant.get('place') or 'a crowded city'} on the day of the final.")
+
+
+def _vanished_story(world, variant, viewer) -> str:
+    return cap(f"{who(world, variant.get('actor'), viewer)} vanished the night before a bout at "
+               f"{KIND_NAMES.get(variant.get('kind'), 'a tournament')}, and no one knows where.")
+
+
+def _defended_story(world, variant, viewer) -> str:
+    return cap(f"{who(world, variant.get('actor'), viewer)} stood against the cultists who stormed "
+               f"{KIND_NAMES.get(variant.get('kind'), 'a tournament')} in {variant.get('place') or 'a crowded city'}.")
+
+
+def _exposed_story(world, variant, viewer) -> str:
+    return cap(f"{who(world, variant.get('actor'), viewer)} exposed a fixed bout: "
+               f"{who(world, variant.get('target'), viewer)} had been got at.")
+
+
+SPECIAL_PHRASES.update({"raided": _raided_story, "vanished": _vanished_story, "defended": _defended_story,
+                        "exposed_fix": _exposed_story})
+
+
+@outcome("raided", body_facts=False)
+def _raided(world, event):
+    fallen = [world.entity(p).name for p in event.data["fallen"]]
+    lines = ["Cultists in black storm the platform before the final. The crowd breaks and runs."]
+    if fallen:
+        lines.append(f"{' and '.join(fallen)} {'falls' if len(fallen) == 1 else 'fall'} in the fighting; the final is void.")
+    else:
+        lines.append("The judges put the final off until tomorrow.")
+    return lines, {}
+
+
+@summary("raided")
+def _raided_line(world, entry, names, place, other):
+    return f"Saw cultists storm the final in {place}."
+
+
+@outcome("vanished", body_facts=False)
+def _vanished(world, event):
+    return [f"{world.entity(event.actors[0]).name} is nowhere to be found on the morning of their bout."], {}
+
+
+@summary("vanished")
+def _vanished_line(world, entry, names, place, other):
+    return f"Heard that {names[0]} vanished before a bout in {place}."
+
+
+@outcome("defended", body_facts=False)
+def _defended(world, event):
+    cultist = world.entity(event.actors[1]).name
+    if event.data["won"]:
+        return [f"You cut down {cultist}; the stands that saw it will remember."], {}
+    return [f"{cultist} gets the better of you, and melts into the fleeing crowd."], {}
+
+
+@summary("defended")
+def _defended_line(world, entry, names, place, other):
+    return f"Fought the cultists who stormed the final in {place}."
+
+
+@outcome("asked_bookmaker", body_facts=False)
+def _asked(world, event):
+    d = event.data
+    if d["learned"]:
+        fact = world.fact(d["fact"])
+        done = "poisoned" if fact.variant.get("how") == "poisoned" else "paid to lose"
+        return [f"The bookmaker leans close: {world.entity(d['victim']).name} has been {done}. "
+                "The odds on that bout are a lie."], {}
+    return ["The bookmaker shrugs: nothing crooked that they know of."], {}
+
+
+@summary("asked_bookmaker")
+def _asked_line(world, entry, names, place, other):
+    return f"Asked the bookmaker in {place} what they had heard."
+
+
+@outcome("exposed", body_facts=False)
+def _exposed(world, event):
+    victim = world.entity(event.actors[1]).name
+    return [f"You tell anyone who will listen that {victim}'s bout was fixed. By evening the whole town is saying it."], {}
+
+
+@summary("exposed")
+def _exposed_line(world, entry, names, place, other):
+    return f"Exposed a fixed bout in {place}."

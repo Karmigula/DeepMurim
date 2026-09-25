@@ -77,7 +77,7 @@ def _settle(world, event, event_id: int) -> None:
     for n, bet in enumerate(t.get("bets", [])):
         if bet["settled"] or (bet["round"], bet["match"]) != (d["round"], d["match"]):
             continue
-        void = d["how"] == "disqualified"
+        void = d["how"] in ("disqualified", "void")
         payout = bet["stake"] if void else int(bet["stake"] * bet["odds"]) if bet["on"] == d["winner"] else 0
         events.append(Event("bet_settled", (bet["player"],), event.place,
                             {"occurrence": d["occurrence"], "bet": n, "payout": payout, "void": void}))

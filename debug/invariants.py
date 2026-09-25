@@ -43,7 +43,7 @@ def check_world(world) -> list[str]:
         if person.data.get("dead"):
             if places or len(where.get((person.id, "buried_at"), [])) != 1:
                 problems.append(f"{person.name} (#{person.id}) is dead but not properly buried")
-        elif len(places) != 1:
+        elif len(places) != (0 if person.data.get("vanished") else 1):  # the vanished are nowhere (4e)
             problems.append(f"{person.name} (#{person.id}) has {len(places)} locations")
         for place in places:
             if place not in existing:

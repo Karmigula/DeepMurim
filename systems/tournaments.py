@@ -71,7 +71,8 @@ def realm_of(world, person: int) -> int:
 
 def alive(world, person) -> bool:
     entity = world.entity(person) if isinstance(person, int) else None
-    return entity is not None and entity.kind == "person" and not entity.data.get("dead")
+    return entity is not None and entity.kind == "person" and not entity.data.get("dead") \
+        and not entity.data.get("vanished")
 
 
 def strengths(world, town: int, people) -> dict[int, float]:
@@ -156,6 +157,11 @@ def day_start(occurrence, k: int) -> int:
     return occurrence.data["active"][0] + (k - 1) * 4
 
 
+def ends(occurrence) -> int:
+    """When the last bout must be fought: the active stage's end, unless a raid pushed the final past it."""
+    return occurrence.data["data"].get("until", occurrence.data["active"][1])
+
+
 def draw_events(world, occurrence, invited: list[int]) -> list[Event]:
     """The draw on the first day: registrants keep their places, invitations fill the rest, seeded by belief."""
     d = occurrence.data
@@ -181,15 +187,17 @@ def draw_events(world, occurrence, invited: list[int]) -> list[Event]:
     for r in range(1, len(days)):
         rounds.append([{"a": None, "b": None, "winner": None, "day": days[r], "how": None, "on": None}
                        for _ in range(len(rounds[-1]) // 2)])
+    from systems.intrigue import plot  # at most one dark intervention, seeded at the draw (spec §5.4)
     return [Event("bracket_drawn", (), town, {"occurrence": occurrence.id, "entrants": ordered, "rounds": rounds,
-                                              "arts": arts})]
+                                              "arts": arts, "intrigue": plot(world, occurrence, rounds, ordered)})]
 
 
 @effect("bracket_drawn")
 def _drawn(world, event) -> None:
     occurrence = world.entity(event.data["occurrence"])
     world.update_data(occurrence.id, data={**occurrence.data["data"], "entrants": event.data["entrants"],
-                                           "rounds": event.data["rounds"], "arts": event.data["arts"]})
+                                           "rounds": event.data["rounds"], "arts": event.data["arts"],
+                                           "intrigue": event.data.get("intrigue")})
 
 
 def _fighter(world, occurrence, person: int):
@@ -201,14 +209,21 @@ def _fighter(world, occurrence, person: int):
 
 
 def _sim_winner(world, occurrence, a: int, b: int, r: int, i: int) -> int:
+    from systems.intrigue import FIX_FACTOR, weaken, weakened
     rng = rng_for(world.world_seed, f"tournament:{occurrence.id}:{r}:{i}")
+    weak = weakened(occurrence, r, i)  # a fixed bout: one fighter at 0.6 of their strength (spec §5.4)
     if not watched(world, occurrence):  # far from the player: decided by realm, with upsets (plan ruling 7)
         chance = max(0.1, min(0.9, 0.5 + 0.15 * (realm_of(world, a) - realm_of(world, b))))
+        if weak == a:
+            chance *= FIX_FACTOR
+        elif weak == b:
+            chance = 1 - (1 - chance) * FIX_FACTOR
         return a if rng.random() < chance else b
     for person in (a, b):
         ensure_npc_arts(world, person)
-    result, _ = simulate(_fighter(world, occurrence, a), _fighter(world, occurrence, b),
-                         lambda r_, history: r_.choice(INTENTS), rng)
+    fa, fb = _fighter(world, occurrence, a), _fighter(world, occurrence, b)
+    fa, fb = (weaken(fa) if weak == a else fa), (weaken(fb) if weak == b else fb)
+    result, _ = simulate(fa, fb, lambda r_, history: r_.choice(INTENTS), rng)
     if result == "draw":
         return a if rng.random() < 0.5 else b
     return a if result == "player" else b
@@ -246,8 +261,12 @@ def _next_events(world, occurrence_id: int) -> list[Event]:
     t = d["data"]
     if not t["rounds"] or t["finished"]:
         return []
-    over = world.time >= d["active"][1]
+    over = world.time >= ends(occurrence)
     now_day = day(occurrence, world.time)
+    from systems.intrigue import due_events
+    dark = due_events(world, occurrence, now_day, over)
+    if dark:
+        return dark
     player = world.get_meta("player_id")
     for r, matches in enumerate(t["rounds"]):
         due, waiting = [], False
@@ -354,7 +373,8 @@ def _won_news(world, event, event_id: int) -> None:
         record_fact(world, d["champion"], "won_tournament", None, place=event.place, source_event=event_id,
                     weight=KIND_WEIGHT.get(d["kind"], 1.0), variant=variant)
     final = t["rounds"][-1][0] if t["rounds"] else {"a": None, "b": None, "winner": None}  # a summary has no bracket
-    podium = [(final.get("b") if final["winner"] == final.get("a") else final.get("a"), 2)] if t["rounds"] else []
+    podium = [(final.get("b") if final["winner"] == final.get("a") else final.get("a"), 2)] \
+        if t["rounds"] and final["winner"] is not None else []  # a void final has no runner-up
     if len(t["rounds"]) > 1:
         for m in t["rounds"][-2]:
             podium.append((m["b"] if m["winner"] == m["a"] else m["a"], 3))
@@ -511,7 +531,7 @@ def player_call(world, player: int, town: int) -> tuple[int, int, int, int] | No
             continue
         occurrence = world.entity(row[W.ID])
         t = occurrence.data["data"]
-        if not t["rounds"] or t["finished"] or world.time >= occurrence.data["active"][1]:
+        if not t["rounds"] or t["finished"] or world.time >= ends(occurrence):
             continue
         today = day(occurrence, world.time)
         for r, matches in enumerate(t["rounds"]):

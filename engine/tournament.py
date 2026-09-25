@@ -1,6 +1,7 @@
 """Tournaments in the engine (phase 4e spec 6): register, answer the herald, fight your bouts, hold the lei tai."""
 
 import systems.arena as arena
+import systems.intrigue as intrigue
 import systems.tournaments as T
 import systems.wagers as wagers
 from engine.actions import Action, Choice
@@ -37,15 +38,25 @@ class TournamentMixin:
             holder = world.entity(platform).data["data"]["holder"]
             extras.append(Choice(f"Challenge the platform holder, {world.entity(holder).name}",
                                  Action("challenge_lei_tai", platform)))
+        if watching is not None and intrigue.defence_open(world, watching, me) is not None:
+            extras.append(Choice("Join the defence against the cultists", Action("defend", watching)))
+        for occurrence in intrigue.exposable(world, me):
+            fix = intrigue.fix_of(world, occurrence)
+            extras.append(Choice(f"Expose the fix: {world.entity(fix['victim']).name} was {fix['how']}",
+                                 Action("expose_fix", occurrence)))
         return extras
 
     def _herald(self) -> list:
+        lines = []
+        active = T.here(self.world, self.place.id, T.KINDS, ("active",))
+        if active is not None and intrigue.defence_open(self.world, active, self.player.id) is not None:
+            lines.append(("Black-robed cultists storm the platform before the final; the crowd scatters.", "red"))
         call = T.player_call(self.world, self.player.id, self.place.id)
         if call is None:
-            return []
+            return lines
         kind = self.world.entity(call[0]).data["type"]
-        return [(f"The herald calls your name: today you fight {self.world.entity(call[3]).name} "
-                 f"at {KIND_NAMES[kind]}.", "dim")]
+        return lines + [(f"The herald calls your name: today you fight {self.world.entity(call[3]).name} "
+                         f"at {KIND_NAMES[kind]}.", "dim")]
 
     def _after_look(self) -> list:
         return super()._after_look() + self._herald()
@@ -96,6 +107,9 @@ class TournamentMixin:
             events = T.bout_result_events(self.world, purpose["tournament"], purpose["round"], purpose["match"],
                                           me, opponent, data)
             lines += self._commit(events) if events else []
+        elif "raid" in purpose:
+            won = data.get("result") == "won"
+            lines += self._commit(intrigue.defended_events(self.world, purpose["raid"], me, opponent, won))
         elif "lei_tai" in purpose:
             won = data.get("result") == "won" and data.get("verdict") != "kill"
             lines += self._commit(T.lei_tai_result_events(self.world, purpose["lei_tai"], me, opponent, won))
@@ -114,6 +128,8 @@ class TournamentMixin:
             lines.append((f"  Round {r + 1}: {a} at {prices[m['a']]:.2f} to 1, {b} at {prices[m['b']]:.2f} to 1", "dim"))
             choices += [Choice(f"Bet {stake} on {a}", Action("bet", (occurrence, r, i, m["a"]))),
                         Choice(f"Bet {stake} on {b}", Action("bet", (occurrence, r, i, m["b"])))]
+        if intrigue.ask_block(world, occurrence, me) is None:
+            choices.append(Choice("Ask what the bookmaker has heard", Action("ask_bookmaker", occurrence)))
         return lines, choices
 
     def _submenu_options(self) -> dict:
@@ -156,3 +172,26 @@ class TournamentMixin:
         del invitations[str(faction)]
         self.world.update_data(self.player.id, invitations=invitations)
         return self._turn(self._commit(joined_events(self.world, self.player.id, elder, faction, self.place.id, False)))
+
+    # --- dark interventions (phase 4e spec 5.4) ----------------------------------------------------
+    def _do_defend(self, occurrence):
+        cultist = intrigue.defence_open(self.world, occurrence, self.player.id) if isinstance(occurrence, int) else None
+        if cultist is None:
+            return self._turn([("There is no fighting here to join.", "system")])
+        return self._turn(self._start_duel(cultist, "duel", purpose={"raid": occurrence}))
+
+    def _do_expose_fix(self, occurrence):
+        events = intrigue.expose_events(self.world, occurrence, self.player.id, self.place.id) \
+            if isinstance(occurrence, int) else []
+        if not events:
+            return self._turn([("You know of no fix to expose.", "system")])
+        return self._turn(self._commit(events))
+
+    def _do_ask_bookmaker(self, occurrence):
+        why = intrigue.ask_block(self.world, occurrence, self.player.id) if isinstance(occurrence, int) \
+            else "There is no bookmaker here."
+        if why:
+            return self._turn([(why, "system")])
+        lines = self._commit(intrigue.ask_events(self.world, occurrence, self.player.id))
+        self._betting_on, self.submenu = occurrence, "wagers"
+        return self._turn(lines)
