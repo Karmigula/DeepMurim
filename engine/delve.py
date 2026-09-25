@@ -1,5 +1,6 @@
 """The delve in the engine (phase 4f spec 3, 6): the gate's choices outside, and inside, a menu of the chamber."""
 
+import systems.chambers as C
 import systems.delve as D
 import systems.sky as sky
 from engine.actions import Action, Choice
@@ -13,7 +14,10 @@ INSIDE_VERBS = frozenset({
     "ask_about", "news", "rumours", "tell_menu", "standing", "ledger", "lineage", "rankings", "tournaments", "realms",
     "intent", "flee", "yield_duel", "verdict", "use_menu", "use", "challenge", "spar",
     "delve_on", "delve_back", "leave_realm", "take_treasure", "delve_rest",
+    "fight_guardian", "slip_past", "attempt_trial", "face_shade", "take_remains",
 })
+TRIAL_LABELS = {"formation": "Read the ancient array", "pressure": "Walk into the pressing qi",
+                "mirror": "Face the bronze mirror"}
 
 
 class DelveMixin:
@@ -69,7 +73,8 @@ class DelveMixin:
 
     # --- inside ----------------------------------------------------------------------------------
     def _gate(self, action):
-        if self._inside() and self.combat is None and action.verb not in INSIDE_VERBS:
+        if self._inside() and self.combat is None and not self.player.data.get("dying") \
+                and action.verb not in INSIDE_VERBS:
             realm = self.world.entity(self._inside()["realm"])
             return self._turn([(f"You are inside {realm.name}; that must wait until you are out.", "system")])
         return super()._gate(action)
@@ -101,9 +106,21 @@ class DelveMixin:
         return self._delve_lines()
 
     def _chamber_choices(self, realm, floor: int, c: int, room: dict) -> list:
+        world, me = self.world, self.player.id
+        out = []
         if room["kind"] == "treasure" and room["state"] == "untouched":
-            return [Choice(f"Take {chamber_prize(room)}", Action("take_treasure"))]
-        return []
+            out.append(Choice(f"Take {chamber_prize(room)}", Action("take_treasure")))
+        if room["kind"] == "guardian" and room["state"] == "untouched":
+            species = room["contents"]["species"]
+            out += [Choice(f"Fight the {species}", Action("fight_guardian")),
+                    Choice(f"Slip past the {species}", Action("slip_past"))]
+        if C.trial_open(world, me):
+            out.append(Choice(TRIAL_LABELS[room["contents"]["trial"]], Action("attempt_trial")))
+        if C.inheritance_open(world, me):
+            out.append(Choice(f"Kneel before {realm.data['master']['name']}", Action("face_shade")))
+        for item in room["contents"].get("remains", []):
+            out.append(Choice(f"Take {world.entity(item).name} from the fallen", Action("take_remains", item)))
+        return out
 
     def _special_choices(self):
         pos = self._inside()
@@ -169,3 +186,64 @@ class DelveMixin:
 def chamber_prize(room: dict) -> str:
     prize = room["contents"]["prize"]
     return prize.get("name") or {"manual": "a martial manual", "star_iron": "a lump of star iron"}.get(prize["kind"], "the treasure")
+
+
+
+def _room(game):
+    return D.here(game.world, game.player.id)
+
+
+class ChamberMixin:
+    """The chambers' verbs (Task 4): a Game base beside DelveMixin, whose steps and lines it uses."""
+
+    def _do_fight_guardian(self, _target):
+        found = _room(self)
+        if found is None or found[3]["kind"] != "guardian" or found[3]["state"] != "untouched":
+            return self._turn([("Nothing here bars your way.", "system")])
+        realm, floor, c, room = found
+        foe = C.guardian(self.world, realm.id, floor, c)
+        return self._turn(self._start_duel(foe, "duel", purpose={"guardian": [realm.id, floor, c]}))
+
+    def _do_slip_past(self, _target):
+        found = _room(self)
+        if found is None or found[3]["kind"] != "guardian" or found[3]["state"] != "untouched":
+            return self._turn([("Nothing here bars your way.", "system")])
+        realm, floor, c, room = found
+        lines = self._commit(C.slip_events(self.world, self.player.id))
+        if self.world.entity(realm.id).data["floors"][floor - 1][c]["state"] == "passed":
+            return self._turn(lines + self._delve_lines())
+        foe = C.guardian(self.world, realm.id, floor, c)  # seen: it turns on you
+        return self._turn(lines + self._start_duel(foe, "duel", purpose={"guardian": [realm.id, floor, c]}))
+
+    def _do_attempt_trial(self, _target):
+        if _room(self) is None or not C.trial_open(self.world, self.player.id):
+            return self._turn([("There is no trial for you here.", "system")])
+        realm, floor, c, room = _room(self)
+        if room["contents"]["trial"] == "mirror":
+            foe = C.mirror(self.world, realm.id, floor, c, self.player.id)
+            return self._turn(self._start_duel(foe, "spar", purpose={"mirror": [realm.id, floor, c]}))
+        return self._step(C.trial_events(self.world, self.player.id), "There is no trial for you here.")
+
+    def _do_face_shade(self, _target):
+        if _room(self) is None or not C.inheritance_open(self.world, self.player.id):
+            return self._turn([("No one waits for you here.", "system")])
+        realm = _room(self)[0]
+        foe = C.shade(self.world, realm.id, self.player.id)
+        return self._turn(self._start_duel(foe, "test", purpose={"inheritance": realm.id}))
+
+    def _do_take_remains(self, item):
+        return self._step(C.remains_events(self.world, self.player.id, item) if isinstance(item, int) else [],
+                          "There is nothing like that here.")
+
+    def _after_duel(self, data: dict) -> list:
+        lines = super()._after_duel(data)
+        purpose = data.get("purpose") or {}
+        me = self.player.id
+        if "guardian" in purpose and data.get("result") == "won":
+            lines += self._commit(C.slain_events(self.world, me, purpose))
+        elif "mirror" in purpose:
+            lines += self._commit(C.mirror_events(self.world, me, purpose, data.get("result") == "spar_won"))
+        elif "inheritance" in purpose:
+            lines += self._commit(C.shade_events(self.world, me, purpose, data.get("result") == "passed"))
+        return lines
+

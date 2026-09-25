@@ -28,3 +28,27 @@ lines = ["#realm_air#"]
 [token_bought]
 colour = "default"
 lines = ["#realm_air#"]
+
+[guardian_slipped]
+colour = "dim"
+lines = ["#realm_air#"]
+
+[guardian_slain]
+colour = "default"
+lines = ["#realm_air#"]
+
+[trial_attempted]
+colour = "default"
+lines = ["#realm_air#", "#realm_air# #realm_air#"]
+
+[inheritance_claimed]
+colour = "gold"
+lines = ["#realm_air# #realm_air#"]
+
+[inheritance_failed]
+colour = "default"
+lines = ["#realm_air#"]
+
+[remains_taken]
+colour = "default"
+lines = ["#realm_air#"]

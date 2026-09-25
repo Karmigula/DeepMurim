@@ -124,3 +124,73 @@ def _bought_line(world, entry, names, place, other):
 @outcome("delve_rested", body_facts=False)
 def _rested(world, event):
     return ["You sit against the cold wall and let your qi settle."], {}
+
+
+
+@outcome("guardian_slipped", body_facts=False)
+def _slipped(world, event):
+    return (["You keep to the shadows and slip past."] if event.data["passed"]
+            else ["It sees you."]), {}
+
+
+@outcome("guardian_slain", body_facts=False)
+def _slain(world, event):
+    return [f"{world.entity(event.actors[1]).name[0].upper()}{world.entity(event.actors[1]).name[1:]} falls and does not rise."], {}
+
+
+@summary("guardian_slain")
+def _slain_line(world, entry, names, place, other):
+    return f"Slew a realm guardian in {place}."
+
+
+TRIAL_OUTCOMES = {
+    ("formation", True): "The array's lines resolve into sense; something opens in your understanding.",
+    ("formation", False): "The array flares. Your qi scatters and the light burns you.",
+    ("pressure", True): "You walk into the pressing qi and it pours into you.",
+    ("pressure", False): "The pressure drives you back, and costs you qi.",
+    ("mirror", True): "Your reflection falters first. You see where your art was weak.",
+    ("mirror", False): "Your reflection outlasts you, and smiles your smile.",
+}
+
+
+@outcome("trial_attempted", body_facts=False)
+def _trial(world, event):
+    return [TRIAL_OUTCOMES[(event.data["trial"], event.data["passed"])]], {}
+
+
+@summary("trial_attempted")
+def _trial_line(world, entry, names, place, other):
+    return f"{'Passed' if entry.data['passed'] else 'Failed'} a {entry.data['trial']} trial in {place}."
+
+
+@outcome("inheritance_claimed", body_facts=False)
+def _claimed(world, event):
+    realm = world.entity(event.data["realm"])
+    master = realm.data["master"]
+    return [f"The remnant of {master['name']} bows its head. Its art flows into you, whole; {master['weapon']} is yours.",
+            f"You are the last disciple of {master['name']}."], {}
+
+
+@summary("inheritance_claimed")
+def _claimed_line(world, entry, names, place, other):
+    return f"Won the inheritance of {world.entity(entry.data['realm']).data['master']['name']}."
+
+
+@outcome("inheritance_failed", body_facts=False)
+def _failed(world, event):
+    return ["The remnant turns its face away, and a wind throws you back across the floor."], {}
+
+
+@summary("inheritance_failed")
+def _failed_line(world, entry, names, place, other):
+    return f"Was found wanting by the remnant in {place}."
+
+
+@outcome("remains_taken", body_facts=False)
+def _remains(world, event):
+    return [f"You take {world.entity(event.data['item']).name} from the one who fell here."], {}
+
+
+@summary("remains_taken")
+def _remains_line(world, entry, names, place, other):
+    return f"Took what the fallen left in {place}."

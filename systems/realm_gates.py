@@ -335,7 +335,8 @@ def stage_events(world, occurrence, stage: str) -> list[Event]:
     if stage == "announced":
         return token_events(world, occurrence)
     if stage == "active":
-        return walk_out_events(world, occurrence) + delver_events(world, occurrence)
+        from systems.chambers import renew_events  # each opening, the chambers renew (Task 4)
+        return renew_events(world, occurrence) + walk_out_events(world, occurrence) + delver_events(world, occurrence)
     if stage == "aftermath":
         player = world.get_meta("player_id")
         if player not in occurrence.data["data"]["entered"]:
