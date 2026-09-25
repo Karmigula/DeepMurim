@@ -71,7 +71,9 @@ def rewards(world, occurrence, champion) -> list[Event]:
                     {"faction": faction, "merit": data.get("merit", 0) + MERIT, "rank": min(TOP_RANK, rank + 1)})]
     elders = _members(world, faction, ("elder",))
     youth = world.entity(champion)
+    from systems.agendas import _kin
     if elders and not youth.data.get("is_player") and float(youth.data.get("age", 30)) <= 30 \
+            and not _kin(world, champion, "master") \
             and rng_for(world.world_seed, f"contest:{occurrence.id}:notice").random() < NOTICE_CHANCE:
         events.append(Event("apprenticed", (elders[0], champion), occurrence.data["place"],
                             {"season": world.time // T.W.SEASON}))

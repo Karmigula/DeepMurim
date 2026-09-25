@@ -48,7 +48,7 @@ def watch_events(world, occurrence_id: int, player: int) -> list[Event]:
     arts = occurrence.data["data"].get("arts") or {}
     fragments = [fragment_of(world, arts[str(p)], rng) for p in (m["a"], m["b"]) if arts.get(str(p)) is not None]
     tendencies = {str(p): tendency(tuple(world.entity(p).data.get("traits", ()))) for p in (m["a"], m["b"])}
-    return [T.match_event(occurrence, r, i, winner, loser, "sim", T.day(occurrence, world.time)),
+    return [T.match_event(occurrence, r, i, winner, loser, "sim", T.day(occurrence, world.time), world),
             Event("watched", (player, m["a"], m["b"]), occurrence.data["place"],
                   {"occurrence": occurrence_id, "round": r, "match": i, "winner": winner, "fragments": fragments,
                    "tendencies": tendencies})]

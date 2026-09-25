@@ -416,7 +416,8 @@ def on_stage(world, occurrence, stage: str, invite) -> list[Event]:
         if not occurrence.data["data"]["rounds"] and not occurrence.data["data"]["finished"]:
             return summary_events(world, occurrence, invite)
         resolve(world, occurrence.id)
-        return compact_events(world.entity(occurrence.id))
+        from systems.intrigue import lingering_events
+        return lingering_events(world, world.entity(occurrence.id)) + compact_events(world.entity(occurrence.id))
     return []
 
 
@@ -450,7 +451,8 @@ def _compacted(world, event) -> None:
 
 def on_observe(world, occurrence) -> list[Event]:
     resolve(world, occurrence.id)
-    return []
+    from systems.intrigue import lingering_events
+    return lingering_events(world, world.entity(occurrence.id))
 
 
 # --- the player in a tournament (phase 4e spec 3, 4.3-4.4) -------------------------------------
@@ -465,12 +467,27 @@ def stage(world, occurrence_id: int) -> str:
     return W.stage_at(world.entity(occurrence_id).data, world.time)
 
 
+def all_here(world, town: int, kinds, stages) -> list[int]:
+    """Every tournament of these kinds in this town at one of these stages (an Assembly and a Meet may share a city)."""
+    return [row[W.ID] for row in W.index(world) if row[W.TYPE] in kinds and row[W.PLACE] == town and not row[W.DONE]
+            and stage(world, row[W.ID]) in stages]
+
+
 def here(world, town: int, kinds, stages) -> int | None:
     """A tournament of one of these kinds in this town, at one of these stages."""
-    for row in W.index(world):
-        if row[W.TYPE] in kinds and row[W.PLACE] == town and not row[W.DONE] and stage(world, row[W.ID]) in stages:
-            return row[W.ID]
-    return None
+    found = all_here(world, town, kinds, stages)
+    return found[0] if found else None
+
+
+def fighting_here(world, town: int) -> list[int]:
+    """Tournaments here whose bouts are on: the active days, and a raided final fought again in the aftermath."""
+    out = []
+    for oid in all_here(world, town, KINDS, ("active", "aftermath")):
+        occurrence = world.entity(oid)
+        t = occurrence.data["data"]
+        if stage(world, oid) == "active" or (t["rounds"] and not t["finished"] and world.time < ends(occurrence)):
+            out.append(oid)
+    return out
 
 
 def sponsor_of(world, player: int) -> int | None:
@@ -508,8 +525,8 @@ def register_block(world, occurrence_id: int, player: int) -> str | None:
     if not qualifies(world, occurrence, player):
         return RULES.get(t["kind"], "You may not enter.")
     bond = BONDS.get(t["kind"], 0)
-    if bond and sponsor_of(world, player) is None and not _ranked(world, player) \
-            and world.entity(player).data.get("silver", 0) < bond:
+    if bond and world.entity(player).data.get("silver", 0) < bond and sponsor_of(world, player) is None \
+            and not _ranked(world, player):  # the cheap check first: most can simply pay
         return f"You need a sponsor, a place on the Pavilion's lists, or a bond of {bond} silver."
     return None
 
@@ -534,6 +551,16 @@ def _registered(world, event) -> None:
         t["bonds"] = {**t.get("bonds", {}), str(player): d["bond"]}
         world.update_data(player, silver=silver_of(world, player) - d["bond"])
     world.update_data(occurrence.id, data=t)
+
+
+@listen("bracket_drawn")
+def _dropped_bonds(world, event, event_id: int) -> None:
+    """A registrant the draw left out (they no longer qualify, or the bracket was full) gets their bond back."""
+    t = world.entity(event.data["occurrence"]).data["data"]
+    events = [Event("bond_refunded", (int(p),), event.place, {"occurrence": event.data["occurrence"], "silver": bond})
+              for p, bond in t.get("bonds", {}).items() if int(p) not in event.data["entrants"] and alive(world, int(p))]
+    if events:
+        commit(world, events)
 
 
 @listen("match_resolved")

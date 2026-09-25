@@ -14,27 +14,31 @@ class TournamentMixin:
     def _general_extras(self) -> list:
         extras = super()._general_extras()
         world, me, town = self.world, self.player.id, self.place.id
-        open_ = T.here(world, town, T.KINDS, ("announced",))
-        if open_ is not None and T.register_block(world, open_, me) is None:
-            kind = world.entity(open_).data["type"]
-            extras.append(Choice(f"Enter {KIND_NAMES[kind]}", Action("register", open_)))
-            if T.can_preside(world, open_, me):
-                extras.append(Choice("Preside over the contest", Action("preside", open_)))
+        for open_ in T.all_here(world, town, T.KINDS, ("announced",)):
+            if T.register_block(world, open_, me) is None:
+                kind = world.entity(open_).data["type"]
+                extras.append(Choice(f"Enter {KIND_NAMES[kind]}", Action("register", open_)))
+                if T.can_preside(world, open_, me):
+                    extras.append(Choice("Preside over the contest", Action("preside", open_)))
         call = T.player_call(world, me, town)
         if call is not None:
             name = world.entity(call[3]).name
             extras.append(Choice(f"Answer the herald: fight {name}", Action("bout", call[0])))
             extras.append(Choice("Forfeit your bout", Action("forfeit_bout", call[0])))
-        watching = T.here(world, town, T.KINDS, ("active",))
-        if watching is not None and arena.watchable(world, watching, me) is not None:
-            extras.append(Choice("Watch today's bouts", Action("watch", watching)))
+        fighting = T.fighting_here(world, town)
+
+        def at(oid):  # two tournaments in one city: say which
+            return f" at {KIND_NAMES[world.entity(oid).data['type']]}" if len(fighting) > 1 else ""
+        for watching in fighting:
+            if arena.watchable(world, watching, me) is not None:
+                extras.append(Choice(f"Watch today's bouts{at(watching)}", Action("watch", watching)))
         for faction, elder in sorted((int(f), e) for f, e in self.player.data.get("invitations", {}).items()):
             if world.entity(elder) is not None and town in world.targets(elder, "located_in"):
                 extras.append(Choice(f"Accept the invitation of the {world.entity(faction).name}",
                                      Action("accept_invitation", faction)))
-        betting = T.here(world, town, T.KINDS, ("active",))
-        if betting is not None and wagers.open_matches(world, betting) and wagers.stake_limit(world, me) >= 1:
-            extras.append(Choice("Visit the bookmaker", Action("bookmaker", betting)))
+        for betting in fighting:
+            if wagers.open_matches(world, betting) and wagers.stake_limit(world, me) >= 1:
+                extras.append(Choice(f"Visit the bookmaker{at(betting)}", Action("bookmaker", betting)))
         honour = T.honourable(world, me, town)
         if honour is not None:
             name = world.entity(honour[1]).name
@@ -48,8 +52,9 @@ class TournamentMixin:
             holder = world.entity(platform).data["data"]["holder"]
             extras.append(Choice(f"Challenge the platform holder, {world.entity(holder).name}",
                                  Action("challenge_lei_tai", platform)))
-        if watching is not None and intrigue.defence_open(world, watching, me) is not None:
-            extras.append(Choice("Join the defence against the cultists", Action("defend", watching)))
+        for raided in fighting:
+            if intrigue.defence_open(world, raided, me) is not None:
+                extras.append(Choice("Join the defence against the cultists", Action("defend", raided)))
         for occurrence in intrigue.exposable(world, me):
             fix = intrigue.fix_of(world, occurrence)
             extras.append(Choice(f"Expose the fix: {world.entity(fix['victim']).name} was {fix['how']}",
@@ -174,7 +179,7 @@ class TournamentMixin:
         return options
 
     def _do_bookmaker(self, occurrence):
-        if not isinstance(occurrence, int) or occurrence != T.here(self.world, self.place.id, T.KINDS, ("active",)):
+        if not isinstance(occurrence, int) or occurrence not in T.fighting_here(self.world, self.place.id):
             return self._turn([("There is no bookmaker taking bets here.", "system")])
         self._betting_on, self.submenu = occurrence, "wagers"
         return self._turn(self._board(occurrence)[0])
@@ -194,7 +199,8 @@ class TournamentMixin:
     # --- watching and invitations (phase 4e spec 5.2) ------------------------------------------
     def _do_watch(self, occurrence):
         if occurrence is None:  # typed: today's bouts here
-            occurrence = T.here(self.world, self.place.id, T.KINDS, ("active",))
+            occurrence = next((o for o in T.fighting_here(self.world, self.place.id)
+                               if arena.watchable(self.world, o, self.player.id) is not None), None)
         events = arena.watch_events(self.world, occurrence, self.player.id) if isinstance(occurrence, int) else []
         if not events:
             return self._turn([("There is no bout to watch here now.", "system")])
@@ -252,14 +258,14 @@ class TournamentMixin:
         return self._turn(bracket_lines(self.world, self.player.id, occurrence))
 
     def _do_odds(self, _target):
-        occurrence = T.here(self.world, self.place.id, T.KINDS, ("active",))
+        occurrence = next(iter(T.fighting_here(self.world, self.place.id)), None)
         if occurrence is None:
             return self._turn([("No bookmaker takes bets here.", "system")])
         return self._do_bookmaker(occurrence)
 
     def _do_bet_on(self, target):
         world, me = self.world, self.player.id
-        occurrence = T.here(world, self.place.id, T.KINDS, ("active",))
+        occurrence = next(iter(T.fighting_here(world, self.place.id)), None)
         if occurrence is None or not isinstance(target, tuple) or len(target) != 2:
             return self._turn([("No bookmaker takes bets here.", "system")])
         name, stake = target

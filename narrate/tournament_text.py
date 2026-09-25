@@ -44,7 +44,8 @@ def _today(world, occurrence) -> str:
             return f"{label} {when}."
         strength = T.strengths(world, occurrence.data["place"], fighters)  # the bookmaker's view, the town's belief
         favourite = max(fighters, key=lambda p: (strength[p], -p))
-        return f"{label} {when}; the odds favour {world.entity(favourite).name}."
+        who = "you" if favourite == world.get_meta("player_id") else world.entity(favourite).name
+        return f"{label} {when}; the odds favour {who}."
     return "the last bout is being fought."
 
 
@@ -53,7 +54,7 @@ def tournament_facts(world, town: int, player: int) -> list[str]:
     import systems.tournaments as T
     import systems.world_events as W
     facts = []
-    oid = T.here(world, town, T.KINDS, ("announced", "active"))
+    oid = T.here(world, town, T.KINDS, ("announced",)) or next(iter(T.fighting_here(world, town)), None)
     if oid is not None:
         occurrence = world.entity(oid)
         name = cap(event_name(world, occurrence.data["data"]))

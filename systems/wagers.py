@@ -10,6 +10,7 @@ import systems.world_events as W
 from systems.facts import make_variant, place_name, record_fact
 from systems.purse import silver_of
 from world.events import Event, commit, effect, listen
+from world.gen.materialize import people_at
 
 MARGIN = 0.10
 MAX_SHARE = 0.10
@@ -57,7 +58,8 @@ def bet_block(world, occurrence_id: int, r: int, i: int, on: int, stake: int, pl
 def bet_events(world, occurrence_id: int, r: int, i: int, on: int, stake: int, player: int) -> list[Event]:
     return [Event("bet_placed", (player,), world.entity(occurrence_id).data["place"],
                   {"occurrence": occurrence_id, "round": r, "match": i, "on": on, "stake": stake,
-                   "odds": odds(world, occurrence_id, r, i)[on], "silver": silver_of(world, player)})]
+                   "odds": odds(world, occurrence_id, r, i)[on], "silver": silver_of(world, player),
+                   "witnessed": bool(people_at(world, world.entity(occurrence_id).data["place"], exclude=player))})]
 
 
 @effect("bet_placed")
@@ -65,7 +67,8 @@ def _placed(world, event) -> None:
     player, d = event.actors[0], event.data
     occurrence = world.entity(d["occurrence"])
     bet = {"player": player, "round": d["round"], "match": d["match"], "on": d["on"], "stake": d["stake"],
-           "odds": d["odds"], "silver": d["silver"], "settled": False, "payout": 0}
+           "odds": d["odds"], "silver": d["silver"], "settled": False, "payout": 0,
+           "witnessed": d.get("witnessed", True)}
     world.update_data(occurrence.id, data={**occurrence.data["data"],
                                            "bets": occurrence.data["data"].get("bets", []) + [bet]})
     world.update_data(player, silver=silver_of(world, player) - d["stake"])
@@ -83,7 +86,7 @@ def _settle(world, event, event_id: int) -> None:
         payout = bet["stake"] if void else int(bet["stake"] * bet["odds"]) if bet["on"] == d["winner"] else 0
         events.append(Event("bet_settled", (bet["player"],), event.place,
                             {"occurrence": d["occurrence"], "bet": n, "payout": payout, "void": void}))
-        if not void and bet["player"] == d["loser"] and bet["on"] == d["winner"]:
+        if not void and bet["player"] == d["loser"] and bet["on"] == d["winner"] and bet.get("witnessed", True):
             variant = make_variant("fixed", bet["player"], None, place=place_name(world, event.place))
             record_fact(world, bet["player"], "fixed", None, place=event.place, source_event=event_id, weight=1.5,
                         variant=variant)

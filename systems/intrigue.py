@@ -317,3 +317,23 @@ def _exposed_news(world, event, event_id: int) -> None:
     variant = make_variant("exposed_fix", player, victim, place=place_name(world, event.place))
     record_fact(world, player, "exposed_fix", victim, place=event.place, source_event=event_id, weight=1.5,
                 variant=variant)
+
+
+def lingering_events(world, occurrence) -> list[Event]:
+    """A raid's cultist melts away once the raid day has passed; nobody sees where (4e review)."""
+    p = occurrence.data["data"].get("intrigue") or {}
+    cultist = p.get("cultist")
+    if p.get("kind") != "raid" or cultist is None or p.get("fled") or not T.alive(world, cultist) \
+            or T.day(occurrence, world.time) <= p["day"]:
+        return []
+    return [Event("cultist_fled", (cultist,), occurrence.data["place"], {"occurrence": occurrence.id})]
+
+
+@effect("cultist_fled")
+def _fled(world, event) -> None:
+    cultist = event.actors[0]
+    occurrence = world.entity(event.data["occurrence"])
+    t = occurrence.data["data"]
+    world.update_data(occurrence.id, data={**t, "intrigue": {**t["intrigue"], "fled": True}})
+    world.update_data(cultist, vanished={"occurrence": occurrence.id, "time": world.time})
+    world.unrelate(cultist, "located_in")
