@@ -710,6 +710,13 @@ def check_crises(world) -> list[str]:
         pointed = faction.data.get("crisis")
         if pointed is not None and SC.live(world, faction.id) is not None and live.get(faction.id) != pointed:
             out.append(f"the {faction.name} points at #{pointed}, which is no live crisis of theirs")
+    parents: dict = {}
+    for faction in world.entities("faction"):
+        if faction.data.get("parent") is not None:
+            parents[faction.data["parent"]] = parents.get(faction.data["parent"], 0) + 1
+    for parent, count in parents.items():
+        if count > 2:
+            out.append(f"the {world.entity(parent).name} has {count} breakaways")
     for token in world.entities("treasure"):
         if token.data.get("kind") == "sect_token":
             places = len(world.sources(token.id, "owns")) + len(world.targets(token.id, "located_in"))

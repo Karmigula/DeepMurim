@@ -16,7 +16,7 @@ def known_factions(world, player: int, town: int) -> list[int]:
     ids = [fid for fid, _, _ in F.memberships(world, player)]
     ids += halls.halls_here(world, town)
     for belief in world.beliefs(player):
-        for named in (belief.variant.get("actor"), belief.variant.get("target")):  # "the X beat the Y" names both
+        for named in (belief.variant.get("actor"), belief.variant.get("target"), *belief.variant.get("factions", ())):
             if isinstance(named, int) and (entity := world.entity(named)) is not None and entity.kind == "faction":
                 ids.append(named)
     for other in world.acquaintances(player):

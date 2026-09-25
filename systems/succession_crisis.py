@@ -347,3 +347,5 @@ def _summarised(world, event, event_id: int) -> None:
            + [_promotion(world, winner, faction, "leader", 4, None)])
     _record(world, faction, d["claimants"], winner, "far")
     _told(world, event.place, event_id, winner, faction, [c["person"] for c in d["claimants"]], "far")
+    from systems.schism import far_strife  # a close contest far away may come to arms (Task 4)
+    far_strife(world, event, crisis, standing, weights, winner, rng)

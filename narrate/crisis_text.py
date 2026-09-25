@@ -39,8 +39,20 @@ def _transmitted_story(world, variant, viewer) -> str:
 
 
 
+def _schism_story(world, variant, viewer) -> str:
+    new = world.entity((variant.get("factions") or [None])[0]) if variant.get("factions") else None
+    founded = f" and founded the {new.name}" if new is not None else ""
+    return cap(f"{who(world, variant.get('actor'), viewer)} walked out of {_faction(world, variant)} with their "
+               f"followers{founded}.")
+
+
+def _exiled_story(world, variant, viewer) -> str:
+    return cap(f"{who(world, variant.get('actor'), viewer)} lost the war for the seat of {_faction(world, variant)} "
+               f"and was driven out.")
+
+
 SPECIAL_PHRASES.update({"crisis": _crisis_story, "named_chief": _named_chief_story,
-                        "transmitted": _transmitted_story})
+                        "transmitted": _transmitted_story, "schism": _schism_story, "exiled": _exiled_story})
 
 
 def claim_words(kind: str) -> str:
