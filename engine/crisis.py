@@ -113,7 +113,9 @@ class CrisisMixin:
             if P.buy_block(world, token, me, npc.id) is None:
                 extras.append(Choice(f"Buy {world.entity(token).name} ({P.token_price(world, token)} silver)",
                                      Action("buy_sect_token", (npc.id, token))))
-            extras.append(Choice(f"Challenge them for {world.entity(token).name}", Action("duel_for_token", (npc.id, token))))
+            faction = world.entity(token).data["faction"]
+            if C.role_in(world, npc.id, faction) != "leader" or SC.live(world, faction) is not None:  # not a master's own
+                extras.append(Choice(f"Challenge them for {world.entity(token).name}", Action("duel_for_token", (npc.id, token))))
         return extras
 
     def _commit_all(self, events: list) -> list:

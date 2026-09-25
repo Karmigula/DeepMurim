@@ -45,12 +45,14 @@ def crisis_of(occurrence) -> dict:
 def _fallen(world, event, event_id: int) -> None:
     """How a leader died is what later puts the seat in doubt: remembered on the faction."""
     killer, victim = event.actors[0], event.actors[-1]
-    for fid, _, data in F.memberships(world, victim):
+    rows = F.memberships(world, victim)  # one lookup serves the fall and the testament (4g minors)
+    for fid, _, data in rows:
         faction = world.entity(fid)
         if data.get("role") == "leader" and faction.data.get("type") in F.STAFFED \
                 and not faction.data.get("dissolved"):
             world.update_data(fid, fallen={"leader": victim, "cause": event.data.get("cause"), "place": event.place,
                                            "killer": killer if killer != victim else None, "time": world.time})
+    T.last_breath(world, event, rows)
 
 
 def doubt(world, faction: int) -> str | None:
@@ -227,6 +229,8 @@ def decide_events(world, occurrence) -> list[Event]:
     if len(standing) <= 1:
         return settle_events(world, occurrence, standing[0]["person"] if standing else None, "unopposed")
     backing, undecided = C.camps(world, crisis)
+    fallen = [c["person"] for c in crisis["claimants"] if c not in standing]
+    undecided = list(undecided) + [b for p in fallen for b in backing.get(p, []) if b != p]  # no one's votes now
     tally = C.votes(world, crisis, {c["person"]: backing[c["person"]] for c in standing})
     total = sum(tally.values()) + len(undecided)
     ranked = sorted(tally, key=lambda p: (-tally[p], -realm_of(world, p), p))

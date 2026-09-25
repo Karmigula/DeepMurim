@@ -257,7 +257,7 @@ def _regent_rules(world, event, event_id: int) -> None:
 def regency_events(world, n: int) -> list[Event]:
     """Each season: a regent whose ward has come of age hands the seat over, or (ambitious) fights to keep it."""
     events = []
-    for faction in world.entities("faction"):
+    for faction in world.entities_after("faction", "regency_for", 0):  # asked of the save, not every faction
         child = faction.data.get("regency_for")
         if child is None or faction.data.get("dissolved") or SC.live(world, faction.id) is not None:
             continue

@@ -66,16 +66,16 @@ def put(world, token: int, owner: int | None = None, place: int | None = None) -
 
 # --- the leader's death (spec 3.3, 4.5) -------------------------------------------------------
 
-@listen("died")
-def _last_breath(world, event, event_id: int) -> None:
-    """The token stays where the leader fell; a natural death may pass the leader's strength to the heir."""
+def last_breath(world, event, rows: list) -> None:
+    """The token stays where the leader fell; a natural death may pass the leader's strength to the heir.
+    Called by the crisis's `died` listener with the victim's memberships (`rows`), looked up once."""
     killer, victim = event.actors[0], event.actors[-1]
     for token in world.targets(victim, "owns"):  # the dead hold nothing: a token lies where they fell
         entity = world.entity(token)
         if entity is not None and entity.kind == "treasure" and entity.data.get("kind") == "sect_token":
             seat = world.entity(entity.data["faction"]).data.get("seat")
             put(world, token, place=event.place if event.place is not None else seat)
-    for fid, _, data in F.memberships(world, victim):
+    for fid, _, data in rows:
         faction = world.entity(fid)
         if data.get("role") != "leader" or faction.data.get("type") not in F.STAFFED or faction.data.get("dissolved"):
             continue
