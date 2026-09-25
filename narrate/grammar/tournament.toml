@@ -39,3 +39,11 @@ lines = ["#tour_bookie#", "#tour_bookie# #tour_crowd#"]
 [bet_settled]
 colour = "default"
 lines = ["#tour_bookie#", "#tour_bookie# #tour_crowd#"]
+
+[watched]
+colour = "default"
+lines = ["#tour_crowd#", "#tour_crowd# #tour_crowd#"]
+
+[noticed]
+colour = "default"
+lines = ["#tour_crowd#"]

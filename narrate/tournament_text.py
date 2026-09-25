@@ -170,3 +170,38 @@ def _settled(world, event):
 def _settled_line(world, entry, names, place, other):
     d = entry.data
     return "Had a bet voided." if d["void"] else f"Won {d['payout']} silver on a bet." if d["payout"] else "Lost a bet."
+
+
+
+@outcome("watched", body_facts=False)
+def _watched(world, event):
+    d = event.data
+    a, b = (world.entity(p).name for p in event.actors[1:])
+    winner = world.entity(d["winner"]).name
+    lines = [f"You watch {a} and {b} fight; {winner} wins."]
+    for person, word in d["tendencies"].items():
+        lines.append(f"{world.entity(int(person)).name} {word}.")
+    if d["fragments"]:
+        lines.append("You commit something of their forms to memory.")
+    return lines, {}
+
+
+@summary("watched")
+def _watched_line(world, entry, names, place, other):
+    return f"Watched {names[1]} and {names[2]} fight in {place}."
+
+
+@outcome("noticed", body_facts=False)
+def _noticed(world, event):
+    elder, d = world.entity(event.actors[0]).name, event.data
+    faction = world.entity(d["faction"]).name
+    if d["offer"] == "invite":
+        return [f"{elder} of the {faction} finds you afterwards: the {faction} would take you in, no trial asked."], {}
+    if d["offer"] == "gift":
+        return [f"{elder} of the {faction} presses {d['silver']} silver into your hand: well fought."], {}
+    return [f"{elder} of the {faction} takes {world.entity(event.actors[1]).name} in."], {}
+
+
+@summary("noticed")
+def _noticed_line(world, entry, names, place, other):
+    return f"Was noticed by {names[0]} of the {world.entity(entry.data['faction']).name} in {place}."

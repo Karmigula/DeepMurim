@@ -1,5 +1,6 @@
 """Tournaments in the engine (phase 4e spec 6): register, answer the herald, fight your bouts, hold the lei tai."""
 
+import systems.arena as arena
 import systems.tournaments as T
 import systems.wagers as wagers
 from engine.actions import Action, Choice
@@ -21,6 +22,13 @@ class TournamentMixin:
             name = world.entity(call[3]).name
             extras.append(Choice(f"Answer the herald: fight {name}", Action("bout", call[0])))
             extras.append(Choice("Forfeit your bout", Action("forfeit_bout", call[0])))
+        watching = T.here(world, town, T.KINDS, ("active",))
+        if watching is not None and arena.watchable(world, watching, me) is not None:
+            extras.append(Choice("Watch today's bouts", Action("watch", watching)))
+        for faction, elder in sorted((int(f), e) for f, e in self.player.data.get("invitations", {}).items()):
+            if world.entity(elder) is not None and town in world.targets(elder, "located_in"):
+                extras.append(Choice(f"Accept the invitation of the {world.entity(faction).name}",
+                                     Action("accept_invitation", faction)))
         betting = T.here(world, town, T.KINDS, ("active",))
         if betting is not None and wagers.open_matches(world, betting) and wagers.stake_limit(world, me) >= 1:
             extras.append(Choice("Visit the bookmaker", Action("bookmaker", betting)))
@@ -131,3 +139,20 @@ class TournamentMixin:
         lines = self._commit(wagers.bet_events(self.world, occurrence, r, i, on, stake, self.player.id))
         self._betting_on, self.submenu = occurrence, "wagers"
         return self._turn(lines)
+
+    # --- watching and invitations (phase 4e spec 5.2) ------------------------------------------
+    def _do_watch(self, occurrence):
+        events = arena.watch_events(self.world, occurrence, self.player.id) if isinstance(occurrence, int) else []
+        if not events:
+            return self._turn([("There is no bout to watch here now.", "system")])
+        return self._turn(self._commit(events))
+
+    def _do_accept_invitation(self, faction):
+        from systems.membership import joined_events
+        invitations = dict(self.player.data.get("invitations", {}))
+        elder = invitations.get(str(faction))
+        if elder is None:
+            return self._turn([("No one has invited you.", "system")])
+        del invitations[str(faction)]
+        self.world.update_data(self.player.id, invitations=invitations)
+        return self._turn(self._commit(joined_events(self.world, self.player.id, elder, faction, self.place.id, False)))

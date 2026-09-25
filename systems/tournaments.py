@@ -214,11 +214,15 @@ def _sim_winner(world, occurrence, a: int, b: int, r: int, i: int) -> int:
     return a if result == "player" else b
 
 
-def match_event(occurrence, r: int, i: int, winner, loser, how: str, now_day: int) -> Event:
+def match_event(occurrence, r: int, i: int, winner, loser, how: str, now_day: int, world=None) -> Event:
     actors = tuple(p for p in (winner, loser) if p is not None)
+    witnesses = ()
+    if world is not None and how in ("sim", "bout"):  # the beaten remember who beat them (spec §5.3)
+        from systems.arena import loser_witnesses
+        witnesses = loser_witnesses(world, occurrence, winner, loser, f"{r}:{i}")
     return Event("match_resolved", actors, occurrence.data["place"],
                  {"occurrence": occurrence.id, "round": r, "match": i, "winner": winner, "loser": loser,
-                  "how": how, "on": now_day})
+                  "how": how, "on": now_day}, witnesses=witnesses)
 
 
 def _settle(world, occurrence, r: int, i: int, m: dict, now_day: int) -> Event:
@@ -233,7 +237,7 @@ def _settle(world, occurrence, r: int, i: int, m: dict, now_day: int) -> Event:
     else:
         winner, how = _sim_winner(world, occurrence, a, b, r, i), "sim"
     loser = (b if winner == a else a) if winner is not None else None
-    return match_event(occurrence, r, i, winner, loser, how, now_day)
+    return match_event(occurrence, r, i, winner, loser, how, now_day, world)
 
 
 def _next_events(world, occurrence_id: int) -> list[Event]:
@@ -290,6 +294,18 @@ def _resolved(world, event) -> None:
         nxt = d["match"] // 2
         rounds[d["round"] + 1][nxt] = dict(rounds[d["round"] + 1][nxt], **{side: d["winner"]})
     world.update_data(occurrence.id, data={**t, "rounds": rounds})
+
+
+@listen("match_resolved")
+def _noticed(world, event, event_id: int) -> None:
+    d = event.data
+    if d["how"] in ("sim", "bout") and d["winner"] is not None:
+        from systems.arena import notice_events
+        occurrence = world.entity(d["occurrence"])
+        if watched(world, occurrence):  # elders in the crowd notice where the player is (level of detail)
+            events = notice_events(world, occurrence, d["round"], d["winner"])
+            if events:
+                commit(world, events)
 
 
 @listen("match_resolved")
@@ -524,7 +540,7 @@ def bout_result_events(world, occurrence_id: int, r: int, i: int, player: int, o
     else:
         winner = opponent
     loser = opponent if winner == player else player
-    return [match_event(occurrence, r, i, winner, loser, "bout", max(today, m["day"]))]
+    return [match_event(occurrence, r, i, winner, loser, "bout", max(today, m["day"]), world)]
 
 
 def forfeit_events(world, occurrence_id: int, player: int) -> list[Event]:
