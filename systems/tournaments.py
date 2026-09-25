@@ -415,7 +415,36 @@ def on_stage(world, occurrence, stage: str, invite) -> list[Event]:
         if not occurrence.data["data"]["rounds"] and not occurrence.data["data"]["finished"]:
             return summary_events(world, occurrence, invite)
         resolve(world, occurrence.id)
+        return compact_events(world.entity(occurrence.id))
     return []
+
+
+KEPT = ("kind", "size", "round_days", "champion", "finished", "prize", "title", "edition", "faction", "presiding",
+        "disqualified", "intrigue")
+
+
+def compact_events(occurrence) -> list[Event]:
+    """A finished bracket shrinks to its podium when the aftermath ends (plan ruling 5)."""
+    t = occurrence.data["data"]
+    if not t["rounds"] or t.get("compacted") or not t["finished"]:
+        return []
+    final = t["rounds"][-1][0]
+    runner_up = (final["b"] if final["winner"] == final["a"] else final["a"]) if final["winner"] is not None else None
+    semis = [m["b"] if m["winner"] == m["a"] else m["a"] for m in t["rounds"][-2]] if len(t["rounds"]) > 1 else []
+    return [Event("bracket_compacted", (), occurrence.data["place"],
+                  {"occurrence": occurrence.id, "runner_up": runner_up, "semis": [p for p in semis if p is not None],
+                   "entrants": len(t["entrants"])})]
+
+
+@effect("bracket_compacted")
+def _compacted(world, event) -> None:
+    d = event.data
+    occurrence = world.entity(d["occurrence"])
+    t = occurrence.data["data"]
+    kept = {k: t[k] for k in KEPT if k in t}
+    world.update_data(occurrence.id, data={**kept, "registered": [], "entrants": [], "rounds": [], "bets": [],
+                                           "compacted": {"runner_up": d["runner_up"], "semis": d["semis"],
+                                                         "entrants": d["entrants"]}})
 
 
 def on_observe(world, occurrence) -> list[Event]:

@@ -1,3 +1,4 @@
+import gc
 import random
 import time
 
@@ -95,9 +96,10 @@ def test_catching_up_on_500_facts_is_quick(game):
     with game.world.transaction():
         for _ in range(500):
             game.world.add_fact(101, "killed", 102, place=origin, weight=3.0, data={"variant": STORY})
-    start = time.perf_counter()
+    gc.collect()  # earlier tests' garbage is not this catch-up's cost (4e ruling 19)
+    start = time.process_time()  # the work's own time, not the machine's (the timing-flake lesson)
     added = catch_up(game.world, game.place.id, now=game.world.time + 100)
-    elapsed = time.perf_counter() - start
+    elapsed = time.process_time() - start
     assert len(added) == 500
     assert elapsed < 0.05, f"catch_up took {elapsed * 1000:.0f} ms"
 

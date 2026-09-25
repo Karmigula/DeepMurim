@@ -286,3 +286,50 @@ def test_a_sky_watcher(tmp_path, seed, monkeypatch):
     assert app.violations == [], app.violations[:5]
     assert {"sky_started", "world_event_stage", "rankings_published"} <= happened, happened  # the sky was busy
     app.shutdown()
+
+
+@pytest.mark.parametrize("seed", [3, 11])
+def test_a_tournament_season(tmp_path, seed, monkeypatch):
+    """Tournaments come round where the player stands: entering, betting, watching and fighting; every rule holds."""
+    import systems.tournaments as T
+    import systems.world_events as W
+    from systems.bodies import load_body, save_body
+    from systems.realms import REALMS
+    for kind, every in (("grand_assembly", 4), ("dragon_phoenix", 2), ("sect_contest", 1)):
+        monkeypatch.setitem(W.TYPES, kind, {**W.TYPES[kind], "every": every})
+    monkeypatch.setitem(W.TYPES, "lei_tai", {**W.TYPES["lei_tai"], "chance": 1.0})
+    host = T.host_city
+    monkeypatch.setattr(T, "host_city", lambda world, rng: (
+        world.targets(world.get_meta("player_id"), "located_in") or [host(world, rng)])[0])
+    rng = random.Random(seed)
+    app = App(Config(), tmp_path / "saves", tmp_path / "settings.json")
+    app.start_new(f"Entrant{seed}", world_seed=seed)
+    happened, readied = set(), None
+    for step in range(300):
+        game = app.game
+        if game.player.id != readied:  # every new character is strong and rich enough to enter
+            body = load_body(game.world, game.player.id)
+            if body.realm < 2:  # Second-rate, at the realm's first step (the body rules hold)
+                body.realm, body.energy_years, body.bottleneck = 2, REALMS[2].threshold, False
+            save_body(game.world, game.player.id, body)
+            game.world.update_data(game.player.id, silver=500)
+            readied = game.player.id
+        if game.combat is not None or game.encounter is not None or game.challenger is not None:
+            app.submit(rng.choice(FIGHTING + ["1", "2", "3"]))
+        elif T.here(game.world, game.place.id, T.KINDS, ("announced",)) is not None and rng.random() < 0.5:
+            app.submit("register")  # a tournament-goer: names are being taken here
+        elif rng.random() < 0.4 and app.choices:  # anything on the menu but the road: the tournaments come to them
+            stay = [n for n, c in enumerate(app.choices, 1) if c.action.verb not in ("travel", "routes")]
+            app.submit(str(rng.choice(stay or [1])))
+        else:
+            app.submit(rng.choice(["tournaments", "bracket", "register", "register", "watch", "odds", "bet a 5",
+                                   "look", "rest", "meditate day", "meditate week", "journal", "rankings"]))
+        if rng.random() < 0.05:
+            app.handle_key("f11", "")
+        if app.game is not None:
+            happened |= {row[0] for row in app.game.world._conn.execute("select distinct kind from chronicle")}
+        keep_playing(app, step)
+    assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
+    assert app.violations == [], app.violations[:5]
+    assert {"registered", "bracket_drawn", "match_resolved", "tournament_won"} <= happened, happened
+    app.shutdown()

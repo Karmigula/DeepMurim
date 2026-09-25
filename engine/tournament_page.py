@@ -123,6 +123,14 @@ def bracket_lines(world, player: int, occurrence_id: int) -> list[Line]:
         lines += [(f"  Heard: {_name(world, player, v.get('actor'), 'someone')} bested "
                    f"{_name(world, player, v.get('target'), 'someone')}.", "dim") for v in heard]
         return lines
+    if t.get("compacted"):  # long over: only the podium is kept (plan ruling 5)
+        podium = t["compacted"]
+        lines.append((f"  Champion: {_name(world, player, t.get('champion'), 'no one')}.", "dim"))
+        if podium["runner_up"] is not None:
+            lines.append((f"  Runner-up: {_name(world, player, podium['runner_up'], 'no one')}.", "dim"))
+        if podium["semis"]:
+            lines.append((f"  The last four: {', '.join(_name(world, player, p, '?') for p in podium['semis'])}.", "dim"))
+        return lines + [(f"  {podium['entrants']} fought.", "dim")]
     if not t["rounds"]:
         return lines + [("  The draw is made on the first day of the bouts.", "dim")]
     today = T.day(occurrence, world.time)
