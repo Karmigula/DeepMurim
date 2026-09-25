@@ -159,6 +159,8 @@ def test_a_round_of_the_assembly_is_quick(game):
     occurrence = assembly(game)
     to_day(game, occurrence, 1)  # the draw prepares every fighter's arts and body
     world.set_time(T.day_start(world.entity(occurrence), 2))
+    import gc
+    gc.collect()  # earlier tests' garbage is not this round's cost (4f ruling 20)
     start = time.process_time()
     T.resolve(world, occurrence)
     assert time.process_time() - start < 0.06
