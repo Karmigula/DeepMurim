@@ -300,3 +300,25 @@ def _named_chief(world, event):
 @summary("named_chief")
 def _named_chief_line(world, entry, names, place, other):
     return f"{names[0]} was named chief disciple."
+
+
+STAGE_FACTS = {"mourning": "mourns its master, and its seat stands empty", "canvass": "is split into camps over its empty seat",
+               "contest": "is settling who takes its seat", "strife": "is at war with itself over its seat"}
+
+
+def crisis_facts(world, town: int, player: int) -> list[str]:
+    """The scene's sect in crisis: mourning banners anyone at the seat can see (spec 5); the claimants only as known."""
+    import systems.succession_crisis as SC
+    from systems.beliefs import known_people
+    facts = []
+    for row in SC.W.index(world):
+        if row[SC.W.TYPE] != SC.KIND or row[SC.W.PLACE] != town:
+            continue
+        crisis = SC.crisis_of(world.entity(row[SC.W.ID]))
+        if crisis["phase"] == "settled":
+            continue
+        heard = set(known_people(world, player))
+        named = [world.entity(c["person"]).name for c in crisis["claimants"] if c["person"] in heard]
+        claim = f" {', '.join(named)} claim it." if named else ""
+        facts.append(f"The {world.entity(crisis['faction']).name} {STAGE_FACTS.get(crisis['phase'], 'is in crisis')}.{claim}")
+    return facts

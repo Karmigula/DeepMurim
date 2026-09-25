@@ -69,6 +69,9 @@ class CrisisMixin:
                 self._pending += self._commit_all(events)
 
     def _do_step_down(self, target):
+        if target is None:  # typed: say who may take the seat
+            options = [c.label for c in self._general_extras() if c.action.verb == "step_down"]
+            return self._turn([("Step down in favour of whom?" if options else "You lead no sect here.", "system")])
         fid, successor = target if isinstance(target, tuple) else (None, None)
         if fid not in R.led_by(self.world, self.player.id) or successor not in R.successors(self.world, self.player.id, fid):
             return self._turn([("You cannot hand the seat to them.", "system")])

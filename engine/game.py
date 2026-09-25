@@ -78,6 +78,7 @@ HELP = [
     ("  sky | rankings (F10) | seek | swallow", "system"),
     ("  tournaments (F11) | bracket | register | watch | odds | bet <fighter> <silver>", "system"),
     ("  realms (F5) | enter | deeper | up | leave realm", "system"),
+    ("  claim | declare <name> | search chambers | step down: a sect's succession (see standing, F6)", "system"),
     ("  F2 swap art side | F3 hide art | F4 character sheet | F9 report a bug | F12 debug | Esc menu", "system"),
 ]
 

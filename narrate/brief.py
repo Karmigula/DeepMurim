@@ -371,6 +371,8 @@ def scene_brief(world: World, place_id: int, player_id: int, salt: str) -> Brief
     facts += tournament_facts(world, place_id, player_id)
     from narrate.realm_text import realm_facts  # a secret realm's gate here (phase 4f)
     facts += realm_facts(world, place_id, player_id)
+    from narrate.crisis_text import crisis_facts  # a sect's seat in contest here (phase 4g)
+    facts += crisis_facts(world, place_id, player_id)
     ancestors = player.data.get("ancestors") or []
     if ancestors:
         facts.append(f"You are the heir of {world.entity(ancestors[-1]).name}.")

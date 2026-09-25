@@ -25,6 +25,8 @@ GLOBAL = {
     "rankings": Action("rankings"), "lists": Action("rankings"),
     "realms": Action("realms"), "secret realms": Action("realms"), "enter": Action("enter_realm"), "enter realm": Action("enter_realm"), "deeper": Action("delve_on"),
     "on": Action("delve_on"), "up": Action("delve_back"), "leave realm": Action("leave_realm"),
+    "claim": Action("claim_seat"), "claim seat": Action("claim_seat"), "claim the seat": Action("claim_seat"),
+    "search chambers": Action("search_chambers"), "search": Action("search_chambers"), "step down": Action("step_down"),
     "tournaments": Action("tournaments"), "tournament": Action("tournaments"), "bracket": Action("bracket"),
     "odds": Action("odds"), "bookmaker": Action("odds"), "register": Action("register"), "watch": Action("watch"),
     "wear mask": Action("wear_mask"), "mask": Action("wear_mask"), "put on mask": Action("wear_mask"),
@@ -33,7 +35,7 @@ GLOBAL = {
 PREFIX_VERBS = {
     "talk": "talk", "speak": "talk", "go": "travel", "travel": "travel", "walk": "travel", "ask": ("ask", "ask_about", "news"),
     "meditate": "meditate", "practise": "practise", "practice": "practise", "train": "practise",
-    "open": "open_meridian", "use": "use",
+    "open": "open_meridian", "use": "use", "declare": "declare_for",
 }
 FILLER = {"to", "about", "with", "the"}
 WORD = re.compile(r"[a-z0-9']+")
