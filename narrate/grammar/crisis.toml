@@ -68,3 +68,19 @@ lines = ["#crisis_air#"]
 [succeeded]
 colour = "gold"
 lines = ["#crisis_air#"]
+
+[stepped_down]
+colour = "gold"
+lines = ["#crisis_air#"]
+
+[regency_ended]
+colour = "default"
+lines = ["#crisis_air#"]
+
+[named_chief]
+colour = "default"
+lines = ["#crisis_air#"]
+
+[deposed]
+colour = "red"
+lines = ["#crisis_air#"]

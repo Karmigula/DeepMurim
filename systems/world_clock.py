@@ -258,7 +258,7 @@ def run_due(world, limit: int = MAX_WORLD_SEASONS) -> int:
 @effect("succeeded")  # not "promoted": 3b ranks owns that kind for the player
 def _succeeded(world, event) -> None:
     person, d = event.actors[0], event.data
-    set_membership(world, person, d["faction"], rank=d["rank"], role=d["role"], hall=d["hall"])
+    set_membership(world, person, d["faction"], rank=d["rank"], role=d["role"], hall=d["hall"], status="member")
     world.update_data(person, occupation=F.title(world, d["faction"], d["rank"]))
 
 
@@ -335,3 +335,4 @@ def _founded_news(world, event, event_id: int) -> None:
 import systems.sky  # noqa: E402,F401  phase 4d: the sky's season hooks
 import systems.rankings  # noqa: E402,F401  phase 4d: the Pavilion's informants and yearly lists
 import systems.schism  # noqa: E402,F401  phase 4g: strife between a crisis's camps, season by season
+import systems.regency  # noqa: E402,F401  phase 4g: regents, usurpers, and heirs who must hold the seat

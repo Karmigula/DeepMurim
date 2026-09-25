@@ -16,6 +16,7 @@ import systems.world_events as W
 from systems import factions as F
 from systems.facts import make_variant, place_name, record_fact
 from systems.tournaments import alive, realm_of
+from systems.membership import set_membership
 from systems.world_clock import _promotion
 from world.events import Event, Witness, commit, effect, listen
 from world.seed import rng_for
@@ -289,7 +290,17 @@ def settle_events(world, occurrence, winner, how: str) -> list[Event]:
         return events
     events += [Event("crisis_lost", (winner, loser), place, {"faction": faction},
                      witnesses=(Witness(loser, "wronged", 0.6),)) for loser in losers]
+    events += [Event("deposed", (holder, winner), place, {"faction": faction})  # a holder who lost the seat
+               for holder in C.staff(world, faction, ("leader",)) if holder != winner]
     return events + [_promotion(world, winner, faction, "leader", 4, None)]
+
+
+@effect("deposed")
+def _deposed(world, event) -> None:
+    holder = event.actors[0]
+    player = world.entity(holder).data.get("is_player")
+    set_membership(world, holder, event.data["faction"], rank=3, role="member" if player else "elder",
+                   regent_for=None)
 
 
 @effect("crisis_settled")

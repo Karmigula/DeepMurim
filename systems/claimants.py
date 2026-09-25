@@ -109,6 +109,8 @@ def declare(world, faction: int, leader: int | None) -> list[dict]:
                 and (data["type"] in CLAN_TYPES or role_in(world, kin, faction) is not None):
             add(kin, "blood")
     elders = sorted(staff(world, faction, ("elder",)), key=lambda p: (-realm_of(world, p), p))
+    if out and all(age_of(world, c["person"]) < ADULT for c in out) and elders:
+        add(elders[0], "regent")  # only children claim by right: the senior elder claims to rule for them (spec 4.1)
     for elder in elders:
         best = max((realm_of(world, c["person"]) for c in out), default=-1)
         if ambitious(world, elder) or realm_of(world, elder) >= best - 1:

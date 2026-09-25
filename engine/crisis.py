@@ -1,9 +1,13 @@
 """Succession crises in the engine (phase 4g spec 6, 7): claim, declare, sway, champion, search, trade the token."""
 
 import systems.crisis_play as P
+import systems.regency as R
+import systems.claimants as C
 import systems.succession_crisis as SC
 import systems.testament as T
 from engine.actions import Action, Choice
+from systems import factions as F
+from world.events import Event, commit
 
 SWAY_LABELS = {"speak": "Speak to them for {name}", "gift": "Offer them a gift for {name} ({silver} silver)",
                "threat": "Lean on them for {name}", "favour": "Ask what favour would win them for {name}"}
@@ -47,7 +51,41 @@ class CrisisMixin:
                                                  Action("hand_token", (token, c["person"]))))
         for token in P.tokens_lying_at(world, self.place.id):
             extras.append(Choice(f"Pick up {world.entity(token).name}", Action("take_token", token)))
+        for fid in R.led_by(world, me):
+            if world.entity(fid).data["seat"] == self.place.id and SC.live(world, fid) is None:
+                for successor in R.successors(world, me, fid):
+                    extras.append(Choice(f"Step down in favour of {world.entity(successor).name}",
+                                         Action("step_down", (fid, successor))))
+        for fid, _, data in F.memberships(world, me):
+            if world.entity(fid).data.get("seat") == self.place.id and R.reclaim_block(world, me, fid) is None:
+                extras.append(Choice(f"Reclaim the seat of the {world.entity(fid).name}", Action("reclaim_seat", fid)))
         return extras
+
+    def _before_scene(self) -> None:
+        super()._before_scene()
+        for fid in R.visit(self.world, self.player.id, self.place.id):
+            events = R.return_events(self.world, self.player.id, fid)
+            if events:
+                self._pending += self._commit_all(events)
+
+    def _do_step_down(self, target):
+        fid, successor = target if isinstance(target, tuple) else (None, None)
+        if fid not in R.led_by(self.world, self.player.id) or successor not in R.successors(self.world, self.player.id, fid):
+            return self._turn([("You cannot hand the seat to them.", "system")])
+        return self._turn(self._commit_all(R.step_down_events(self.world, self.player.id, fid, successor)))
+
+    def _do_reclaim_seat(self, fid):
+        if (why := R.reclaim_block(self.world, self.player.id, fid)) is not None:
+            return self._turn([(why, "system")])
+        return self._turn(self._commit_all(R.reclaim_events(self.world, self.player.id, fid)))
+
+    def _do_name_chief(self, npc):
+        fid = next((f for f in R.led_by(self.world, self.player.id)
+                    if C.role_in(self.world, npc, f) in ("keeper", "disciple")), None)
+        if fid is None or self.focus != npc:
+            return self._turn([("You cannot name them.", "system")])
+        seat = self.world.entity(fid).data["seat"]
+        return self._turn(self._commit([Event("named_chief", (npc,), seat, {"faction": fid, "season": 0})]))
 
     def _conversation_extras(self, npc) -> list:
         extras = super()._conversation_extras(npc)
@@ -64,12 +102,26 @@ class CrisisMixin:
             will = crisis.get("will") or {}
             if will.get("holder") == npc.id and will.get("state") == "held":
                 extras.append(Choice("Challenge them for the late master's will", Action("duel_for_will", npc.id)))
+        for fid in R.led_by(world, me):
+            if C.role_in(world, npc.id, fid) in ("keeper", "disciple") and world.entity(fid).data.get("heir") != npc.id:
+                extras.append(Choice(f"Name them chief disciple of the {world.entity(fid).name}",
+                                     Action("name_chief", npc.id)))
         for token in P.tokens_held_by(world, npc.id):
             if P.buy_block(world, token, me, npc.id) is None:
                 extras.append(Choice(f"Buy {world.entity(token).name} ({P.token_price(world, token)} silver)",
                                      Action("buy_sect_token", (npc.id, token))))
             extras.append(Choice(f"Challenge them for {world.entity(token).name}", Action("duel_for_token", (npc.id, token))))
         return extras
+
+    def _commit_all(self, events: list) -> list:
+        """The player's deeds narrated; a crisis the world starts (no actors) committed quietly (4f's rule)."""
+        lines = []
+        for event in events:
+            if event.actors:
+                lines += self._commit([event])
+            else:
+                commit(self.world, [event])
+        return lines
 
     def _crisis_or_say(self):
         occurrence = self._crisis_here()

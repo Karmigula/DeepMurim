@@ -704,8 +704,9 @@ def check_crises(world) -> list[str]:
         live[faction] = occurrence.id
         if world.entity(faction).data.get("crisis") != occurrence.id:
             out.append(f"the {world.entity(faction).name} does not point at its crisis #{occurrence.id}")
-        if C.staff(world, faction, ("leader",)):
-            out.append(f"the {world.entity(faction).name} has a leader during its crisis")
+        claimants = {c["person"] for c in crisis["claimants"]}
+        if any(p not in claimants for p in C.staff(world, faction, ("leader",))):
+            out.append(f"the {world.entity(faction).name} has a leader during its crisis")  # a holder must be a claimant
     for faction in world.entities("faction"):
         pointed = faction.data.get("crisis")
         if pointed is not None and SC.live(world, faction.id) is not None and live.get(faction.id) != pointed:

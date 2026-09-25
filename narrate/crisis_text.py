@@ -241,3 +241,62 @@ def _lost(world, event):
 @summary("crisis_lost")
 def _lost_line(world, entry, names, place, other):
     return f"{other} lost the seat to {names[0]}."
+
+
+def _regency_story(world, variant, viewer) -> str:
+    master = names(world, variant.get("people") or [], viewer)
+    return cap(f"With {master} long gone, {who(world, variant.get('actor'), viewer)} rules {_faction(world, variant)} "
+               f"as regent.")
+
+
+def _usurped_story(world, variant, viewer) -> str:
+    master = names(world, variant.get("people") or [], viewer)
+    return cap(f"{who(world, variant.get('actor'), viewer)} has taken the seat of {_faction(world, variant)} "
+               f"from {master}.")
+
+
+def _stepped_down_story(world, variant, viewer) -> str:
+    heir = names(world, variant.get("people") or [], viewer)
+    return cap(f"{who(world, variant.get('actor'), viewer)} stepped down as master of {_faction(world, variant)} "
+               f"in favour of {heir}.")
+
+
+def _claimed_seat_story(world, variant, viewer) -> str:
+    return cap(f"{who(world, variant.get('actor'), viewer)} has claimed the empty seat of {_faction(world, variant)}.")
+
+
+SPECIAL_PHRASES.update({"regency": _regency_story, "usurped": _usurped_story, "stepped_down": _stepped_down_story,
+                        "claimed_seat": _claimed_seat_story})
+
+
+@outcome("stepped_down", body_facts=False)
+def _stepped(world, event):
+    how = "The elders bow to your choice." if event.data["clean"] else "The elders will not all bow: the seat is contested."
+    return [f"You lay down the seat of the {world.entity(event.data['faction']).name}. {how}"], {}
+
+
+@summary("stepped_down")
+def _stepped_line(world, entry, names, place, other):
+    return f"Stepped down in favour of {other}."
+
+
+@outcome("regency_ended", body_facts=False)
+def _regency_ended(world, event):
+    if event.data["contested"]:
+        return [f"{_name(world, event.actors[0])} will not give the seat back. It will be contested."], {}
+    return [f"{_name(world, event.actors[0])} bows and gives the seat back to you."], {}
+
+
+@summary("regency_ended")
+def _regency_ended_line(world, entry, names, place, other):
+    return f"Came home to {place} and the regency ended."
+
+
+@outcome("named_chief", body_facts=False)
+def _named_chief(world, event):
+    return [f"{_name(world, event.actors[0])} is named chief disciple."], {}
+
+
+@summary("named_chief")
+def _named_chief_line(world, entry, names, place, other):
+    return f"{names[0]} was named chief disciple."
