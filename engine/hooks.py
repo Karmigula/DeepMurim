@@ -20,6 +20,10 @@ class GameHooks:
     def _special_art(self):
         return None
 
+    def _special_look(self):
+        """Lines that replace the town scene on a look (inside a secret realm), or None."""
+        return None
+
     def _special_status(self):
         return None
 

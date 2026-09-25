@@ -47,6 +47,8 @@ def race_start_data(kind: str, rng) -> dict:
 
 
 def race_stage(world, occurrence, stage: str) -> list[Event]:
+    if occurrence.data["data"].get("cracked"):
+        return []  # the light opened a secret realm: there is no treasure to race for (4f)
     if stage == "announced":
         return [Event("race_called", (), occurrence.data["place"],
                       {"occurrence": occurrence.id, "champions": champions(world, occurrence)})]
@@ -156,7 +158,8 @@ def _claimed_news(world, event, event_id: int) -> None:
 def _active_races(world) -> list[list]:
     return [row for row in W.index(world)
             if row[W.TYPE] in RACE_KINDS and row[W.ACTIVE_FROM] <= world.time < row[W.ACTIVE_TO]
-            and world.entity(row[W.ID]).data["data"]["claimed"] is None]
+            and world.entity(row[W.ID]).data["data"]["claimed"] is None
+            and not world.entity(row[W.ID]).data["data"].get("cracked")]
 
 
 def race_here(world, town: int) -> int | None:

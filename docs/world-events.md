@@ -112,3 +112,28 @@ A tournament is an `every` type with `sky = false`, whose module leans on `syste
   compacted to its podium when the aftermath ends. Player data gains `titles`, `invitations` and `tour_seen`.
 - **The rules:** `check_tournaments` in `debug/invariants.py` guards brackets, advancing, bouts, bets and eligibility for
   every kind, including yours.
+
+## 7. Secret realms (phase 4f)
+
+A secret realm is a lasting `secret_realm` entity (its gate town, its master and their art, its entry rule, its
+period, its floors of chambers, its history). Its openings are two event types in the TOML:
+
+- `realm_opening`: an `every = 1` type whose `places` hook names the gates of realms due this season (each realm
+  keeps its own period, 12-40 seasons for the ancient ones); heralded like any phenomenon.
+- `realm_awakening`: a trigger type, a newborn realm's first opening, started when a treasure light cracks a realm
+  open (`secret_realms.CRACK_CHANCE`).
+
+**The tables** in `systems/secret_realms.py`: `PLACES` and `EPITHETS` (names), `WEAPONS`, `GUARDIANS`, `TRIALS`,
+`RULES_ANCIENT` and `RULES_NEWBORN` (the entry rules: ceiling, token, open, quota), and `CHAMBER_WEIGHTS` (what a
+floor holds). The knobs of chance live beside the code that rolls them: `realm_gates` (tokens, who the sects send,
+fates far away), `chambers` (guardians, trials), `delvers` (the bands inside) and `sealed` (the years inside).
+
+**Saved state:**
+- the meta row `secret_realms` lists every realm, ancient first;
+- a person's `sealed_in` (`{"realm", "season"}`) marks them shut in until the next opening, and a sealed person is
+  off the life clock until they walk out;
+- the player's `delve` (`{"realm", "floor", "chamber"}`) is their place inside; a band member's `delve_at` is theirs;
+- guardians, reflections and a master's remnant are `realm_spirit` persons who live inside.
+
+**The rules:** `check_realms` in `debug/invariants.py` guards the inheritance (claimed once), who may be inside, the
+ceiling, and the player's place inside.

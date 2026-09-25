@@ -9,7 +9,8 @@ from world.seed import rng_for
 EPITHET_RENOWN = 6.0
 RENOWN_WORDS = ((2.0, "little known"), (6.0, "known"), (15.0, "renowned"))
 PATH_VALUE = {"crippled": -0.7, "spared": 0.5, "defeated": 0.0, "fled_from": -0.2, "lied_about": -0.5,
-              "paid_off": -0.1, "left_for_dead": -0.8, "owns_manual": 0.0, "seized": -0.8}
+              "paid_off": -0.1, "left_for_dead": -0.8, "owns_manual": 0.0, "seized": -0.8,
+              "trespassed": -0.5}  # 4f: caught slipping past the sects' guards at a realm's gate
 ADJECTIVES = {
     "righteous": ("Jade", "Azure", "White", "Upright"),
     "ruthless": ("Crimson", "Blood", "Black", "Iron"),

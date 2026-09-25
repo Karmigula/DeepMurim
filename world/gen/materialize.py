@@ -61,6 +61,9 @@ def populate(world: World, town_id: int) -> list[Entity]:
 
 
 def region_of(world: World, town_id: int) -> Entity:
+    place = world.entity(town_id)
+    if place is not None and place.kind == "secret_realm":  # inside a realm: its gate's region (4f)
+        town_id = place.data["gate"]
     return world.entity(world.targets(town_id, "located_in")[0])
 
 

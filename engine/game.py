@@ -11,6 +11,7 @@ import sqlite3
 import systems.cultivation as cultivation
 import systems.talk as talk
 import systems.travel as travel
+from engine.delve import ChamberMixin, DelveMixin, RivalMixin, SealedMixin
 from engine.actions import Action, Choice, Turn
 from engine.dealings import DealingsMixin
 from engine.fight import FightMixin
@@ -62,7 +63,7 @@ KEEP_SUBMENU = frozenset({
     "people", "routes", "cultivate", "practise_menu", "meridian_menu", "ambiguous",
     "use_menu", "learn_menu", "browse", "create_menu", "more_menu",
 })
-QUIET_KINDS = frozenset({"exchange", "player_aged"})
+QUIET_KINDS = frozenset({"exchange", "player_aged", "delve_moved", "delve_rested"})
 SMALL_TRADE = 50  # smaller trades stay out of the journal
 PATIENCE_SHIFT = {"warm": 1, "hostile": -1, "hateful": -1}  # phase 3a spec 3.2  # too many to list in the journal
 BUSY = "Finish your conversation first."
@@ -75,11 +76,12 @@ HELP = [
     ("  news | ask about <name> | tell | rumours | wear mask | remove mask | standing (F6) | ledger (F7) | lineage (F8) | market | prices", "system"),
     ("  sky | rankings (F10) | seek | swallow", "system"),
     ("  tournaments (F11) | bracket | register | watch | odds | bet <fighter> <silver>", "system"),
+    ("  realms (F5) | enter | deeper | up | leave realm", "system"),
     ("  F2 swap art side | F3 hide art | F4 character sheet | F9 report a bug | F12 debug | Esc menu", "system"),
 ]
 
 
-class Game(LineageMixin, MarketMixin, SkyMixin, TournamentMixin, WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, LeavingMixin, LawMixin, LandMixin, FoundingMixin, SectMixin, SeasonsMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
+class Game(SealedMixin, RivalMixin, ChamberMixin, DelveMixin, LineageMixin, MarketMixin, SkyMixin, TournamentMixin, WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, LeavingMixin, LawMixin, LandMixin, FoundingMixin, SectMixin, SeasonsMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
     def __init__(self, world: World, narrator: Narrator | None = None) -> None:
         self.world = world
         self.narrator = narrator or ProceduralNarrator()
@@ -225,6 +227,9 @@ class Game(LineageMixin, MarketMixin, SkyMixin, TournamentMixin, WorldMixin, Fac
             return self._turn(self._death_lines())
         self.focus = None
         self._before_scene()
+        special = self._special_look()  # a scene of another kind: inside a secret realm (4f)
+        if special is not None:
+            return self._turn(special)
         here = (self.place.id, self.world.time)
         if here == self._last_look:
             return self._turn([("Nothing has changed since you last looked.", "dim")] + self._presence() + self._after_look())

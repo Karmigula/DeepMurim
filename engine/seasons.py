@@ -33,8 +33,7 @@ class SeasonsMixin:
         sect = founding.my_sect(self.world, self.player.id)
         return sect is not None and self.world.entity(sect).data["seat"] == self.place.id
 
-    def _after_look(self) -> list:
-        return super()._after_look() + (self._sect_catch_up() if self._at_seat() else [])
-
-    def _after_arrival(self) -> list:
-        return super()._after_arrival() + (self._sect_catch_up() if self._at_seat() else [])
+    def _before_scene(self) -> None:
+        super()._before_scene()
+        if self._at_seat():  # settled before anyone is named: a season may send a member away (4f ruling 23)
+            self._pending += self._sect_catch_up()

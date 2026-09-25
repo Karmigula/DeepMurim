@@ -333,3 +333,49 @@ def test_a_tournament_season(tmp_path, seed, monkeypatch):
     assert app.violations == [], app.violations[:5]
     assert {"registered", "bracket_drawn", "match_resolved", "tournament_won"} <= happened, happened
     app.shutdown()
+
+
+@pytest.mark.parametrize("seed", [2, 9])
+def test_a_realm_delver(tmp_path, seed, monkeypatch):
+    """A secret realm opens wherever the delver stands, season after season: enter, delve, fight, leave, be sealed."""
+    import systems.secret_realms as SR
+    import systems.sky as sky
+    import systems.world_events as W
+    from world.events import commit
+    monkeypatch.setitem(W.TYPES, "realm_opening", {**W.TYPES["realm_opening"],
+                                                   "stages": {**W.TYPES["realm_opening"]["stages"], "foretold": 0,
+                                                              "announced": 1, "active": 30, "aftermath": 3}})
+
+    def open_here(world):
+        """A realm opens where the delver stands, if none is open (the gate follows them)."""
+        realm = SR.ensure_realms(world)[0]
+        here = world.targets(world.get_meta("player_id"), "located_in")
+        if not here or world.entity(here[0]).kind != "town" or SR.opening_of(world, realm) is not None:
+            return
+        world.update_data(realm, gate=here[0], rule={"kind": "open", "value": None})
+        commit(world, sky.start_events(world, "realm_opening", here[0], world.time, SR.opening_data(realm)))
+    rng = random.Random(seed)
+    app = App(Config(), tmp_path / "saves", tmp_path / "settings.json")
+    app.start_new(f"Delver{seed}", world_seed=seed)
+    happened = set()
+    for step in range(300):
+        game = app.game
+        if step % 20 == 0:
+            open_here(game.world)
+        if game.combat is not None or game.encounter is not None or game.challenger is not None:
+            app.submit(rng.choice(FIGHTING + ["1", "2", "3"]))
+        elif rng.random() < 0.5 and app.choices:
+            stay = [n for n, c in enumerate(app.choices, 1) if c.action.verb not in ("travel", "routes", "leave_realm")]
+            app.submit(str(rng.choice(stay or [1])))
+        else:
+            app.submit(rng.choice(["enter", "deeper", "deeper", "up", "realms", "look", "rest", "meditate week",
+                                   "journal", "leave realm"]))
+        if rng.random() < 0.05:
+            app.handle_key("f5", "")
+        if app.game is not None:
+            happened |= {row[0] for row in app.game.world._conn.execute("select distinct kind from chronicle")}
+        keep_playing(app, step)
+    assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
+    assert app.violations == [], app.violations[:5]
+    assert {"realm_entered", "realm_closed"} <= happened, happened
+    app.shutdown()

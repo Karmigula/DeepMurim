@@ -157,3 +157,13 @@ def test_eight_seasons_for_fifteen_members_are_quick(game):
         game._commit(seasons.season_events(game.world, game.player.id, sect))
     elapsed = time.process_time() - start
     assert elapsed < 0.2, f"8 seasons took {elapsed * 1000:.0f} ms"
+
+
+def test_the_sect_season_is_settled_before_the_scene_names_anyone(game):
+    sect, town = found_sect(game)
+    advance(game, 1)
+    turn = game.perform(Action("look"))
+    texts = [t for t, _ in turn.lines]
+    [line] = [d["line"] for d in season_data(game, sect)][-1:]
+    here = next(i for i, t in enumerate(texts) if t.startswith("Here:"))
+    assert texts.index(line) < here  # the season (who left, who came) is told before the scene

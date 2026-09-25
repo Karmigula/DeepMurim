@@ -195,3 +195,14 @@ def test_a_revision_is_quick(game):
     start = time.process_time()
     R.revision_events(world, 4)
     assert time.process_time() - start < 0.05
+
+
+def test_a_young_dragon_is_judged_by_the_age_believed_when_listed(game):
+    from debug.invariants import check_rankings
+    world, town = game.world, game.place.id
+    youth = master(world, town, "test:youth", realm="second-rate", age=30)
+    deed(world, youth, "tribulation", town, realm="second-rate", age=30)
+    assert youth in publish(world)["lists"]["young"]
+    world.set_time(world.time + R.YEAR)  # a year on, the Pavilion would think them 31; the list is last spring's
+    world._rankings_checked = None
+    assert check_rankings(world) == []

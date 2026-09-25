@@ -182,6 +182,7 @@ def _entity(row) -> Entity | None:
 
 
 ENTITY_CACHE = 4096  # decoded entities kept between reads; the oldest go first
+DRIFT_WINDOW = 64  # entities listed by kind that one drift check reads back, in turn: all are reached, cheaply
 
 
 class World:
@@ -196,7 +197,10 @@ class World:
         # Every entity read decoded its JSON again: an arrival read the same 61 people 4,000 times. Entities are
         # snapshots; update_data stores a new one, a rollback or a bulk delete clears them all (cache_drift checks).
         self._entities: dict[int, Entity] = {}
+        self._meta: dict = {}  # scalar meta values (the clock, the seed): a season reads `time` hundreds of times
         self._handed: set[int] = set()  # read since the last drift check: only these can have been edited in place
+        self._listed: set[int] = set()  # handed out by entities(kind): checked DRIFT_WINDOW at a time, in id order
+        self._drift_cursor = 0
         self._acquainted: dict[int, tuple[int, dict[int, int]]] = {}
 
     def _cached(self, key, compute):
@@ -292,6 +296,7 @@ class World:
             if self._depth == 0:
                 self._conn.execute("rollback")
                 self._entities.clear()  # what the transaction wrote is gone
+                self._meta.clear()
             raise
         self._depth -= 1
         if self._depth == 0:
@@ -299,14 +304,25 @@ class World:
 
     # --- meta -------------------------------------------------------------
     def get_meta(self, key: str, default=None):
+        if key in self._meta:
+            return self._meta[key]
         row = self._conn.execute("select value from meta where key = ?", (key,)).fetchone()
-        return default if row is None else json.loads(row[0])
+        if row is None:
+            return default
+        value = json.loads(row[0])
+        if isinstance(value, (int, float, str, bool)):  # never a list or dict: a caller may edit what it gets back
+            self._meta[key] = value
+        return value
 
     def set_meta(self, key: str, value) -> None:
         self._conn.execute(
             "insert into meta(key, value) values(?, ?) on conflict(key) do update set value = excluded.value",
             (key, json.dumps(value)),
         )
+        if isinstance(value, (int, float, str, bool)):
+            self._meta[key] = value
+        else:
+            self._meta.pop(key, None)
 
     @property
     def world_seed(self) -> int:
@@ -350,7 +366,12 @@ class World:
         Only those handed out since the last check, so the per-turn rules stay cheap in a long game."""
         out = []
         handed, self._handed = self._handed, set()
-        for entity_id in sorted(handed):
+        later = sorted(i for i in self._listed if i > self._drift_cursor)[:DRIFT_WINDOW]
+        window = later + sorted(i for i in self._listed if i <= self._drift_cursor)[:DRIFT_WINDOW - len(later)]
+        if window:  # an entity edited in place stays edited in the cache: its turn in the window will come
+            self._drift_cursor = window[-1]
+            self._listed.difference_update(window)
+        for entity_id in sorted(handed.union(window)):
             remembered = self._entities.get(entity_id)
             if remembered is None:
                 continue
@@ -379,10 +400,17 @@ class World:
         self._conn.execute(f"delete from entities where {where}", (kind, value))
 
     def entities(self, kind: str) -> list[Entity]:
-        rows = self._conn.execute(
-            "select id, kind, name, seed_path, created_at, data from entities where kind = ? order by id", (kind,)
-        )
-        return [_entity(row) for row in rows]
+        """Every entity of a kind, decoded once: a 500-year world's rules list 2,500 people each turn."""
+        found = []
+        for row in self._conn.execute(
+                "select id, kind, name, seed_path, created_at, data from entities where kind = ? order by id", (kind,)):
+            entity = self._entities.get(row[0])
+            if entity is None:
+                entity = _entity(row)
+                self._remember(entity)
+            found.append(entity)
+        self._listed.update(e.id for e in found)  # the drift rule reaches them a window at a time
+        return found
 
     def update_data(self, entity_id: int, **changes) -> None:
         current = self.entity(entity_id)

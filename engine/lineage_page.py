@@ -42,6 +42,8 @@ def lineage_lines(world, player: int) -> list[Line]:
     for role, word in (("child", "Child"), ("disciple", "Disciple"), ("sworn_sibling", "Sworn sibling")):
         rows += [f"  {word}: {_someone(world, k)}" for k, r in kin_of(world, player) if r == role]
     rows += [f"  Sworn follower: {_someone(world, f)}" for f in followers(world, player)]
+    rows += [f"  Master: {world.entity(k).name}" + (" (long dead)" if world.entity(k).data.get("dead") else "")
+             for k, _, d in world.relations_from(player, "kin_of") if d.get("role") == "master"]  # a realm's last disciple (4f)
     lines += [(row, "dim") for row in rows] or [("  none yet", "dim")]
     named = world.entity(player).data.get("named_heir")
     if named is not None:
