@@ -27,3 +27,12 @@ def _placed_story(world, variant, viewer) -> str:
 
 
 SPECIAL_PHRASES.update({"bested": _bested_story, "won_tournament": _won_story, "placed": _placed_story})
+
+
+
+def _lei_tai_story(world, variant, viewer) -> str:
+    return cap(f"{who(world, variant.get('actor'), viewer)} held the lei tai in {variant.get('place') or 'a market town'} "
+               "until dusk and took the purse.")
+
+
+SPECIAL_PHRASES["held_lei_tai"] = _lei_tai_story

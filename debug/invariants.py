@@ -362,6 +362,11 @@ def check_tournaments(world) -> list[str]:
                         out.append(f"{who} round {r + 1} match {i + 1}'s winner did not advance")
         if t.get("finished") and t.get("champion") != rounds[-1][0]["winner"]:
             out.append(f"{who} crowned someone other than the final's winner")
+        if not t.get("finished"):
+            occurrence = world.entity(row[W.ID])
+            for person in t.get("entrants", []):
+                if T.alive(world, person) and not T.qualifies(world, occurrence, person, slack=1):
+                    out.append(f"{who}: #{person} does not qualify for it")
     return out
 
 

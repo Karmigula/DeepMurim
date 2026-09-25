@@ -530,6 +530,13 @@ class World:
                 (confidence, source, hops, channel, knower, fact_id, key))
         return False
 
+    def forget(self, knower: int, predicates, before: int) -> None:
+        """Drop this knower's beliefs in facts of these predicates older than `before` (4e: the Pavilion's old news)."""
+        predicates = sorted(predicates)
+        self._conn.execute(
+            f"delete from beliefs where knower = ? and fact_id in (select id from facts where time < ? "
+            f"and predicate in ({','.join('?' * len(predicates))}))", (knower, before, *predicates))
+
     def beliefs(self, knower: int) -> list[Belief]:
         rows = self._conn.execute(
             f"select {_BELIEF_COLUMNS} from beliefs b where b.knower = ? order by b.learned_at, b.fact_id, b.variant_key",

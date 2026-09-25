@@ -18,7 +18,7 @@ def start_data(world, town: int, n: int, rng) -> dict:
                         f"Champion of the {T.ordinal(edition)} Grand Martial Assembly", edition)
 
 
-def qualifies(world, person: int) -> bool:
+def qualifies(world, occurrence, person: int, slack: int = 0) -> bool:
     return T.realm_of(world, person) >= MIN_REALM
 
 
@@ -29,7 +29,7 @@ def _wanderer(world, occurrence, i: int, rng) -> int:
 
 
 def invite(world, occurrence) -> list[int]:
-    return T.pool(world, occurrence, lambda p: qualifies(world, p), SIZE, _wanderer)
+    return T.pool(world, occurrence, lambda p: qualifies(world, occurrence, p), SIZE, _wanderer)
 
 
 def on_stage(world, occurrence, stage: str) -> list:

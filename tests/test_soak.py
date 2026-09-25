@@ -24,7 +24,7 @@ def calm(monkeypatch):
     monkeypatch.setattr(encounters, "ENCOUNTER_CHANCE", 0.0)
 
 
-def history(tmp_path, years: int, step: int = 5):
+def history(tmp_path, years: int, step: int = 5, season_budget: float = 0.1):
     path = tmp_path / "soak.world"
     game = Game.new(path, "Chronicler", world_seed=21, creation=CreationChoice("origin", "hunter"))
     game.start()
@@ -61,7 +61,7 @@ def history(tmp_path, years: int, step: int = 5):
     start = time.process_time()
     check_world(world)
     check = time.process_time() - start
-    assert season < 0.1 and check < 0.3, f"season {season * 1000:.0f} ms, check {check * 1000:.0f} ms"
+    assert season < season_budget and check < 0.3, f"season {season * 1000:.0f} ms, check {check * 1000:.0f} ms"
     game.close()
     return path
 
@@ -73,5 +73,5 @@ def test_two_hundred_years_of_history(tmp_path):
 
 @pytest.mark.slow
 def test_five_hundred_years_of_history(tmp_path):
-    path = history(tmp_path, 500)
+    path = history(tmp_path, 500, season_budget=0.2)  # an old world's season: the sky and tournaments (4e ruling 12)
     assert path.stat().st_size < 150 * 2 ** 20

@@ -131,13 +131,20 @@ def pool(world, occurrence, ok, size: int, wanderer) -> list[int]:
     found = [p for p in found if p not in registered]
     rng = rng_for(world.world_seed, f"tournament:{occurrence.id}:wanderers")
     i = 0
-    while len(found) + len(registered) < size:
+    while wanderer is not None and len(found) + len(registered) < size:  # a sect contest takes no outsiders
         found.append(wanderer(world, occurrence, i, rng))
         i += 1
     return found
 
 
 # --- the bracket -----------------------------------------------------------------------------------
+
+def qualifies(world, occurrence, person: int, slack: int = 0) -> bool:
+    """Whether this person meets the rules of this tournament (its kind's module decides)."""
+    from systems.sky import module
+    check = getattr(module(occurrence.data["type"]), "qualifies", None)
+    return check is None or check(world, occurrence, person, slack)
+
 
 def day(occurrence, now: int) -> int:
     """The day of the active stage it is: 1 on the first day, 0 before it begins."""
@@ -153,7 +160,7 @@ def draw_events(world, occurrence, invited: list[int]) -> list[Event]:
     """The draw on the first day: registrants keep their places, invitations fill the rest, seeded by belief."""
     d = occurrence.data
     t, town = d["data"], d["place"]
-    registered = [p for p in t["registered"] if alive(world, p)]
+    registered = [p for p in t["registered"] if alive(world, p) and qualifies(world, occurrence, p)]
     field = registered + [p for p in invited if p not in registered and alive(world, p)]
     field = field[: t["size"]]
     if watched(world, occurrence):

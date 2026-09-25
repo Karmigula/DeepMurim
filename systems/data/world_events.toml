@@ -74,3 +74,28 @@ every = 12
 sky = false
 stages = { foretold = 60, announced = 20, active = 8, aftermath = 30 }
 news = { predicate = "phenomenon", weight = 2.5, stages = ["foretold", "announced"] }
+
+[dragon_phoenix]
+module = "systems.events.dragon_phoenix"
+scope = "town"
+cycle = "every"
+every = 8
+sky = false
+stages = { foretold = 30, announced = 10, active = 5, aftermath = 20 }
+news = { predicate = "phenomenon", weight = 2.0, stages = ["foretold", "announced"] }
+
+[sect_contest]
+module = "systems.events.sect_contest"
+scope = "town"
+cycle = "every"
+every = 4
+stagger = true
+sky = false
+stages = { announced = 5, active = 1 }
+
+[lei_tai]
+module = "systems.events.lei_tai"
+scope = "town"
+chance = 0.05
+sky = false
+stages = { active = 1 }

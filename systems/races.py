@@ -65,8 +65,10 @@ def champions(world, occurrence) -> list[int]:
             continue
         if max(abs(fd["home"][0] - d["x"]), abs(fd["home"][1] - d["y"])) > RACE_RANGE:
             continue
-        able = [world.entity(p) for p in F.members_of(world, faction.id)]
-        able = [p for p in able if not p.data.get("is_player") and realm_index(p.data.get("realm", "mortal")) >= CHAMPION_REALM]
+        able = [world.entity(p) for p, _, d in world.relations_to(faction.id, "member_of")  # one query (4e soak)
+                if d.get("status", "member") == "member" and d.get("role") not in (None, "member")]
+        able = [p for p in able if p is not None and not p.data.get("dead") and not p.data.get("is_player")
+                and realm_index(p.data.get("realm", "mortal")) >= CHAMPION_REALM]
         if able:
             found.append(max(able, key=lambda p: (realm_index(p.data["realm"]), -p.id)).id)
     rng = rng_for(world.world_seed, f"race:{occurrence.id}:wanderers")

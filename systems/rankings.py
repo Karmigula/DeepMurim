@@ -30,7 +30,10 @@ ORDINALS = ("First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "
             "Thirtieth")
 RANK_RENOWN = {"heaven": 12.0, "earth": 8.0, "human": 5.0, "young": 5.0}
 TIER_FACTS = frozenset({"broke_through", "tribulation", "assessed", "enlightened", "treasure"})
-HEARD = TIER_FACTS | {"defeated", "died", "killed"}
+HEARD = TIER_FACTS | {"defeated", "died", "killed", "bested", "won_tournament"}
+CHAMPION_POINTS = {"grand_assembly": 60.0, "dragon_phoenix": 40.0}  # other tournaments: 10 (phase 4e)
+DEEDS = frozenset({"defeated", "bested", "treasure", "enlightened", "won_tournament"})
+FORGET_YEARS = 25  # a deed fades by 0.8 a year: after 25 it is worth under half a percent
 INFORMANT_REACH, INFORMANT_FALL = 0.9, 0.85
 WIN_POINTS, WIN_SHARE, TREASURE_POINTS, ENLIGHTENED_POINTS = 10.0, 0.6, 30.0, 20.0
 DEED_FADE = 0.8
@@ -150,13 +153,15 @@ def scores(world, pav: int) -> dict[int, float]:
             continue
         heard[who] = max(heard.get(who, 0), fact.time)
         realm = realm_index(v["realm"]) if v.get("realm") else None
-        if realm is not None and (predicate in TIER_FACTS or predicate in ("defeated", "killed")):
+        if realm is not None and (predicate in TIER_FACTS or predicate in ("defeated", "killed", "bested")):
             tier[who] = max(tier.get(who, 0), realm)
         fade = DEED_FADE ** max(0, (world.time - fact.time) // YEAR)
-        if predicate in ("defeated", "killed"):  # an NPC's killing records no `defeated` of its own
+        if predicate in ("defeated", "killed", "bested"):  # an NPC's killing records no `defeated`; a bout `bested`
             points = WIN_POINTS + WIN_SHARE * last.get(str(v.get("target")), 0.0)
         else:
             points = {"treasure": TREASURE_POINTS, "enlightened": ENLIGHTENED_POINTS}.get(predicate, 0.0)
+            if predicate == "won_tournament":
+                points = CHAMPION_POINTS.get(v.get("kind"), 10.0)
         if points:
             deeds[who] = deeds.get(who, 0.0) + points * fade
     ages = believed_ages(world, pav)
@@ -222,6 +227,7 @@ def season_hook(world, n: int) -> list[Event]:
     informants(world, n)
     if n % 4:
         return []
+    world.forget(pavilion(world), DEEDS, world.time - FORGET_YEARS * YEAR)  # faded deeds (4e ruling 11)
     survey(world)
     return revision_events(world, n)
 

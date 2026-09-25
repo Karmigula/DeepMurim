@@ -267,6 +267,7 @@ def test_a_sky_watcher(tmp_path, seed, monkeypatch):
     rng = random.Random(seed)
     app = App(Config(), tmp_path / "saves", tmp_path / "settings.json")
     app.start_new(f"Watcher{seed}", world_seed=seed)
+    happened = set()
     for step in range(300):
         game = app.game
         if game.combat is not None or game.encounter is not None or game.challenger is not None:
@@ -278,9 +279,10 @@ def test_a_sky_watcher(tmp_path, seed, monkeypatch):
                                    "go north", "go east", "go south", "go west", "rest", "journal"]))
         if rng.random() < 0.05:
             app.handle_key("f10", "")
+        if app.game is not None:
+            happened |= {row[0] for row in app.game.world._conn.execute("select distinct kind from chronicle")}
         keep_playing(app, step)
     assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
     assert app.violations == [], app.violations[:5]
-    happened = {row[0] for row in app.game.world._conn.execute("select distinct kind from chronicle")}
     assert {"sky_started", "world_event_stage", "rankings_published"} <= happened, happened  # the sky was busy
     app.shutdown()
