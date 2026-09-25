@@ -9,13 +9,15 @@ decided when the `aftermath` begins (plan ruling 1).
 """
 
 import systems.claimants as C
+import systems.lives as lives
 import systems.sky as sky
 import systems.testament as T
 import systems.world_events as W
 from systems import factions as F
 from systems.facts import make_variant, place_name, record_fact
 from systems.tournaments import alive, realm_of
-from world.events import Event, effect, listen
+from systems.world_clock import _promotion
+from world.events import Event, Witness, commit, effect, listen
 from world.seed import rng_for
 
 KIND = "succession_crisis"
@@ -102,11 +104,13 @@ def leaderless_events(world, faction: int, n: int) -> list[Event] | None:
 
 
 def begin_events(world, faction: int, n: int, cause: str, claimants: list[dict], leader: int | None,
-                 force: bool = False) -> list[Event] | None:
+                 force: bool = False) -> list[Event]:
     """A crisis starts at the seat, played in full when near (or `force`d: the player's own sect), else settled in a line."""
     seat = world.entity(faction).data["seat"]
+    summary = [Event("crisis_summarised", (), seat, {"faction": faction, "season": n, "cause": cause,
+                                                      "leader": leader, "claimants": claimants})]
     if not force and not near(world, faction):
-        return None  # far from the player: 4a's handover, until Task 3 settles it in a line
+        return summary  # far from the player: settled in a line (spec 2.4)
     crisis = {"faction": faction, "leader": leader, "cause": cause, "claimants": claimants, "declared": {},
               "sways": {}, "champions": {}, "will": None, "token": None, "transmitted": None, "trial": None,
               "strife": None, "outcome": None, "phase": "mourning", "season": n}
@@ -114,7 +118,7 @@ def begin_events(world, faction: int, n: int, cause: str, claimants: list[dict],
     if any(c["person"] == player for c in claimants):
         crisis["declared"] = {str(player): player}
     starts = max(n * W.SEASON, world.time - W.SEASON) if force else n * W.SEASON
-    return sky.start_events(world, KIND, seat, starts, crisis) or None  # long over: 4a's handover after all
+    return sky.start_events(world, KIND, seat, starts, crisis) or summary  # long over: settled in a line
 
 
 @listen("sky_started")
@@ -139,6 +143,10 @@ def on_stage(world, occurrence, stage: str) -> list[Event]:
         return [Event("crisis_heralded", (), occurrence.data["place"], {"occurrence": occurrence.id})]
     if stage == "active":
         return [Event("crisis_phase", (), occurrence.data["place"], {"occurrence": occurrence.id, "phase": "canvass"})]
+    if stage == "aftermath":
+        return [Event("crisis_phase", (), occurrence.data["place"], {"occurrence": occurrence.id, "phase": "contest"})]
+    if stage == "over" and (crisis.get("trial") or {}).get("pending"):
+        return forfeit_events(world, occurrence)  # the days passed and the player never came to the trial
     return []
 
 
@@ -175,3 +183,167 @@ def standing_claimants(world, crisis: dict) -> list[dict]:
     """Claimants still able to take the seat: alive and not sealed in a realm."""
     return [c for c in crisis["claimants"] if alive(world, c["person"])
             and not world.entity(c["person"]).data.get("sealed_in")]
+
+
+# --- the contest (spec 4.6, 4.9) --------------------------------------------------------------
+
+REFUSE_CHANCE = 0.5
+PROUD = frozenset({"proud", "hot-tempered"})
+TRIAL_BOUNDS = (0.1, 0.9)
+FAR_PROOF, FAR_REALM = 0.5, 0.3
+
+
+@listen("crisis_phase")
+def _contest(world, event, event_id: int) -> None:
+    if event.data["phase"] == "contest":
+        commit(world, decide_events(world, world.entity(event.data["occurrence"])))
+
+
+def champion(world, crisis: dict, person: int, camp: list[int]) -> int:
+    """Who fights for a claimant: whom they named (the player, spec 6.2), the player if the claimant,
+    else the strongest of the camp."""
+    named = crisis.get("champions", {}).get(str(person))
+    if named is not None and alive(world, named):
+        return named
+    if world.entity(person).data.get("is_player"):
+        return person
+    fighters = [p for p in camp if not world.entity(p).data.get("is_player") and alive(world, p)] or [person]
+    return max(fighters, key=lambda p: (realm_of(world, p), p == person, -p))
+
+
+def trial_chance(world, a: int, b: int) -> float:
+    """The first fighter's chance: realm decides, with upsets (4e plan ruling 7)."""
+    low, high = TRIAL_BOUNDS
+    return max(low, min(high, 0.5 + 0.15 * (realm_of(world, a) - realm_of(world, b))))
+
+
+def decide_events(world, occurrence) -> list[Event]:
+    """The contest: a camp with more than half of all votes takes the seat; else the two largest fight."""
+    crisis, place = crisis_of(occurrence), occurrence.data["place"]
+    if crisis["phase"] != "contest":
+        return []
+    standing = standing_claimants(world, crisis)
+    if len(standing) <= 1:
+        return settle_events(world, occurrence, standing[0]["person"] if standing else None, "unopposed")
+    backing, undecided = C.camps(world, crisis)
+    tally = C.votes(world, crisis, {c["person"]: backing[c["person"]] for c in standing})
+    total = sum(tally.values()) + len(undecided)
+    ranked = sorted(tally, key=lambda p: (-tally[p], -realm_of(world, p), p))
+    if tally[ranked[0]] * 2 > total:
+        return settle_events(world, occurrence, ranked[0], "backing")
+    a, b = ranked[:2]
+    fighters = {str(a): champion(world, crisis, a, backing[a]), str(b): champion(world, crisis, b, backing[b])}
+    trial = {"a": a, "b": b, "champions": fighters, "winner": None, "pending": False}
+    player = world.get_meta("player_id")
+    if player in fighters.values():
+        return [Event("crisis_trial", (), place, {"occurrence": occurrence.id, "trial": {**trial, "pending": True}})]
+    rng = rng_for(world.world_seed, f"crisis:{occurrence.id}:trial")
+    winner = a if rng.random() < trial_chance(world, fighters[str(a)], fighters[str(b)]) else b
+    return trial_events(world, occurrence, trial, winner, rng)
+
+
+def trial_events(world, occurrence, trial: dict, winner: int, rng) -> list[Event]:
+    """The trial fought: the winner takes the seat, unless a proud loser refuses (then force of arms, Task 4)."""
+    place = occurrence.data["place"]
+    loser = trial["b"] if winner == trial["a"] else trial["a"]
+    fighters = (trial["champions"][str(winner)], trial["champions"][str(loser)])
+    events = [Event("crisis_trial", fighters, place,
+                    {"occurrence": occurrence.id, "trial": {**trial, "winner": winner, "pending": False}})]
+    if PROUD & set(world.entity(loser).data.get("traits", ())) and rng.random() < REFUSE_CHANCE:
+        return events + [Event("crisis_refused", (loser, winner), place, {"occurrence": occurrence.id})]
+    return events + settle_events(world, occurrence, winner, "trial")
+
+
+def forfeit_events(world, occurrence) -> list[Event]:
+    """The player's side never came to the trial: the other side wins it."""
+    trial = crisis_of(occurrence)["trial"]
+    player = world.get_meta("player_id")
+    winner = trial["b"] if trial["champions"][str(trial["a"])] == player else trial["a"]
+    return trial_events(world, occurrence, trial, winner, rng_for(world.world_seed, f"crisis:{occurrence.id}:forfeit"))
+
+
+@effect("crisis_trial")
+def _trial(world, event) -> None:
+    occurrence = world.entity(event.data["occurrence"])
+    world.update_data(occurrence.id, data={**crisis_of(occurrence), "trial": event.data["trial"]})
+
+
+@effect("crisis_refused")
+def _refused(world, event) -> None:
+    occurrence = world.entity(event.data["occurrence"])
+    world.update_data(occurrence.id, data={**crisis_of(occurrence), "phase": "strife",
+                                           "strife": {"a": event.actors[1], "b": event.actors[0], "seasons": 0}})
+
+
+def settle_events(world, occurrence, winner, how: str) -> list[Event]:
+    """The seat is filled: the winner leads, each other claimant remembers who beat them (spec 4.9)."""
+    crisis, place = crisis_of(occurrence), occurrence.data["place"]
+    faction = crisis["faction"]
+    if winner is None:  # every claimant fell: the elders put forward one of their own
+        winner = C._best(world, C.staff(world, faction, ("elder",)) or C.staff(world, faction, ("keeper",)))
+        how = "chosen"
+    losers = [c["person"] for c in crisis["claimants"] if c["person"] != winner and alive(world, c["person"])]
+    events = [Event("crisis_settled", (winner,) if winner is not None else (), place,
+                    {"occurrence": occurrence.id, "faction": faction, "winner": winner, "how": how, "losers": losers})]
+    if winner is None:
+        return events
+    events += [Event("crisis_lost", (winner, loser), place, {"faction": faction},
+                     witnesses=(Witness(loser, "wronged", 0.6),)) for loser in losers]
+    return events + [_promotion(world, winner, faction, "leader", 4, None)]
+
+
+@effect("crisis_settled")
+def _settled(world, event) -> None:
+    d = event.data
+    occurrence = world.entity(d["occurrence"])
+    crisis = crisis_of(occurrence)
+    world.update_data(occurrence.id, data={**crisis, "phase": "settled",
+                                           "outcome": {"leader": d["winner"], "how": d["how"], "schism": None}})
+    _record(world, d["faction"], crisis["claimants"], d["winner"], d["how"])
+    world.update_data(d["faction"], crisis=None)
+
+
+def _record(world, faction: int, claimants: list[dict], winner, how: str, schism=None) -> None:
+    data = world.entity(faction).data
+    line = {"season": lives.current_season(world), "claimants": [c["person"] for c in claimants],
+            "winner": winner, "how": how, "schism": schism}
+    world.update_data(faction, history=list(data.get("history", [])) + [line], fallen=None)
+
+
+@listen("crisis_settled")
+def _settled_news(world, event, event_id: int) -> None:
+    d = event.data
+    crisis = crisis_of(world.entity(d["occurrence"]))
+    _told(world, event.place, event_id, d["winner"], d["faction"], [c["person"] for c in crisis["claimants"]], d["how"])
+
+
+def _told(world, place: int, event_id: int, winner, faction: int, people: list[int], how: str) -> None:
+    if winner is None:
+        return
+    variant = make_variant("crisis", winner, faction, place=place_name(world, place))
+    variant.update(stage="settled", people=people, how=how)
+    record_fact(world, winner, "crisis", faction, place=place, source_event=event_id, weight=2.5, variant=variant)
+
+
+# --- far away (spec 2.4, 4.6) -----------------------------------------------------------------
+
+@listen("crisis_summarised")
+def _summarised(world, event, event_id: int) -> None:
+    """Nobody near: the crisis is settled in a line, weighed by proofs and realms."""
+    d = event.data
+    faction, rng = d["faction"], rng_for(world.world_seed, f"crisis:{d['faction']}:{d['season']}:far")
+    crisis = T.at_mourning(world, {"faction": faction, "leader": d["leader"], "claimants": d["claimants"]}, rng,
+                           far=True)
+    standing = standing_claimants(world, crisis)
+    if not standing:
+        return
+    weakest = min(realm_of(world, c["person"]) for c in standing)
+    weights = [1 + FAR_PROOF * len(C.proofs(world, crisis, c)) + FAR_REALM * (realm_of(world, c["person"]) - weakest)
+               for c in standing]
+    winner = rng.choices([c["person"] for c in standing], weights=weights)[0]
+    losers = [c["person"] for c in standing if c["person"] != winner]
+    commit(world, [Event("crisis_lost", (winner, loser), event.place, {"faction": faction},
+                         witnesses=(Witness(loser, "wronged", 0.6),)) for loser in losers]
+           + [_promotion(world, winner, faction, "leader", 4, None)])
+    _record(world, faction, d["claimants"], winner, "far")
+    _told(world, event.place, event_id, winner, faction, [c["person"] for c in d["claimants"]], "far")
