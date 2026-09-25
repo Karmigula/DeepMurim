@@ -124,7 +124,9 @@ def test_a_clash_can_kill_and_take_a_hall(game, monkeypatch):
     assert all(F.membership(game.world, p, cult)[1]["status"] == "released" for p in survivors)
 
 
-def test_a_dead_leader_is_succeeded_and_the_hall_restaffed(game):
+def test_a_dead_leader_is_succeeded_and_the_hall_restaffed(game, monkeypatch):
+    import systems.succession_crisis as SC
+    monkeypatch.setattr(SC, "doubt", lambda world, faction: None)  # 4a's handover; 4g's crises are tested apart
     sect = of_type(game.world, "orthodox_sect")
     seat = halls.seat_of(game.world, sect)
     [leader] = halls.staff_at(game.world, sect, seat, roles=("leader",))

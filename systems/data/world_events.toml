@@ -50,6 +50,13 @@ modifiers = { beasts = 3.0 }
 readings = ["the mountain spirits' anger", "a great beast waking", "a hard winter coming"]
 news = { predicate = "phenomenon", weight = 1.5, stages = ["announced", "active"] }
 
+[succession_crisis]
+module = "systems.events.succession_crisis"
+scope = "town"
+cycle = "trigger"
+sky = false
+stages = { announced = 30, active = 60, aftermath = 20 }
+
 [treasure_light]
 module = "systems.events.treasure_light"
 scope = "site"

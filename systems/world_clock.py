@@ -8,6 +8,7 @@ the same world.
 
 from collections import Counter
 
+import systems.claimants as C
 import systems.lives as lives
 from systems import factions as F
 from systems import halls, wars
@@ -114,12 +115,23 @@ def succession_events(world, faction: int, n: int, staff: dict | None = None) ->
     by_role["elder"] = [p for p, role, _ in anywhere if role == "elder"]
     events = []
     if any(r == "leader" for r, _, _ in table) and not leaders:
-        for pool in ("elder", "keeper", "disciple"):
-            heir = _best(world, by_role[pool])
-            if heir is not None:
-                by_role[pool].remove(heir)
-                events.append(_promotion(world, heir, faction, "leader", 4, None))
-                break
+        from systems.succession_crisis import leaderless_events  # phase 4g: a seat in doubt waits for its crisis
+        held = leaderless_events(world, faction, n)
+        chief = world.entity(faction).data.get("heir")
+        if held is not None:
+            events += held
+        elif isinstance(chief, int) and C.fit(world, chief, faction):
+            for pool in by_role.values():
+                if chief in pool:
+                    pool.remove(chief)
+            events.append(_promotion(world, chief, faction, "leader", 4, None))  # the chief disciple first (4g)
+        else:
+            for pool in ("elder", "keeper", "disciple"):
+                heir = _best(world, by_role[pool])
+                if heir is not None:
+                    by_role[pool].remove(heir)
+                    events.append(_promotion(world, heir, faction, "leader", 4, None))
+                    break
     held = {F.membership(world, p, faction)[1].get("hall") for p in by_role["elder"]}
     for hall in [h for r, _, h in table if r == "elder" and h not in held]:
         for pool in ("keeper", "disciple"):
@@ -215,6 +227,7 @@ def run_season(world, n: int) -> None:
         clashed = {tuple(sorted(e.actors)) for e in clashes if e.kind == "clash"}
         commit(world, wars.mend_events(world, n, clashed))
         for faction in wars.clock_factions(world):
+            commit(world, C.name_chief_events(world, faction, n))  # phase 4g: once a year
             staff = staff_by_town(world, faction)  # one scan serves succession, staffing and power
             promotions = succession_events(world, faction, n, staff)
             if promotions:

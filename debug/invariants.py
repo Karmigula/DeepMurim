@@ -73,6 +73,7 @@ def check_world(world) -> list[str]:
     problems += check_rankings(world)
     problems += check_tournaments(world)
     problems += check_realms(world)
+    problems += check_crises(world)
     times = world.recent_chronicle_times()
     for before, after in zip(times, times[1:]):
         if after < before:
@@ -679,4 +680,32 @@ def check_realms(world) -> list[str]:
             if inside != [pos["realm"]] or not 1 <= pos["floor"] <= len(floors) \
                     or not 0 <= pos["chamber"] < len(floors[pos["floor"] - 1]):
                 out.append(f"the player's delve position {pos} does not fit the realm they are in")
+    return out
+
+
+def check_crises(world) -> list[str]:
+    """Succession crises (phase 4g spec 8): one live crisis a faction, pointed at, with the seat empty."""
+    import systems.claimants as C
+    import systems.succession_crisis as SC
+    import systems.world_events as W
+    out, live = [], {}
+    for row in W.index(world):
+        if row[W.TYPE] != SC.KIND:
+            continue
+        occurrence = world.entity(row[W.ID])
+        crisis = occurrence.data["data"]
+        if crisis["phase"] == "settled":
+            continue
+        faction = crisis["faction"]
+        if faction in live:
+            out.append(f"the {world.entity(faction).name} has two live crises")
+        live[faction] = occurrence.id
+        if world.entity(faction).data.get("crisis") != occurrence.id:
+            out.append(f"the {world.entity(faction).name} does not point at its crisis #{occurrence.id}")
+        if C.staff(world, faction, ("leader",)):
+            out.append(f"the {world.entity(faction).name} has a leader during its crisis")
+    for faction in world.entities("faction"):
+        pointed = faction.data.get("crisis")
+        if pointed is not None and SC.live(world, faction.id) is not None and live.get(faction.id) != pointed:
+            out.append(f"the {faction.name} points at #{pointed}, which is no live crisis of theirs")
     return out
