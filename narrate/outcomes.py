@@ -57,4 +57,5 @@ import narrate.tournament_text  # noqa: E402,F401
 import narrate.realm_text  # noqa: E402,F401
 import narrate.crisis_text  # noqa: E402,F401
 import narrate.intrigue_text  # noqa: E402,F401
+import narrate.gear_text  # noqa: E402,F401
 import systems.price_events  # noqa: E402,F401  (registers price events)

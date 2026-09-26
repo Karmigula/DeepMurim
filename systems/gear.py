@@ -164,9 +164,13 @@ def materialize(world, person: int, slot: str) -> int | None:
             return None  # a hand art: whatever they carried was not a weapon for it
     else:
         form = ARMOURS[rng_for(world.world_seed, f"gear:{person}:armour").randrange(len(ARMOURS))]
-    made = make_item(world, slot, form, grade, person, "carried", path=f"gear:{person}:{slot}")
+    made = make_item(world, slot, form, grade, person, "carried", path=f"gear:{person}:{slot}",
+                     deeds=list(gear.get("deeds", [])) if slot == "weapon" else [])
     world.relate(person, made, SLOTS[slot])
     gear[slot] = None  # now the item, not the grade
+    if slot == "weapon":
+        gear.pop("deeds", None)
+        gear.pop("form", None)
     world.update_data(person, gear=gear)
     return made
 
@@ -244,3 +248,6 @@ def starting_weapon(world, person: int, form: str) -> None:
     """A new hero's plain weapon for their first art, carried until it matters, as an NPC's is (plan ruling 2)."""
     if form in WEAPON_FORMS:
         world.update_data(person, gear={"weapon": 0, "armour": None, "form": form})
+
+
+import systems.provenance  # noqa: E402,F401  (what a weapon has done: registers its listeners)

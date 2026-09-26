@@ -153,8 +153,10 @@ def check_gear(world) -> list[str]:
         if owners and (not history or history[-1]["person"] != owners[0]):
             out.append(f"{item.name} (#{item.id}) is owned by #{owners[0]}, whom its history does not end with")
         for deed in item.data.get("deeds", []):
-            if world.chronicle_entry(deed) is None:
-                out.append(f"{item.name} (#{item.id}) remembers a deed that never happened (#{deed})")
+            if world.chronicle_entry(deed["event"]) is None:
+                out.append(f"{item.name} (#{item.id}) remembers a deed that never happened (#{deed['event']})")
+        if len(item.data.get("deeds", [])) > 12:
+            out.append(f"{item.name} (#{item.id}) remembers more than twelve deeds")
         for slot, rel in SLOTS.items():
             for holder in world.sources(item.id, rel):
                 if holder not in owners:
