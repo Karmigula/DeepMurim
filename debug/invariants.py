@@ -752,6 +752,10 @@ def check_plots(world) -> list[str]:
             found = world.relations_from(d["plotter"], "member_of")
             if not any(f == d["faction"] and data.get("status", "member") == "member" for f, _, data in found):
                 out.append(f"{plot.name}: the spy is no longer of the sect they spy on")
+    import systems.frames as R
+    for person in R.exiles(world):
+        if not (world.entity(person).data.get("framed") or {}).get("returns_at"):
+            out.append(f"{world.entity(person).name} waits in exile with no return")
     for pid in listed:
         if world.entity(pid) is None or world.entity(pid).kind != "plot":
             out.append(f"the open index lists #{pid}, which is no plot")

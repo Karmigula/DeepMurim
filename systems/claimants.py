@@ -18,7 +18,8 @@ NAMING_SEASON = 0  # the chief disciple is named in the first season of each yea
 PLAYER_FAVOUR = 0.5  # the leader's attitude that names a player member chief disciple
 BACKING = 0.2  # a voter backs their best claimant only if they lean this far
 REALM_LEAN = 0.2
-PROOF_LEAN = {"chief": 0.2, "blood": 0.3, "will": 0.5, "transmission": 0.4, "token": 0.3}  # blood: in clans only
+PROOF_LEAN = {"chief": 0.2, "blood": 0.3, "will": 0.5, "transmission": 0.4, "token": 0.3,  # blood: in clans only
+              "truth": 0.5}  # 4h: a returned heir whose frame was exposed
 LOYAL_LEAN = 0.2
 
 
@@ -146,6 +147,9 @@ def proofs(world, crisis: dict, claimant: dict) -> list[str]:
     token = crisis.get("token")
     if token is not None and person in world.sources(token, "owns"):
         found.append("token")
+    plot = world.entity(claimant["plot"]) if claimant.get("plot") is not None else None
+    if claimant["kind"] == "returned" and plot is not None and plot.data.get("state") == "exposed":
+        found.append("truth")
     return found
 
 

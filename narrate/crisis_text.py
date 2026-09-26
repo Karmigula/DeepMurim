@@ -4,7 +4,8 @@ from narrate.outcomes import cap, outcome, summary  # first: outcomes loads goss
 from narrate.gossip_text import SPECIAL_PHRASES, who
 
 KIND_WORDS = {"chief": "the chief disciple", "blood": "the late master's blood", "elder": "an elder",
-              "grand_elder": "the Grand Elder, down from seclusion", "regent": "a regent", "player": "a claimant"}
+              "grand_elder": "the Grand Elder, down from seclusion", "regent": "a regent", "player": "a claimant",
+              "returned": "the heir cast out, come back", "outsider": "an outsider named heir"}
 HOW_WORDS = {"backing": "with the elders behind them", "trial": "by trial of arms", "unopposed": "unopposed",
              "chosen": "chosen by the elders", "far": "after a bitter contest", "strife": "by force of arms",
              "stepped_down": "named by the old master", "regency": "as regent"}
