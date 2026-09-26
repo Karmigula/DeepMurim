@@ -198,3 +198,26 @@ seasonal hooks (leaks, burial, `COLD_SEASONS`, each type's own) read only it.
 **The rules:** `check_plots` in `debug/invariants.py` holds the index to the open plots, the plots' people real,
 every clue pointing at its plotter (unless marked false), spies members of the sect they spy on, exposed plotters
 struck from the claims, and exiles with a return to come.
+
+## 10. Items with history (phase 5a)
+
+A weapon or an armour is a `gear` entity: its `slot`, `form`, `grade` (0 iron to 4 divine; `gear.POWER` multiplies an
+art of its form, `gear.ARMOUR_SHARE` softens a wound), `maker`, `owners` (who held it and how), `deeds` (its twelve
+weightiest), and the marks `famous`, `epithet`, `armoury`, `heirloom_of`, `claimed_by`, `lost_at` and `broken`. A
+person `wields` one weapon and `wears` one armour, each an item they own.
+
+**Lazy gear:** an NPC carries only a seeded grade (`gear.seeded`), or their own record (`gear` on the person), until
+it matters; `gear.materialize` then makes the item, its history begun. Nothing is made for those who never matter.
+
+**Where the rules live:**
+- `systems/gear.py`: grades, what someone carries, items, taking up and putting away, passing hands, breakage
+  (`BREAK_CHANCE`, its own roll), the heir's inheritance.
+- `systems/provenance.py`: deeds and `DEED_HOOKS`, the legend (`wielded_in`), knowing a blade on sight, and what
+  people do about it (covet, hate, demand it back).
+- `systems/famous.py`: the famous weapons (`famous_weapons`, seeded once their keeper exists), how they pass at a
+  death, heirlooms, epithets, and the Hundred Weapons Chronicle (`weapons_ranked`).
+- `systems/smithy.py`, `systems/armoury.py`, `systems/spoils.py`: the smith's stall, a sect's armoury, the fallen's gear.
+
+**The rules:** `check_gear` in `debug/invariants.py` holds one owner per item and an owner that ends its history,
+wielding only what one owns (one at a time), deeds that happened, famous weapons listed once, and armouries within
+their seed.
