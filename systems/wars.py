@@ -65,6 +65,9 @@ def clash_events(world, n: int) -> list[Event]:
             value = known.get((a, b), 0.0)
             if value > HOSTILE:
                 continue
+            from systems.puppets import in_pocket  # phase 4h: a puppet's sect does not war on its patron
+            if in_pocket(world, a, b):
+                continue
             rng = rng_for(world.world_seed, f"world:{n}:clash:{a}:{b}")
             if rng.random() >= (WAR_CHANCE if value <= WAR else CLASH_CHANCE) * boost:
                 continue

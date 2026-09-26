@@ -747,6 +747,11 @@ def check_plots(world) -> list[str]:
             occurrence = SC.live(world, d["faction"])
             if occurrence is not None and SC.claimant(SC.crisis_of(occurrence), d["plotter"]) is not None:
                 out.append(f"{plot.name}'s exposed plotter still claims the seat")
+        if d["type"] == "spy" and d["state"] == "open" and world.entity(d["plotter"]) is not None \
+                and not world.entity(d["plotter"]).data.get("dead"):
+            found = world.relations_from(d["plotter"], "member_of")
+            if not any(f == d["faction"] and data.get("status", "member") == "member" for f, _, data in found):
+                out.append(f"{plot.name}: the spy is no longer of the sect they spy on")
     for pid in listed:
         if world.entity(pid) is None or world.entity(pid).kind != "plot":
             out.append(f"the open index lists #{pid}, which is no plot")

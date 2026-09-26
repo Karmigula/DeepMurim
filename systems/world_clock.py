@@ -341,3 +341,4 @@ import systems.rankings  # noqa: E402,F401  phase 4d: the Pavilion's informants 
 import systems.schism  # noqa: E402,F401  phase 4g: strife between a crisis's camps, season by season
 import systems.regency  # noqa: E402,F401  phase 4g: regents, usurpers, and heirs who must hold the seat
 import systems.murder  # noqa: E402,F401  phase 4h: plots, and the poisoned master
+import systems.puppets  # noqa: E402,F401  phase 4h: puppets and cult spies
