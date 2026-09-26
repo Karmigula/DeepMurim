@@ -28,6 +28,8 @@ GLOBAL = {
     "claim": Action("claim_seat"), "claim seat": Action("claim_seat"), "claim the seat": Action("claim_seat"),
     "search chambers": Action("search_chambers"), "search": Action("search_chambers"), "step down": Action("step_down"),
     "examine body": Action("examine_body"), "examine the body": Action("examine_body"),
+    "gear": Action("inventory"), "inventory": Action("inventory"), "i": Action("inventory"),
+    "smith": Action("smith"), "unwield": Action("put_away", "weapon"), "sheathe": Action("put_away", "weapon"),
     "tournaments": Action("tournaments"), "tournament": Action("tournaments"), "bracket": Action("bracket"),
     "odds": Action("odds"), "bookmaker": Action("odds"), "register": Action("register"), "watch": Action("watch"),
     "wear mask": Action("wear_mask"), "mask": Action("wear_mask"), "put on mask": Action("wear_mask"),
@@ -37,6 +39,7 @@ PREFIX_VERBS = {
     "talk": "talk", "speak": "talk", "go": "travel", "travel": "travel", "walk": "travel", "ask": ("ask", "ask_about", "news"),
     "meditate": "meditate", "practise": "practise", "practice": "practise", "train": "practise",
     "open": "open_meridian", "use": "use", "declare": "declare_for", "accuse": "accuse",
+    "wield": "wield", "wear": "wield", "inspect": "inspect", "buy": "buy_gear", "sell": "sell_gear",
 }
 FILLER = {"to", "about", "with", "the"}
 WORD = re.compile(r"[a-z0-9']+")

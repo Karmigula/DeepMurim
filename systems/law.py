@@ -49,6 +49,8 @@ def crimes(world, town_id: int, subject: int) -> list[tuple[int, float]]:
             weight = fact.weight
         elif fact.predicate in SCHEMES:
             weight = SCHEME_WEIGHT
+        elif fact.predicate == "stole" and target is not None and target.kind == "faction":
+            weight = fact.weight  # a sect's armoury carried off (phase 5a)
         elif fact.predicate == "member_of" and target is not None and target.kind == "faction" \
                 and target.data["type"] in F.DARK:
             doubled = _alliance_doubles(world, town_id) if doubled is None else doubled

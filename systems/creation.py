@@ -6,6 +6,7 @@ and starting arts directly. Every mode rolls a hidden constitution.
 
 from dataclasses import dataclass, field
 
+import systems.gear as gear
 from systems.techniques import FORMS, create_technique, generate, teach
 from world.body import PHYSIQUE, Body, roll_body, to_dict
 from world.db import World
@@ -133,6 +134,8 @@ def apply_creation(world: World, person_id: int, creation: Creation) -> list[str
         technique = create_technique(world, name, data)
         teach(world, person_id, technique, completeness=completeness, known_completeness=1.0, source="origin")
         names.append(name)
+        if data["category"] == "martial" and world.entity(person_id).data.get("gear") is None:
+            gear.starting_weapon(world, person_id, data["form"])  # a plain blade for a blade art (phase 5a)
     return names
 
 

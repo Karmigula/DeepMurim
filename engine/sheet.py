@@ -4,6 +4,7 @@ Never shows hidden truth: an art's real completeness and an undiscovered
 constitution stay hidden; only what the character believes is printed.
 """
 
+from engine.gear_page import armour_words, weapon_words
 from narrate.base import Line
 from render.body_chart import SYMBOL
 from systems.beliefs import home_of
@@ -26,7 +27,7 @@ def sheet_lines(world: World, player_id: int) -> list[Line]:
         (f"Qi {body.qi:.1f} / {max_qi(body):.1f} | purity {body.purity:.2f} | deviation {body.deviation:.1f}", "default"),
         ("Nature: " + "  ".join(f"{k} {v:.2f}" for k, v in body.nature.items()), "dim"),
         ("Physique: " + "  ".join(f"{k} {v}" for k, v in body.physique.items()), "default"),
-        (f"Insight {body.insight:.1f} | silver {player.data.get('silver', 0)}", "default"),
+        (f"Insight {body.insight:.1f} | silver {player.data.get('silver', 0)} | {armour_words(world, player_id)}", "default"),
         (f"Constitution: {body.constitution if body.constitution and body.constitution_known else 'unknown'}", "default"),
         ("", "default"),
         ("Arts:", "heading"),
@@ -37,7 +38,8 @@ def sheet_lines(world: World, player_id: int) -> list[Line]:
         kind = "heart method" if art.category == "heart_method" else data["form"]
         lines.append((
             f"  {art.name} ({kind}, grade {data['grade']}): {mastery_stage(art.mastery)} {art.mastery:.2f}"
-            f" | {compat_words(compat)} ({compat:.2f}) | completeness {art.known_completeness:.0%}", "default",
+            f" | {compat_words(compat)} ({compat:.2f}) | completeness {art.known_completeness:.0%}"
+            f"{weapon_words(world, player_id, data['form']) if art.category != 'heart_method' else ''}", "default",
         ))
     lines += [("", "default"), ("Meridians:", "heading")]
     lines.append(("  " + "  ".join(f"{m} {SYMBOL[body.meridians[m].state]}{body.meridians[m].flow:.2f}" for m in REGULAR), "default"))

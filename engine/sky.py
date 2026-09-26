@@ -161,7 +161,8 @@ class SkyMixin:
                 days = max(1, (fact.data["until"] - world.time + 3) // 4)
                 lines.append((f"  {rumour_text(world, belief.variant, me)} ({days} days left)", "dim"))
         from engine.crisis_page import sky_crisis_lines  # phase 4g
-        return self._turn(lines + sky_crisis_lines(world, me))
+        from engine.gear_page import chronicle_lines  # phase 5a
+        return self._turn(lines + sky_crisis_lines(world, me) + chronicle_lines(world, me))
 
     def _do_rankings(self, _target):
         return self._turn(rankings_lines(self.world, self.player.id))
