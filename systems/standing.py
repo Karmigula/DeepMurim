@@ -109,6 +109,8 @@ def standing(world, faction_id: int, subject: int) -> Standing:
                 value, reason = -1.0, "you harmed one of ours"
             elif any(F.stance(world, faction_id, g) <= F.HOSTILE for g in theirs):
                 value, reason = 0.5, "you struck at our enemies"
+        if fact.predicate == "stole" and target == faction_id:
+            value, reason = -1.0, "you stole from our armoury"
         if fact.predicate in ("returned_gear", "kept_gear") and target == faction_id:  # phase 5a: what was ours
             value, reason = (1.0, "you gave back what was ours") if fact.predicate == "returned_gear" \
                 else (-1.0, "you keep what is ours")

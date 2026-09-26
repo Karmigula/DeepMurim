@@ -224,7 +224,8 @@ def _passed(world, event) -> None:
     if d["taker"] is not None:
         world.relate(d["taker"], item.id, "owns")
         owners.append({"person": d["taker"], "since": world.time, "how": d["how"]})
-    world.update_data(item.id, owners=owners, lost_at=None if d["taker"] is not None else event.place)
+    lost = d["how"] == "lost"  # dropped where they fell; a thing sold or returned goes to the stall or the armoury
+    world.update_data(item.id, owners=owners, lost_at=event.place if lost else None)
 
 
 def break_events(world, person: int, place) -> list[Event]:

@@ -346,3 +346,6 @@ import systems.frames  # noqa: E402,F401  phase 4h: forged wills, framed heirs a
 import systems.legitimacy  # noqa: E402,F401  phase 4h: the supreme art, the founder's test, marriage, arbiters
 import systems.scheming  # noqa: E402,F401  phase 4h: the player's own plots
 import systems.famous  # noqa: E402,F401  phase 5a: famous weapons, how they pass, the Hundred Weapons Chronicle
+import systems.smithy  # noqa: E402,F401  phase 5a: the smith's stall
+import systems.armoury  # noqa: E402,F401  phase 5a: a sect's armoury, drawn from and restocked
+import systems.spoils  # noqa: E402,F401  phase 5a: what the fallen carried

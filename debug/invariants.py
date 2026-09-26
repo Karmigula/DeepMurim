@@ -163,6 +163,11 @@ def check_gear(world) -> list[str]:
                     out.append(f"#{holder} {rel} {item.name} (#{item.id}) without owning it")
                 if item.data["slot"] != slot:
                     out.append(f"#{holder} {rel} {item.name} (#{item.id}), which is no {slot}")
+    import systems.armoury as A
+    for faction in world.entities_after("faction", "armoury", 0):
+        stocked, seed = A.table(world, faction.id), A.seed_of(world, faction.id)
+        if any(v < 0 or v > seed.get(g, 0) for g, v in stocked.items()):
+            out.append(f"the {faction.name}'s armoury holds {stocked}, beyond its seed {seed}")
     import systems.famous as FW
     listed = FW.famous_weapons(world)
     if len(listed) != len(set(listed)):
