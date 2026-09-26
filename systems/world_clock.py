@@ -340,3 +340,4 @@ import systems.sky  # noqa: E402,F401  phase 4d: the sky's season hooks
 import systems.rankings  # noqa: E402,F401  phase 4d: the Pavilion's informants and yearly lists
 import systems.schism  # noqa: E402,F401  phase 4g: strife between a crisis's camps, season by season
 import systems.regency  # noqa: E402,F401  phase 4g: regents, usurpers, and heirs who must hold the seat
+import systems.murder  # noqa: E402,F401  phase 4h: plots, and the poisoned master

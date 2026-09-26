@@ -16,6 +16,7 @@ from systems.beliefs import believe, known_people
 from systems.creation import CreationChoice
 from world.events import Event, commit
 from world.gen.materialize import ensure_town
+from tests.intrigue import still
 
 
 @pytest.fixture
@@ -30,6 +31,7 @@ def game(tmp_path):
 def calm(monkeypatch):
     monkeypatch.setattr(encounters, "CHALLENGE_CHANCE", 0.0)
     monkeypatch.setattr(encounters, "ENCOUNTER_CHANCE", 0.0)
+    still(monkeypatch)  # 4h's intrigue stilled: these test 4g's crises
     monkeypatch.setattr(T, "TRANSMIT_CHANCE", 0.0)
     monkeypatch.setattr(T, "EMERGE_CHANCE", 0.0)
     monkeypatch.setattr(T, "WILL_CHANCE", {"natural": 0.0, "other": 0.0})

@@ -213,4 +213,5 @@ def _seat_filled(world, event, event_id: int) -> None:
     if d["role"] != "leader":
         return
     data = world.entity(d["faction"]).data
-    world.update_data(d["faction"], fallen=None, **({"heir": None} if data.get("heir") == event.actors[0] else {}))
+    world.update_data(d["faction"], fallen=None, poisoned=None,
+                      **({"heir": None} if data.get("heir") == event.actors[0] else {}))

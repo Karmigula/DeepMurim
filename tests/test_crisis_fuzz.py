@@ -53,7 +53,7 @@ def test_a_sect_heir(tmp_path, seed, monkeypatch):
         game = app.game
         if game is None:
             break
-        if step % 25 == 0 and game.world.get_meta("player_id") == me:
+        if step % 25 == 0 and game.world.get_meta("player_id") == me and game.focus is None and game.combat is None:
             a_leader_falls(game.world)
         if game.combat is not None or game.encounter is not None or game.challenger is not None:
             app.submit(rng.choice(FIGHTING + ["1", "2", "3"]))

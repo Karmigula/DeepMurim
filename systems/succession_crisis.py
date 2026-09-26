@@ -61,6 +61,8 @@ def doubt(world, faction: int) -> str | None:
     fallen = data.get("fallen") or {}
     if fallen.get("cause") in VIOLENT:
         return "violence"
+    if data.get("poisoned") is not None:
+        return "suspicion"  # whispers of poison (phase 4h)
     if fallen and fallen.get("place") is not None and fallen.get("place") != data.get("seat"):
         return "token"
     heir = data.get("heir")
@@ -130,10 +132,13 @@ def _begun(world, event, event_id: int) -> None:
         return
     row = next(r for r in reversed(W.index(world)) if r[W.TYPE] == KIND and r[W.PLACE] == event.data["place"])
     faction = event.data["data"]["faction"]
-    world.update_data(faction, crisis=row[W.ID], fallen=None)
+    plots = [p for p in [world.entity(faction).data.get("poisoned")] if p is not None]
+    world.update_data(faction, crisis=row[W.ID], fallen=None, poisoned=None)
     occurrence = world.entity(row[W.ID])
     rng = rng_for(world.world_seed, f"crisis:{occurrence.id}:mourning")
-    world.update_data(occurrence.id, data=T.at_mourning(world, crisis_of(occurrence), rng))
+    world.update_data(occurrence.id, data={**T.at_mourning(world, crisis_of(occurrence), rng), "plots": plots})
+    from systems.plots import crisis_begun  # phase 4h: puppets backed, and whatever else a crisis draws in
+    crisis_begun(world, world.entity(occurrence.id))
 
 
 # --- the stages -------------------------------------------------------------------------------
@@ -222,9 +227,12 @@ def trial_chance(world, a: int, b: int) -> float:
 
 def decide_events(world, occurrence) -> list[Event]:
     """The contest: a camp with more than half of all votes takes the seat; else the two largest fight."""
-    crisis, place = crisis_of(occurrence), occurrence.data["place"]
-    if crisis["phase"] != "contest":
+    if crisis_of(occurrence)["phase"] != "contest":
         return []
+    from systems.plots import contest_exposures  # phase 4h: what the knowing lay before the elders first
+    contest_exposures(world, occurrence)
+    occurrence = world.entity(occurrence.id)
+    crisis, place = crisis_of(occurrence), occurrence.data["place"]
     standing = standing_claimants(world, crisis)
     if len(standing) <= 1:
         return settle_events(world, occurrence, standing[0]["person"] if standing else None, "unopposed")
