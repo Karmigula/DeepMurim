@@ -7,7 +7,7 @@ by the town's smith. Gear sells back at half its price; a famous weapon only to 
 import systems.gear as gear
 import systems.lives as lives
 from systems import factions as F
-from systems.market import drift
+from systems.market import drift, event_factor
 from systems.purse import silver_of
 from world.events import Event, effect
 from world.gen.materialize import people_at
@@ -49,7 +49,7 @@ def stock(world, town: int) -> list[dict]:
 
 def price(world, town: int, slot: str, grade: int) -> int:
     base = BASE[grade] * (ARMOUR_PRICE if slot == "armour" else 1.0)
-    return max(1, round(base * drift(world, town, "gear")))
+    return max(1, round(base * event_factor(world, town, "iron") * drift(world, town, "gear")))  # iron's dearness
 
 
 def buy_block(world, player: int, town: int, key: str) -> str | None:
@@ -92,7 +92,7 @@ def sell_price(world, town: int, item_id: int) -> int:
 
 
 def buyer_for(world, town: int, player: int) -> int | None:
-    """Who in a city can pay for a famous blade: a merchant, else a master of a sect present."""
+    """Who in a city can pay for a famous blade: its merchants."""
     if world.entity(town).data.get("kind") != "city":
         return None
     here = [p for p in people_at(world, town) if not p.data.get("is_player")]

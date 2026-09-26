@@ -138,7 +138,7 @@ def fighter_for(world, person_id: int, technique_id: int | None) -> Fighter:
     stat = sum(body.physique[s] for s in stats) / len(stats)
     hurt = unhealed(body, world.time)
     limbs = limbs_for(form)
-    weapon_mult, weapon_grade = gear.fighting(world, person_id, form) if art else (1.0, None)
+    weapon_mult, weapon_grade, armour = gear.fighting(world, person_id, form if art else "bare")
     return Fighter(
         name=person.name, realm_mult=REALMS[body.realm].multiplier * _dark_boost(world, person_id),
         stage=STAGES.index(stage_of(body)),
@@ -152,7 +152,7 @@ def fighter_for(world, person_id: int, technique_id: int | None) -> Fighter:
         agility=body.physique["agility"], qi=body.qi,
         traits=tuple(person.data.get("traits", ())), beast=beast,
         stance_favours=art.technique.data["stance"]["favours"] if art else None,
-        weapon_mult=weapon_mult, weapon_grade=weapon_grade,
+        weapon_mult=weapon_mult if art else 1.0, weapon_grade=weapon_grade if art else None, armour=armour,
     )
 
 
@@ -215,7 +215,7 @@ def exchange_events(world, d: Duel, intent: str) -> list[Event]:
     opponent = world.entity(d.opponent)
     gentle = d.mode in GENTLE_MODES
     scale = GENTLE_SCALE if gentle else 1.0
-    armour = {"player": gear.armour_share(world, d.player), "opponent": gear.armour_share(world, d.opponent)}
+    armour = {"player": me.armour, "opponent": them.armour}  # read with the rest of their gear
     data = {
         "duel": d.duel_id, "n": n, "player_intent": intent, "opponent_intent": None,
         "player_output": None, "opponent_output": None, "player_output_choice": d.output,

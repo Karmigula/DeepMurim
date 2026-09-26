@@ -47,8 +47,9 @@ def remember(world, person: int, deed: dict, place) -> None:
     w = gear.weapon_of(world, person)
     if w is None or w["broken"]:
         return  # bare hands leave no legend
-    if w["item"] is None and w["grade"] >= LEGEND_GRADE and not world.entity(person).data.get("is_player"):
-        gear.materialize(world, person, "weapon")  # a treasure is worth a name of its own
+    near = place is not None and place in world.targets(world.get_meta("player_id"), "located_in")
+    if w["item"] is None and w["grade"] >= LEGEND_GRADE and near and not world.entity(person).data.get("is_player"):
+        gear.materialize(world, person, "weapon")  # a treasure done a deed before the player earns a name
         w = gear.weapon_of(world, person)
     if w["item"] is None:
         carried = dict(gear.carried(world, person))
@@ -143,7 +144,9 @@ def reactions(world, bearer: int, place: int, present: list[int]) -> dict:
     knowing = sorted(knowing)
     if not knowing:
         return out
-    grief = {k for victim in killed_by(world, item) for k, _ in kin_of(world, victim)}
+    heard = {(b.knower, f.object) for b, f in world.known_facts_about(knowing, actors=[item.id], predicate="wielded_in")
+             if b.variant.get("deed") == "killed"}
+    grief = {k for victim in killed_by(world, item) for k, _ in kin_of(world, victim) if (k, victim) in heard}
     mine = realm_index(world.entity(bearer).data.get("realm", "mortal"))
     claimed = item.data.get("claimed_by")
     if claimed is not None and any(f == claimed and d.get("status", "member") == "member"
@@ -173,7 +176,10 @@ def demand_events(world, bearer: int, demander: int, item_id: int, place: int, h
     faction = world.entity(item_id).data["claimed_by"]
     events = [Event("blade_demanded", (bearer, demander), place,
                     {"item": item_id, "faction": faction, "handed": hand_over})]
-    if hand_over:
+    if hand_over and world.entity(item_id).data.get("armoury") == faction:
+        events += gear.pass_events(world, bearer, None, item_id, place, "returned") + [
+            Event("armoury_returned", (bearer,), place, {"item": item_id, "faction": faction})]  # back on its rack
+    elif hand_over:
         events += gear.pass_events(world, bearer, demander, item_id, place, "given")
     return events
 

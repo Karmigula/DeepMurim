@@ -100,11 +100,23 @@ def armour_share(world, person: int) -> float:
     return 0.0 if a is None else ARMOUR_SHARE[a["grade"]]
 
 
-def fighting(world, person: int, form: str) -> tuple[float, int | None]:
-    """(weapon_mult, weapon_grade) for a fighter of this form, from one look at what they hold."""
+def fighting(world, person: int, form: str) -> tuple[float, int | None, float]:
+    """(weapon_mult, weapon_grade, armour_share) for a fighter of this form, from one look at what they carry."""
+    seen = carried(world, person)
+    worn = item_in(world, person, "armour")
+    grade = worn.data["grade"] if worn is not None else seen.get("armour")
+    share = 0.0 if grade is None else ARMOUR_SHARE[grade]
+    mult, blade = _blade(world, person, form, seen)
+    return mult, blade, share
+
+
+def _blade(world, person: int, form: str, seen: dict) -> tuple[float, int | None]:
     if form not in WEAPON_FORMS:
         return 1.0, None
-    w = weapon_of(world, person)
+    item = item_in(world, person, "weapon")
+    w = ({"grade": item.data["grade"], "form": item.data["form"], "broken": bool(item.data.get("broken"))}
+         if item is not None else None if seen.get("weapon") is None
+         else {"grade": seen["weapon"], "form": seen.get("form"), "broken": False})
     if w is None or w["broken"]:
         return UNARMED, None
     if w["form"] is None or w["form"] == form:
@@ -144,6 +156,15 @@ def make_item(world, slot: str, form: str, grade: int, owner: int | None, how: s
 
 def gear_items(world, person: int) -> list:
     return [e for e in (world.entity(i) for i in world.targets(person, "owns")) if e is not None and e.kind == "gear"]
+
+
+def known_weapon_form(world, person: int) -> str | None:
+    """The weapon form of the arts someone already has, read only (no arts are made for asking)."""
+    if not world.entity(person).data.get("arts_ready") and not world.entity(person).data.get("is_player"):
+        return None
+    from systems.duel import best_art
+    art = best_art(world, person)
+    return art.form if art is not None and art.form in WEAPON_FORMS else None
 
 
 def best_weapon_form(world, person: int) -> str | None:
@@ -230,6 +251,9 @@ def _passed(world, event) -> None:
         owners.append({"person": d["taker"], "since": world.time, "how": d["how"]})
     lost = d["how"] == "lost"  # dropped where they fell; a thing sold or returned goes to the stall or the armoury
     world.update_data(item.id, owners=owners, lost_at=event.place if lost else None)
+    if item.data.get("famous"):  # the small index of famous blades lying about (5a minors)
+        lying = [i for i in world.get_meta("famous_lying") or [] if i != item.id]
+        world.set_meta("famous_lying", lying + ([item.id] if lost else []))
 
 
 def break_events(world, person: int, place) -> list[Event]:

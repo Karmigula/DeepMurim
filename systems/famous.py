@@ -55,6 +55,8 @@ def make_famous(world, key: str, form: str, owner: int | None, how: str, legend:
                           path=f"famous:{key}", famous=True, heirloom_of=heirloom_of, claimed_by=heirloom_of,
                           lost_at=None if owner is not None else place)
     world.set_meta("famous_weapons", famous_weapons(world) + [item])
+    if owner is None:
+        world.set_meta("famous_lying", (world.get_meta("famous_lying") or []) + [item])
     if owner is not None:
         world.unrelate(owner, "wields")
         world.relate(owner, item, "wields")
@@ -100,11 +102,11 @@ def ensure_famous(world) -> None:
         key = f"city:{town.id}"
         if town.data.get("kind") != "city" or key in seen:
             continue
-        added.append(key)
         wanderers = sorted((p for p in people_at(world, town.id) if p.data.get("occupation") == "wandering swordsman"
                             and not p.data.get("is_player") and not world.targets(p.id, "wields")),
                            key=lambda p: (-realm_index(p.data.get("realm", "mortal")), p.id))
-        if wanderers:
+        if wanderers:  # none yet: the city is tried again next spring
+            added.append(key)
             rng = rng_for(world.world_seed, f"famous:{key}:keeper")
             master = wanderers[0].id
             make_famous(world, key, _form_for(world, master, rng), master, "made", "a wandering master's own", town.id)
@@ -122,7 +124,10 @@ def heir_of(world, dead: int) -> int | None:
 def _passes_on(world, event, event_id: int) -> None:
     """At a death a famous blade goes to the killer who takes it, else the heir, else it lies there (spec 3.3)."""
     killer, dead = event.actors[0], event.actors[-1]
-    for item in sorted(set(world.targets(dead, "owns")) & set(famous_weapons(world))):  # one query a death
+    owned = world.targets(dead, "owns")
+    if not owned:
+        return  # most of the dead own nothing: the famous list is not read
+    for item in sorted(set(owned) & set(famous_weapons(world))):
         npc_killer = killer != dead and world.entity(killer) is not None \
             and not world.entity(killer).data.get("is_player") and not world.entity(killer).data.get("dead")
         if npc_killer:
@@ -136,8 +141,8 @@ def _passes_on(world, event, event_id: int) -> None:
 
 
 def lying_at(world, place: int) -> list[int]:
-    return [i for i in famous_weapons(world) if world.entity(i).data.get("lost_at") == place
-            and not world.sources(i, "owns")]
+    """The famous blades lying here, from the small index of those lying anywhere (not the whole list)."""
+    return [i for i in world.get_meta("famous_lying") or [] if world.entity(i).data.get("lost_at") == place]
 
 
 def take_lying_events(world, person: int, item: int, place: int) -> list[Event]:
@@ -169,8 +174,12 @@ def return_events(world, bearer: int, item_id: int, place: int) -> list[Event]:
 @effect("heirloom_returned")
 def _returned(world, event) -> None:
     bearer, clan = event.actors[0], event.data["clan"]
-    from systems.founding import my_sect
-    sect = my_sect(world, bearer)
+    item = world.entity(event.data["item"])
+    if bearer in (item.data.get("returned_by") or []):
+        return  # the clan's favour is won once
+    world.update_data(item.id, returned_by=(item.data.get("returned_by") or []) + [bearer])
+    import systems.founding as founding
+    sect = founding.my_sect(world, bearer)
     if sect is not None:
         value = min(1.0, F.stance(world, clan, sect) + HEIRLOOM_STANCE)
         world.relate(clan, sect, "stance", value)

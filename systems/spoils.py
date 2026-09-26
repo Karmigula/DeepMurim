@@ -8,7 +8,7 @@ player may take the player's weapon: the greedy and the ruthless do, half the ti
 import systems.gear as gear
 from systems import factions as F
 from systems.attitude import is_bandit
-from systems.duel import covets
+from systems.duel import covets  # bandits and the greedy take what the beaten carry
 from systems.facts import make_variant, place_name, record_fact
 from world.events import Event, Witness, commit, listen
 from world.seed import rng_for
@@ -48,7 +48,8 @@ def take_block(world, taker: int, loser: int, slot: str, place: int) -> str | No
     carried = gear.weapon_of(world, loser) if slot == "weapon" else gear.armour_of(world, loser)
     if carried is None:
         return "They carry nothing of the kind."
-    if slot == "weapon" and carried["item"] is None and gear.best_weapon_form(world, loser) is None \
+    arts_known = world.entity(loser).data.get("arts_ready")  # unknown arts are not made for asking
+    if slot == "weapon" and carried["item"] is None and arts_known and gear.known_weapon_form(world, loser) is None \
             and not gear.carried(world, loser).get("form"):
         return "They fought with their hands."
     return None
@@ -56,6 +57,8 @@ def take_block(world, taker: int, loser: int, slot: str, place: int) -> str | No
 
 def take_events(world, taker: int, loser: int, slot: str, place: int) -> list[Event]:
     item = gear.materialize(world, loser, slot)
+    if item is None:
+        return []  # they fought with their hands after all: nothing to take
     living = not world.entity(loser).data.get("dead")
     feelings = ()
     if living:
@@ -81,11 +84,9 @@ def _victor_takes(world, event, event_id: int) -> None:
     """An NPC who beats the player may take the player's weapon (spec 4.2)."""
     d = event.data
     player, opponent = event.actors
-    if d.get("by") != "opponent" or d.get("verdict") in ("kill", "spare") or d.get("mode") in ("spar", "test", "bout"):
+    if d.get("by") != "opponent" or d.get("verdict") == "kill" or d.get("mode") in ("spar", "test", "bout"):
         return
-    victor = world.entity(opponent)
-    ruthless = {"cunning", "greedy"} <= set(victor.data.get("traits", ()))
-    if not (covets(victor) or ruthless) or gear.weapon_of(world, player) is None:
+    if not covets(world.entity(opponent)) or gear.weapon_of(world, player) is None:  # bandits and the greedy
         return
     if rng_for(world.world_seed, f"spoils:{event_id}").random() >= NPC_TAKES:
         return

@@ -115,6 +115,7 @@ class GearMixin:
 
     def _after_arrival(self) -> list:
         self._beaten, self._demand, self._covet_asked, self._demanded = None, None, frozenset(), frozenset()
+        self._stake = None  # a challenge dodged by leaving does not follow you
         return super()._after_arrival() + self._blade_reactions()
 
     def _after_look(self) -> list:

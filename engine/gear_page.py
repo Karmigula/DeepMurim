@@ -72,7 +72,9 @@ def legends_known(world, viewer: int, item) -> list[str]:
 def item_lines(world, viewer: int, item) -> list:
     d = item.data
     what = d["form"] if d["slot"] == "weapon" else gear.ARMOUR_WORDS[d["form"]]
-    lines = [(item.name + (f", {d['epithet']}" if d.get("epithet") else ""), "heading"),
+    told = legends_known(world, viewer, item)
+    epithet = d.get("epithet") if told else None  # the name its tales give it, for one who has heard them
+    lines = [(item.name + (f", {epithet}" if epithet else ""), "heading"),
              (f"  {'An' if d['grade'] == 0 else 'A'} {gear.GRADES[d['grade']]} {what}" + (" (broken)" if d.get("broken") else ""), "dim")]
     mine = any(s["person"] == viewer and s["how"] in ("bought", "drawn", "made") for s in d["owners"])
     maker = d.get("maker")
@@ -86,7 +88,7 @@ def item_lines(world, viewer: int, item) -> list:
         name = "you" if whom == viewer else world.entity(whom).name if whom in known else "someone" if whom else ""
         lines.append((f"  It {({'killed': 'slew', 'bested': 'bested', 'won_tournament': 'won a tournament'})[deed['kind']]}"
                       f"{' ' + name if name else ''}.", "dim"))
-    for tale in legends_known(world, viewer, item)[:3]:
+    for tale in told[:3]:
         lines.append((f"  Known as: {tale}", "dim"))
     return lines
 

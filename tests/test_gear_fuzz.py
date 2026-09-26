@@ -57,5 +57,6 @@ def test_an_armed_wanderer(tmp_path, seed, monkeypatch):
         keep_playing(app, step)
     assert app.crash_count == 0, list((tmp_path / "logs").glob("crash-*"))
     assert app.violations == [], app.violations[:5]
-    assert happened & {"gear_bought", "armoury_drawn", "gear_taken_up", "gear_passed"}, happened
+    done = happened & {"gear_bought", "gear_sold", "armoury_drawn", "gear_taken_up", "gear_put_away", "gear_passed"}
+    assert len(done) >= 3, done  # the wanderer really bought, drew, wielded or traded, not one of them by chance
     app.shutdown()

@@ -78,6 +78,7 @@ class Fighter:
     stance_favours: str | None = None
     weapon_mult: float = 1.0          # what they hold, for a weapon art (phase 5a)
     weapon_grade: int | None = None   # the blade that meets the other's, for breakage
+    armour: float = 0.0               # the share armour takes off a wound
 
 
 @dataclass(frozen=True)
