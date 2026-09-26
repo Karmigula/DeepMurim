@@ -7,7 +7,7 @@ deeds. A person wields at most one weapon (`wields`) and wears one armour (`wear
 
 from systems import factions as F
 from systems.realms import realm_index
-from world.events import Event, effect
+from world.events import Event, effect, listen
 from world.seed import rng_for
 
 GRADES = ("iron", "fine", "spirit", "treasure", "divine")
@@ -252,3 +252,21 @@ def starting_weapon(world, person: int, form: str) -> None:
 
 
 import systems.provenance  # noqa: E402,F401  (what a weapon has done: registers its listeners)
+
+
+@listen("succession")
+def _heir_takes_up(world, event, event_id: int) -> None:
+    """The heir takes up what the one before them wielded and wore, and their plain carried gear (4b, spec 4.4)."""
+    old, heir = event.actors
+    for slot, rel in SLOTS.items():
+        for item in world.targets(old, rel):
+            world.unrelate(old, rel, item)
+            world.unrelate(heir, rel)
+            world.relate(heir, item, rel)
+    for item in gear_items(world, heir):
+        owners = item.data["owners"]
+        if owners and owners[-1]["person"] == old:
+            world.update_data(item.id, owners=owners + [{"person": heir, "since": world.time, "how": "inherited"}])
+    carried_by_old = world.entity(old).data.get("gear")
+    if carried_by_old is not None:
+        world.update_data(heir, gear=dict(carried_by_old))

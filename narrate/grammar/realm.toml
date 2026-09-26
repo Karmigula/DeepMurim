@@ -1,5 +1,5 @@
 [symbols]
-realm_air = ["The air is thick with old qi.", "Dust hangs in the lamplight of no lamp.", "Somewhere water drips on stone.", "The walls are carved with forms no one has practised in a thousand years.", "Your breath comes slow in the dense air.", "Far off, something vast shifts in its sleep."]
+realm_air = ["The air is thick with old qi.", "Dust hangs in the lamplight of no lamp.", "Somewhere water drips on stone.", "The walls are carved with forms no one has practised in a thousand years.", "Your breath comes slow in the dense air.", "Far off, something vast shifts in its sleep.", "A draught comes from nowhere and smells of iron.", "Your footsteps come back to you a heartbeat late.", "The stone is warm, as if something lay here a moment ago.", "A faint hum rises from the floor and fades.", "Old sword marks score the pillars.", "The dark ahead is darker than it should be.", "Something small skitters out of the lamplight.", "The qi here pulls at your meridians like a tide."]
 
 [realm_entered]
 colour = "default"

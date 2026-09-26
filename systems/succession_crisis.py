@@ -180,6 +180,8 @@ def _heralded(world, event, event_id: int) -> None:
     occurrence = world.entity(event.data["occurrence"])
     crisis = crisis_of(occurrence)
     people = [c["person"] for c in crisis["claimants"]]
+    if not people:
+        return  # every claimant struck before the heralds cried it (a failed founder's test): no one to name
     variant = make_variant("crisis", people[0], crisis["faction"], place=place_name(world, event.place))
     variant.update(stage="mourning", people=people, kinds=[c["kind"] for c in crisis["claimants"]])
     record_fact(world, people[0], "crisis", crisis["faction"], place=event.place, source_event=event_id,

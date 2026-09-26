@@ -1,0 +1,42 @@
+[symbols]
+steel_air = ["Steel rings somewhere, far off.", "The edge catches the light.", "Old blood leaves no stain you can see.", "A blade is only as honest as its hand.", "Somewhere a smith's hammer keeps time.", "The grip is worn smooth by other hands."]
+
+[gear_taken_up]
+colour = "dim"  # routine: the steel_air may come round again
+lines = ["#steel_air#"]
+
+[gear_put_away]
+colour = "dim"
+lines = ["#steel_air#"]
+
+[gear_passed]
+colour = "dim"
+lines = ["#steel_air#"]
+
+[gear_bought]
+colour = "dim"
+lines = ["The smith wraps it in oiled cloth.", "The smith weighs your silver twice.", "#steel_air#"]
+
+[gear_sold]
+colour = "dim"
+lines = ["The smith turns it over and names a price.", "#steel_air#"]
+
+[armoury_drawn]
+colour = "dim"
+lines = ["Racks of steel, each blade tagged with a number.", "#steel_air#"]
+
+[armoury_returned]
+colour = "dim"
+lines = ["#steel_air#"]
+
+[gear_seized]
+colour = "red"
+lines = ["#steel_air#"]
+
+[heirloom_returned]
+colour = "gold"
+lines = ["A hall falls quiet as the old blade comes home.", "The clan's elders bow to the blade before they bow to you.", "Someone at the back of the hall weeps openly.", "Incense is lit before the blade has touched the rack.", "The clan head's hands are not quite steady.", "Old names are spoken, and yours after them."]
+
+[blade_demanded]
+colour = "dim"
+lines = ["#steel_air#"]
