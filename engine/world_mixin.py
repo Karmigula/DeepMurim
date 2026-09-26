@@ -54,6 +54,19 @@ class WorldMixin:
         if ran and self.world.time - seen >= lives.SEASON:
             lines.append((f"The world moved on: {ran} season{'s' if ran > 1 else ''} pass.", "dim"))
         self._clock_seen = self.world.time
+        return lines + self._gone_meanwhile()
+
+    def _gone_meanwhile(self) -> list:
+        """Whoever died while the player stood with them (a season's turn, a poison, a test) is let go of (4h)."""
+        lines, dead = [], lambda who: who is not None and self.world.entity(who).data.get("dead")
+        if dead(self.focus):
+            lines.append((f"{self.world.entity(self.focus).name} is gone.", "dim"))
+            self.focus, self.submenu = None, None
+        if self.combat is None:
+            if dead(getattr(self, "challenger", None)):
+                self.challenger = None
+            if getattr(self, "encounter", None) is not None and dead(self.encounter["person"]):
+                self.encounter = None
         return lines
 
     def _after_arrival(self) -> list:

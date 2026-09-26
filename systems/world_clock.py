@@ -340,3 +340,8 @@ import systems.sky  # noqa: E402,F401  phase 4d: the sky's season hooks
 import systems.rankings  # noqa: E402,F401  phase 4d: the Pavilion's informants and yearly lists
 import systems.schism  # noqa: E402,F401  phase 4g: strife between a crisis's camps, season by season
 import systems.regency  # noqa: E402,F401  phase 4g: regents, usurpers, and heirs who must hold the seat
+import systems.murder  # noqa: E402,F401  phase 4h: plots, and the poisoned master
+import systems.puppets  # noqa: E402,F401  phase 4h: puppets and cult spies
+import systems.frames  # noqa: E402,F401  phase 4h: forged wills, framed heirs and their return
+import systems.legitimacy  # noqa: E402,F401  phase 4h: the supreme art, the founder's test, marriage, arbiters
+import systems.scheming  # noqa: E402,F401  phase 4h: the player's own plots

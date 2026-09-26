@@ -13,6 +13,7 @@ from systems import factions as F
 from systems import founding, halls
 from systems.creation import CreationChoice
 from world.events import Event, commit
+from tests.intrigue import still
 
 
 @pytest.fixture
@@ -27,6 +28,7 @@ def game(tmp_path):
 def calm(monkeypatch):
     monkeypatch.setattr(encounters, "CHALLENGE_CHANCE", 0.0)
     monkeypatch.setattr(encounters, "ENCOUNTER_CHANCE", 0.0)
+    still(monkeypatch)  # 4h's intrigue stilled: these test 4g's crises
     monkeypatch.setattr(T, "TRANSMIT_CHANCE", 0.0)  # tests that want a transmission ask for one
 
 

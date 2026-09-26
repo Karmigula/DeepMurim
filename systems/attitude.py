@@ -21,6 +21,8 @@ FEELING_VALUE = {
 JUDGEMENT = {
     "killed": -1.0, "crippled": -0.7, "robbed": -0.5, "defeated": 0.0, "spared": 0.4, "fled_from": -0.2,
     "lied_about": -0.6, "owns_manual": 0.0, "paid_off": -0.1, "left_for_dead": -0.8, "is": 0.0,
+    "poisoner": -1.0, "murdered": -1.0, "framer": -0.8, "forger": -0.6, "spymaster": -0.6, "puppet_master": -0.5,
+    "false_accusation": -0.3, "spy_exposed": -0.8,
 }
 HARSH = frozenset({"killed", "crippled", "robbed"})
 HARM = frozenset({"killed", "crippled"})

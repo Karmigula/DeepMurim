@@ -167,3 +167,34 @@ begins. Force of arms (`strife`) runs on after the stages, a season at a time, o
 
 **The rules:** `check_crises` in `debug/invariants.py` holds one live crisis a faction, the faction pointing at it,
 no one but a claimant in the leader's seat during it, a token in exactly one place, and at most two breakaways a sect.
+
+## 9. Succession intrigue (phase 4h)
+
+A hidden truth is a `plot` entity: `type` one of `murder`, `puppet`, `spy`, `frame`, `forgery`; its plotter,
+patron, target, faction and the claimant it serves; its `clues` (each pointing at a person, some deliberately
+false: `RED_HERRING`); who knows it (`known_by`); its `state` (`open`, `exposed`, `cold`, `void`; the spec's `buried` never comes, since a lost witness leaves a
+`missing` clue behind); and a
+secret fact of its truth (recorded with `spread = False`). The meta row `open_plots` lists the open ones: the
+seasonal hooks (leaks, burial, `COLD_SEASONS`, each type's own) read only it.
+
+**Where the rules live:**
+- `systems/plots.py`: the model, clues, `suspicions`, `accuse_events` (two clues: `ACCUSE_CLUES`), exposure and
+  `EXPOSE_HOOKS`, `SEASON_HOOKS`, `BEGUN_HOOKS`, the leaks (`LEAK_CHANCE`), burial (`BURY_CHANCE`), the quarters
+  search, and `contest_exposures` (NPCs who know speak before the elders).
+- `systems/murder.py`: `MURDER_CHANCE`, `motives`, `POISONS`, the body, the witness, the letters.
+- `systems/puppets.py`: `PUPPET_CHANCE`, the gift-sways, the lent fighter, the pocket (`in_pocket`); cult spies
+  (`SPY_CHANCE`, `THEFT_CHANCE`).
+- `systems/frames.py`: `FORGE_CHANCE`, `FRAME_CHANCE`, exile (`exiles`, `RETURN_SEASONS`) and the return.
+- `systems/legitimacy.py`: the supreme art (`ART_KNOWN`), the founder's test (`TEST_BOUNDS`, `TEST_DEATH`),
+  marriage (`MARRY_CHANCE`), arbitration (`ARBITER_CHANCE`, `DEFY_CHANCE`), an outsider (`OUTSIDER_CHANCE`).
+- `systems/scheming.py`: the player's poison, spy, puppet, frame and forgery, and their exposure (`DEEDS`).
+
+**Saved state:** on a faction, `poisoned` (a murder's plot until its crisis begins), `pocket`, `supreme_art`,
+`art_manual`, `heir_since`, `outsider`; on a person, `spy_of`, `framed`, `searched`; the meta rows `open_plots` and
+`exiles`.
+
+**Tests:** `tests/intrigue.py`'s `still(monkeypatch)` stills every intrigue for tests of what came before it.
+
+**The rules:** `check_plots` in `debug/invariants.py` holds the index to the open plots, the plots' people real,
+every clue pointing at its plotter (unless marked false), spies members of the sect they spy on, exposed plotters
+struck from the claims, and exiles with a return to come.

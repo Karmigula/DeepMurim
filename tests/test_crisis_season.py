@@ -14,6 +14,7 @@ from engine.crisis_page import succession_lines
 from engine.game import Game
 from systems.creation import CreationChoice
 from tests.test_crisis_play import crisis_at_seat
+from tests.intrigue import still
 
 
 @pytest.fixture
@@ -28,6 +29,7 @@ def game(tmp_path):
 def calm(monkeypatch):
     monkeypatch.setattr(encounters, "CHALLENGE_CHANCE", 0.0)
     monkeypatch.setattr(encounters, "ENCOUNTER_CHANCE", 0.0)
+    still(monkeypatch)  # 4h's intrigue stilled: these test 4g's crises
     monkeypatch.setattr(T, "TRANSMIT_CHANCE", 0.0)
     monkeypatch.setattr(T, "EMERGE_CHANCE", 0.0)
 

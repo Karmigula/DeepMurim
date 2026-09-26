@@ -18,8 +18,10 @@ NAMING_SEASON = 0  # the chief disciple is named in the first season of each yea
 PLAYER_FAVOUR = 0.5  # the leader's attitude that names a player member chief disciple
 BACKING = 0.2  # a voter backs their best claimant only if they lean this far
 REALM_LEAN = 0.2
-PROOF_LEAN = {"chief": 0.2, "blood": 0.3, "will": 0.5, "transmission": 0.4, "token": 0.3}  # blood: in clans only
+PROOF_LEAN = {"chief": 0.2, "blood": 0.3, "will": 0.5, "transmission": 0.4, "token": 0.3,  # blood: in clans only
+              "truth": 0.5, "supreme_art": 0.6, "married_line": 0.3}  # 4h
 LOYAL_LEAN = 0.2
+OUTSIDER_LEAN = -0.2
 
 
 def ambitious(world, person: int) -> bool:
@@ -146,6 +148,14 @@ def proofs(world, crisis: dict, claimant: dict) -> list[str]:
     token = crisis.get("token")
     if token is not None and person in world.sources(token, "owns"):
         found.append("token")
+    plot = world.entity(claimant["plot"]) if claimant.get("plot") is not None else None
+    if claimant["kind"] == "returned" and plot is not None and plot.data.get("state") == "exposed":
+        found.append("truth")
+    from systems.legitimacy import ART_KNOWN, art_known, married_line  # phase 4h
+    if art_known(world, person, crisis["faction"]) >= ART_KNOWN:
+        found.append("supreme_art")
+    if married_line(world, crisis, person):
+        found.append("married_line")
     return found
 
 
@@ -153,19 +163,26 @@ def proof_lean(world, crisis: dict, claimant: dict) -> float:
     return sum(PROOF_LEAN.get(p, 0.0) for p in proofs(world, crisis, claimant))
 
 
-def lean(world, crisis: dict, voter: int, claimant: dict, full: bool = True) -> float:
-    """How far `voter` leans to `claimant`: attitude (full detail only), realm, proofs, sways, loyalty."""
+def standing(world, crisis: dict, claimant: dict) -> float:
+    """What a claimant weighs with every voter alike: realm above the weakest, and proofs."""
+    realms = [realm_of(world, c["person"]) for c in crisis["claimants"]]
+    return REALM_LEAN * (realm_of(world, claimant["person"]) - min(realms)) + proof_lean(world, crisis, claimant)
+
+
+def lean(world, crisis: dict, voter: int, claimant: dict, full: bool = True, base: float | None = None) -> float:
+    """How far `voter` leans to `claimant`: attitude (full detail only), realm, proofs, sways, loyalty.
+    `base` is the claimant's `standing`, when the caller has weighed it already."""
     person = claimant["person"]
     if voter == person:
         return 9.0  # claimants back themselves
-    realms = [realm_of(world, c["person"]) for c in crisis["claimants"]]
-    value = REALM_LEAN * (realm_of(world, person) - min(realms))
-    value += proof_lean(world, crisis, claimant)
+    value = standing(world, crisis, claimant) if base is None else base
     value += crisis.get("sways", {}).get(str(voter), {}).get(str(person), 0.0)
     if full and not world.entity(voter).data.get("is_player"):
         value += attitude(world, voter, person).score
     if "loyal" in world.entity(voter).data.get("traits", ()) and person == named(world, crisis):
         value += LOYAL_LEAN
+    if claimant["kind"] == "outsider":
+        value += OUTSIDER_LEAN  # the sect's own resent an outsider (4h)
     return round(value, 3)
 
 
@@ -182,6 +199,7 @@ def camps(world, crisis: dict, full: bool = True) -> tuple[dict[int, list[int]],
     backing: dict[int, list[int]] = {c["person"]: [c["person"]] for c in crisis["claimants"]}
     undecided = []
     declared = {int(k): v for k, v in crisis.get("declared", {}).items()}
+    bases = None
     for voter in voters(world, crisis["faction"]):
         if voter in backing:
             continue
@@ -191,7 +209,9 @@ def camps(world, crisis: dict, full: bool = True) -> tuple[dict[int, list[int]],
         if world.entity(voter).data.get("is_player"):
             undecided.append(voter)
             continue
-        leans = [(lean(world, crisis, voter, c, full), c["person"]) for c in crisis["claimants"]]
+        if bases is None:  # weighed once, for the first voter who needs it (4h minors)
+            bases = {c["person"]: standing(world, crisis, c) for c in crisis["claimants"]}
+        leans = [(lean(world, crisis, voter, c, full, bases[c["person"]]), c["person"]) for c in crisis["claimants"]]
         best, person = max(leans, key=lambda p: (p[0], -p[1])) if leans else (0.0, None)
         if person is not None and best >= BACKING:
             backing[person].append(voter)
@@ -213,4 +233,5 @@ def _seat_filled(world, event, event_id: int) -> None:
     if d["role"] != "leader":
         return
     data = world.entity(d["faction"]).data
-    world.update_data(d["faction"], fallen=None, **({"heir": None} if data.get("heir") == event.actors[0] else {}))
+    world.update_data(d["faction"], fallen=None, poisoned=None, outsider=None,
+                      **({"heir": None} if data.get("heir") == event.actors[0] else {}))

@@ -74,6 +74,7 @@ def check_world(world) -> list[str]:
     problems += check_tournaments(world)
     problems += check_realms(world)
     problems += check_crises(world)
+    problems += check_plots(world)
     times = world.recent_chronicle_times()
     for before, after in zip(times, times[1:]):
         if after < before:
@@ -723,4 +724,39 @@ def check_crises(world) -> list[str]:
             places = len(world.sources(token.id, "owns")) + len(world.targets(token.id, "located_in"))
             if places != 1:
                 out.append(f"{token.name} is in {places} places")
+    return out
+
+
+def check_plots(world) -> list[str]:
+    """Plots (phase 4h spec 12): the index holds exactly the open ones; their people exist; clues point true."""
+    import systems.plots as P
+    import systems.succession_crisis as SC
+    out = []
+    listed = set(P.open_plots(world))
+    for plot in world.entities("plot"):
+        d = plot.data
+        if (d["state"] == "open") != (plot.id in listed):
+            out.append(f"{plot.name} (#{plot.id}) is {d['state']} but {'in' if plot.id in listed else 'not in'} the open index")
+        for key in ("plotter", "target", "faction"):
+            if isinstance(d.get(key), int) and world.entity(d[key]) is None:
+                out.append(f"{plot.name} points at missing #{d[key]} ({key})")
+        for c in d["clues"]:
+            if c["points_to"] != d["plotter"] and not c.get("false"):
+                out.append(f"{plot.name}'s {c['kind']} clue points at #{c['points_to']}, not its plotter")
+        if d["state"] == "exposed":
+            occurrence = SC.live(world, d["faction"])
+            if occurrence is not None and SC.claimant(SC.crisis_of(occurrence), d["plotter"]) is not None:
+                out.append(f"{plot.name}'s exposed plotter still claims the seat")
+        if d["type"] == "spy" and d["state"] == "open" and world.entity(d["plotter"]) is not None \
+                and not world.entity(d["plotter"]).data.get("dead"):
+            found = world.relations_from(d["plotter"], "member_of")
+            if not any(f == d["faction"] and data.get("status", "member") == "member" for f, _, data in found):
+                out.append(f"{plot.name}: the spy is no longer of the sect they spy on")
+    import systems.frames as R
+    for person in R.exiles(world):
+        if not (world.entity(person).data.get("framed") or {}).get("returns_at"):
+            out.append(f"{world.entity(person).name} waits in exile with no return")
+    for pid in listed:
+        if world.entity(pid) is None or world.entity(pid).kind != "plot":
+            out.append(f"the open index lists #{pid}, which is no plot")
     return out

@@ -1,0 +1,126 @@
+[symbols]
+intrigue_air = ["Someone in the hall is lying.", "A lamp gutters in the draught.", "Footsteps stop, and start again.", "The incense cannot hide everything.", "Every door in the hall seems to listen.", "The mourners' eyes follow you."]
+
+[body_examined]
+colour = "default"
+lines = ["#intrigue_air#"]
+
+[clue_found]
+colour = "gold"
+lines = ["#intrigue_air#"]
+
+[quarters_searched]
+colour = "dim"
+lines = ["#intrigue_air#"]
+
+[plot_exposed]
+colour = "gold"
+lines = ["#intrigue_air# #intrigue_air#"]
+
+[thanked]
+colour = "dim"
+lines = ["#intrigue_air#"]
+
+[false_accusation]
+colour = "red"
+lines = ["#intrigue_air#"]
+
+[asked_night]
+colour = "dim"
+lines = ["#intrigue_air#"]
+
+[asked_about]
+colour = "dim"
+lines = ["#intrigue_air#"]
+
+[will_examined]
+colour = "dim"
+lines = ["#intrigue_air#"]
+
+[founder_passed]
+colour = "gold"
+lines = ["#intrigue_air#"]
+
+[founder_failed]
+colour = "red"
+lines = ["#intrigue_air#"]
+
+[heir_returned]
+colour = "gold"
+lines = ["#intrigue_air#"]
+
+[claim_joined]
+colour = "dim"
+lines = ["#intrigue_air#"]
+
+[murder_revealed]
+colour = "red"
+lines = ["#intrigue_air#"]
+
+[puppet_revealed]
+colour = "red"
+lines = ["#intrigue_air#"]
+
+[spy_revealed]
+colour = "red"
+lines = ["#intrigue_air#"]
+
+[forgery_revealed]
+colour = "red"
+lines = ["#intrigue_air#"]
+
+[frame_revealed]
+colour = "gold"
+lines = ["#intrigue_air#"]
+
+[poison_bought]
+colour = "dim"
+lines = ["#intrigue_air#"]
+
+[poison_slipped]
+colour = "red"
+lines = ["#intrigue_air#"]
+
+[spy_sent]
+colour = "dim"
+lines = ["#intrigue_air#"]
+
+[claim_funded]
+colour = "dim"
+lines = ["#intrigue_air#"]
+
+[frame_paid]
+colour = "dim"
+lines = ["#intrigue_air#"]
+
+[forgery_paid]
+colour = "dim"
+lines = ["#intrigue_air#"]
+
+[scheme_exposed]
+colour = "red"
+lines = ["#intrigue_air#"]
+
+[puppet_thanks]
+colour = "dim"
+lines = ["#intrigue_air#"]
+
+[plot_made]
+colour = "dim"
+lines = ["#intrigue_air#"]
+
+[framed_out]
+colour = "red"
+lines = ["#intrigue_air#"]
+
+[wed_for_seat]
+colour = "dim"
+lines = ["#intrigue_air#"]
+
+[arbitrated]
+colour = "default"
+lines = ["#intrigue_air#"]
+
+[arbiter_defied]
+colour = "red"
+lines = ["#intrigue_air#"]

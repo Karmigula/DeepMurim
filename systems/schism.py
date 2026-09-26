@@ -38,7 +38,10 @@ def strife_camps(world, crisis: dict) -> dict[int, list[int]]:
     """The two camps at war: each claimant's backers as last settled, less those gone home."""
     backing, _ = C.camps(world, crisis)
     gone = set(crisis["strife"].get("gone", []))
-    return {side: [p for p in backing.get(side, [side]) if p not in gone and alive(world, p)]
+    from systems.plots import plots_of  # phase 4h: a patron's lent fighter stands in the puppet's camp
+    lent = {p.data["serves"]: p.data.get("lent") for p in plots_of(world, crisis["faction"], ("puppet",))}
+    return {side: [p for p in backing.get(side, [side]) + ([lent[side]] if lent.get(side) else [])
+                   if p not in gone and alive(world, p)]
             for side in (crisis["strife"]["a"], crisis["strife"]["b"])}
 
 

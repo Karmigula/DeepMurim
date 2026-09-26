@@ -90,6 +90,7 @@ def succession_lines(world, player: int) -> list[Line]:
         spent = sum(1 for stage in crisis.get("swayed", {}).values() if stage == crisis["phase"])
         lines.append((f"  You have worked on {spent} this stage. {_will_words(world, crisis, player).capitalize()}; "
                       f"{_token_words(world, crisis, player, heard)}.", "dim"))
+        lines += found_lines(world, player, fid)
         trial = crisis.get("trial") or {}
         if trial.get("pending"):
             a, b = trial["champions"][str(trial["a"])], trial["champions"][str(trial["b"])]
@@ -127,3 +128,39 @@ def sheet_crisis_lines(world, player: int) -> list[Line]:
         if data.get("role") == "retired":
             lines.append(f"Retired master of the {faction.name}")
     return [(text, "default") for text in lines]
+
+
+def found_lines(world, player: int, faction: int) -> list[Line]:
+    """What the player has found in this faction's plots, and whom it points at (phase 4h spec 11)."""
+    import systems.plots as P
+    from narrate.intrigue_text import clue_words
+    lines: list[Line] = []
+    suspects: dict[int, int] = {}
+    for plot in P.plots_of(world, faction):
+        poison = next((c.get("poison") for c in plot.data["clues"] if c["kind"] == "body"), None)
+        for c in P.found_by(world, plot, player):
+            lines.append((f"  Found: {clue_words(world, c['kind'], c['points_to'], player, poison)}.", "dim"))
+            suspects[c["points_to"]] = suspects.get(c["points_to"], 0) + 1
+    if suspects:
+        said = [f"{world.entity(p).name} ({n} {'thing' if n == 1 else 'things'})" for p, n in
+                sorted(suspects.items(), key=lambda kv: -kv[1])]
+        lines.append((f"  Suspicions: {', '.join(said)}", "dim"))
+    return lines
+
+
+def scheme_lines(world, player: int) -> list[Line]:
+    """The player's own open plots, and what could betray each (spec 11)."""
+    import systems.plots as P
+    mine = [world.entity(p) for p in P.open_plots(world)
+            if player in (world.entity(p).data["plotter"], world.entity(p).data["patron"])]
+    if not mine:
+        return []
+    lines: list[Line] = [("", "default"), ("Your schemes:", "heading")]
+    words = {"body": "the body", "witness": "a witness", "motive": "letters", "silver": "the silver",
+             "envoy": "your envoy", "night": "a witness", "mark": "a mark", "seal": "the seal",
+             "scribe": "the scribe", "planted": "the evidence", "false_witness": "the witness", "missing": "a missing witness"}
+    for plot in mine:
+        risks = sorted({words.get(c["kind"], c["kind"]) for c in plot.data["clues"] if not c.get("lost")})
+        lines.append((f"  {plot.name[:1].upper()}{plot.name[1:]}: could be betrayed by {', '.join(risks) or 'nothing'}",
+                      "dim"))
+    return lines

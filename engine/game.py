@@ -12,6 +12,7 @@ import systems.cultivation as cultivation
 import systems.talk as talk
 import systems.travel as travel
 from engine.crisis import CrisisMixin
+from engine.intrigue import IntrigueMixin
 from engine.delve import ChamberMixin, DelveMixin, RivalMixin, SealedMixin
 from engine.actions import Action, Choice, Turn
 from engine.dealings import DealingsMixin
@@ -79,11 +80,12 @@ HELP = [
     ("  tournaments (F11) | bracket | register | watch | odds | bet <fighter> <silver>", "system"),
     ("  realms (F5) | enter | deeper | up | leave realm", "system"),
     ("  claim | declare <name> | search chambers | step down: a sect's succession (see standing, F6)", "system"),
+    ("  examine body | accuse <name>: what a crisis hides; your schemes are on the standing page", "system"),
     ("  F2 swap art side | F3 hide art | F4 character sheet | F9 report a bug | F12 debug | Esc menu", "system"),
 ]
 
 
-class Game(CrisisMixin, SealedMixin, RivalMixin, ChamberMixin, DelveMixin, LineageMixin, MarketMixin, SkyMixin, TournamentMixin, WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, LeavingMixin, LawMixin, LandMixin, FoundingMixin, SectMixin, SeasonsMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
+class Game(IntrigueMixin, CrisisMixin, SealedMixin, RivalMixin, ChamberMixin, DelveMixin, LineageMixin, MarketMixin, SkyMixin, TournamentMixin, WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, LeavingMixin, LawMixin, LandMixin, FoundingMixin, SectMixin, SeasonsMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
     def __init__(self, world: World, narrator: Narrator | None = None) -> None:
         self.world = world
         self.narrator = narrator or ProceduralNarrator()
@@ -196,6 +198,11 @@ class Game(CrisisMixin, SealedMixin, RivalMixin, ChamberMixin, DelveMixin, Linea
 
     def perform(self, action: Action) -> Turn:
         self.last_briefs = []
+        gone = self._gone_meanwhile()  # someone who died since the last turn is no longer at your side
+        if gone:
+            turn = self.perform(action)
+            turn.lines[:0] = gone
+            return turn
         gate = self._gate(action)
         if gate is not None:
             return gate

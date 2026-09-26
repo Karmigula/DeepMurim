@@ -93,18 +93,25 @@ def last_breath(world, event, rows: list) -> None:
             commit(world, [Event("transmitted", (victim, heir), event.place, {"faction": fid})])
 
 
+def set_realm(world, person: int, index: int) -> None:
+    """A realm changed at a stroke: through the body when there is one, so body and label agree (4h)."""
+    index = max(0, min(len(REALMS) - 1, index))
+    entity = world.entity(person)
+    if entity.data.get("is_player") or "body" in entity.data:
+        body = load_body(world, person)
+        body.realm, body.energy_years, body.bottleneck = index, REALMS[index].threshold, False
+        save_body(world, person, body)
+    else:
+        world.update_data(person, realm=REALMS[index].label)
+
+
 @effect("transmitted")
 def _transmitted(world, event) -> None:
     leader, heir = event.actors
     top = min(len(REALMS) - 1, max(realm_of(world, heir) + 1, 0))
     top = min(top, max(realm_index(world.entity(leader).data.get("realm", "mortal")), realm_of(world, heir)))
-    if world.entity(heir).data.get("is_player"):
-        body = load_body(world, heir)
-        if top > body.realm:
-            body.realm, body.energy_years, body.bottleneck = top, REALMS[top].threshold, False
-            save_body(world, heir, body)
-    else:
-        world.update_data(heir, realm=REALMS[top].label)
+    if top > realm_of(world, heir):
+        set_realm(world, heir, top)
     world.update_data(event.data["faction"], transmitted=heir)
 
 
