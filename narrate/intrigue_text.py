@@ -291,3 +291,14 @@ for kind in ("scheme_exposed", "puppet_thanks", "spy_reported", "framed_out", "p
     @outcome(kind, body_facts=False)
     def _quiet_deed(world, event):
         return [], {}
+
+
+def intrigue_facts(world, town: int, player: int) -> list[str]:
+    """The player's suspicions of those at this seat, for the scene's brief (spec 11)."""
+    import systems.plots as P
+    facts = []
+    for faction in world.entity(town).data.get("seats", []):
+        for suspect, kinds in P.suspicions(world, player, faction).items():
+            facts.append(f"You suspect {_name(world, suspect)} of a hidden crime against the "
+                         f"{world.entity(faction).name} ({len(kinds)} {'thing points' if len(kinds) == 1 else 'things point'} at them).")
+    return facts
