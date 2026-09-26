@@ -62,6 +62,7 @@ def check_world(world) -> list[str]:
                     _BODIES_CHECKED[key] = text
             problems += check_arts(world, person)
     problems += check_items(world)
+    problems += check_gear(world)
     problems += check_knowledge(world)
     problems += check_factions(world)
     problems += check_sect(world)
@@ -137,6 +138,33 @@ def check_items(world) -> list[str]:
             out.append(f"manual #{manual.id} holds no real technique")
         if manual.data.get("claimed_completeness", 1.0) < manual.data.get("true_completeness", 1.0) - EPS:
             out.append(f"manual #{manual.id} claims less than it holds")
+    return out
+
+
+def check_gear(world) -> list[str]:
+    """Weapons and armour (phase 5a spec 7): one owner, what is wielded is owned, deeds are real."""
+    from systems.gear import SLOTS
+    out = []
+    for item in world.entities("gear"):
+        owners = world.sources(item.id, "owns")
+        if len(owners) > 1:
+            out.append(f"{item.name} (#{item.id}) has {len(owners)} owners")
+        history = item.data.get("owners") or []
+        if owners and (not history or history[-1]["person"] != owners[0]):
+            out.append(f"{item.name} (#{item.id}) is owned by #{owners[0]}, whom its history does not end with")
+        for deed in item.data.get("deeds", []):
+            if world.chronicle_entry(deed) is None:
+                out.append(f"{item.name} (#{item.id}) remembers a deed that never happened (#{deed})")
+        for slot, rel in SLOTS.items():
+            for holder in world.sources(item.id, rel):
+                if holder not in owners:
+                    out.append(f"#{holder} {rel} {item.name} (#{item.id}) without owning it")
+                if item.data["slot"] != slot:
+                    out.append(f"#{holder} {rel} {item.name} (#{item.id}), which is no {slot}")
+    for rel in SLOTS.values():
+        for holder, count in world._conn.execute(
+                "select a, count(*) from relations where kind = ? group by a having count(*) > 1", (rel,)):
+            out.append(f"#{holder} {rel} {count} things at once")
     return out
 
 

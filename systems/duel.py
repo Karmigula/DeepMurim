@@ -8,6 +8,7 @@ by the effect, so replays, the journal and the narrator all agree exactly.
 
 from dataclasses import dataclass, field
 
+import systems.gear as gear
 import systems.world_events as W
 from systems.attitude import afraid
 from systems.beliefs import apparent_to
@@ -137,6 +138,7 @@ def fighter_for(world, person_id: int, technique_id: int | None) -> Fighter:
     stat = sum(body.physique[s] for s in stats) / len(stats)
     hurt = unhealed(body, world.time)
     limbs = limbs_for(form)
+    weapon_mult, weapon_grade = gear.fighting(world, person_id, form) if art else (1.0, None)
     return Fighter(
         name=person.name, realm_mult=REALMS[body.realm].multiplier * _dark_boost(world, person_id),
         stage=STAGES.index(stage_of(body)),
@@ -150,6 +152,7 @@ def fighter_for(world, person_id: int, technique_id: int | None) -> Fighter:
         agility=body.physique["agility"], qi=body.qi,
         traits=tuple(person.data.get("traits", ())), beast=beast,
         stance_favours=art.technique.data["stance"]["favours"] if art else None,
+        weapon_mult=weapon_mult, weapon_grade=weapon_grade,
     )
 
 
@@ -199,8 +202,8 @@ def start_events(world, player: int, opponent: int, place: int, mode: str,
 
 # --- one exchange --------------------------------------------------------------------
 
-def _blow(target: str, damage: float, form: str, rng, gentle: bool) -> dict:
-    hit = wound(form, damage, rng, spar=gentle)
+def _blow(target: str, damage: float, form: str, rng, gentle: bool, armour: float = 0.0) -> dict:
+    hit = wound(form, damage * (1 - armour), rng, spar=gentle)  # armour softens the wound, not the fight (5a)
     return {"target": target, "damage": round(damage, 2), "wound": list(hit) if hit else None}
 
 
@@ -212,6 +215,7 @@ def exchange_events(world, d: Duel, intent: str) -> list[Event]:
     opponent = world.entity(d.opponent)
     gentle = d.mode in GENTLE_MODES
     scale = GENTLE_SCALE if gentle else 1.0
+    armour = {"player": gear.armour_share(world, d.player), "opponent": gear.armour_share(world, d.opponent)}
     data = {
         "duel": d.duel_id, "n": n, "player_intent": intent, "opponent_intent": None,
         "player_output": None, "opponent_output": None, "player_output_choice": d.output,
@@ -227,7 +231,7 @@ def exchange_events(world, d: Duel, intent: str) -> list[Event]:
             chaser = power(them, "strike", "steady", harm["opponent"], False)
             runner = power(me, "guard", "steady", harm["player"], False)
             damage = DAMAGE_BASE * (chaser / max(runner, 1e-6)) ** 0.8 * rng.uniform(0.8, 1.2) * scale
-            data["blows"].append(_blow("player", damage, them.form, rng, gentle))
+            data["blows"].append(_blow("player", damage, them.form, rng, gentle, armour["player"]))
     else:
         quitting = None if gentle else gives_up(rng, them.traits, opponent.data.get("occupation", ""), harm["opponent"], them.beast)
         if quitting:
@@ -242,7 +246,8 @@ def exchange_events(world, d: Duel, intent: str) -> list[Event]:
             side = {"a": "player", "b": "opponent"}
             for blow in result.blows:
                 form = them.form if blow.target == "a" else me.form
-                data["blows"].append(_blow(side[blow.target], blow.damage, form, rng, gentle))
+                data["blows"].append(_blow(side[blow.target], blow.damage, form, rng, gentle, armour[side[blow.target]]))
+            data["broke"] = _breakage(me, them, rng_for(world.world_seed, f"duel:{d.duel_id}:{n}:blades"))
             data.update(
                 opponent_intent=their_intent, player_output=my_output, opponent_output=their_output,
                 openings=[side[s] for s in result.openings], reveals=[side[s] for s in result.reveals],
@@ -264,6 +269,15 @@ def exchange_events(world, d: Duel, intent: str) -> list[Event]:
     if isinstance(ending, tuple):
         events.append(_end_event(world, d, ending[0], ending[1], rng, data["harm_after"], n))
     return events
+
+
+def _breakage(me, them, rng) -> str | None:
+    """Blade on blade: two grades apart or more, the lesser may break (spec 2.2). Its own roll: the fight's is untouched."""
+    if me.weapon_grade is None or them.weapon_grade is None or abs(me.weapon_grade - them.weapon_grade) < gear.BREAK_GAP:
+        return None
+    if rng.random() >= gear.BREAK_CHANCE:
+        return None
+    return "player" if me.weapon_grade < them.weapon_grade else "opponent"
 
 
 def _ending(d: Duel, data: dict, n: int):
@@ -450,6 +464,8 @@ def _exchange(world, event: Event) -> None:
         save_body(world, ids[side], body)
     if data["fragment"]:
         _add_fragment(world, ids["player"], data["fragment"])
+    if data.get("broke"):
+        gear._broke(world, Event("weapon_broke", (ids[data["broke"]],), event.place, {}))
 
 
 @effect("duel_ended")

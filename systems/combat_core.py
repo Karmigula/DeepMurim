@@ -76,6 +76,8 @@ class Fighter:
     traits: tuple[str, ...] = ()
     beast: bool = False
     stance_favours: str | None = None
+    weapon_mult: float = 1.0          # what they hold, for a weapon art (phase 5a)
+    weapon_grade: int | None = None   # the blade that meets the other's, for breakage
 
 
 @dataclass(frozen=True)
@@ -108,7 +110,7 @@ def technique_power(f: Fighter) -> float:
         return BEAST_WEAPONS
     if f.technique is None:
         return BARE_HANDS
-    return f.grade_mult * (0.5 + f.mastery) * f.compat
+    return f.grade_mult * (0.5 + f.mastery) * f.compat * f.weapon_mult
 
 
 def affordable(output: str, qi: float) -> str:
