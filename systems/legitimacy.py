@@ -181,6 +181,16 @@ def _failed(world, event) -> None:
         set_realm(world, person, realm_of(world, person) - 1)
 
 
+def far_founder(world, faction: int, standing: list[dict], rng) -> int | None:
+    """Far away, an ambitious claimant of a great sect may try the founder's test, and passing wins (spec 10)."""
+    if not great(world, faction):
+        return None
+    for c in sorted(standing, key=lambda c: c["person"]):
+        if C.ambitious(world, c["person"]) and rng.random() < NPC_TRY and rng.random() < test_chance(world, c["person"]):
+            return c["person"]
+    return None
+
+
 def _npc_tries(world, occurrence, stage: str) -> None:
     crisis = SC.crisis_of(occurrence)
     if not great(world, crisis["faction"]):

@@ -57,6 +57,16 @@ def plots_of(world, faction: int, types=TYPES) -> list:
     return out
 
 
+def exposed_plotters(world, faction: int) -> set[int]:
+    """Plotters whose plots against this faction were exposed: far away, they cannot win its seat (spec 10)."""
+    return {p.data["plotter"] for p in world.entities("plot") if p.data["faction"] == faction
+            and p.data["state"] == "exposed"}
+
+
+def puppet_served(world, faction: int) -> set[int]:
+    return {p.data["serves"] for p in plots_of(world, faction, ("puppet",))}
+
+
 def clue(kind: str, points_to: int, **more) -> dict:
     return {"kind": kind, "points_to": points_to, "found_by": [], **more}
 

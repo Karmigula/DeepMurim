@@ -369,13 +369,19 @@ def _summarised(world, event, event_id: int) -> None:
     faction, rng = d["faction"], rng_for(world.world_seed, f"crisis:{d['faction']}:{d['season']}:far")
     crisis = T.at_mourning(world, {"faction": faction, "leader": d["leader"], "claimants": d["claimants"]}, rng,
                            far=True)
-    standing = standing_claimants(world, crisis)
+    from systems.legitimacy import far_founder  # phase 4h: plots and the founder's hall count far away too
+    from systems.plots import exposed_plotters, puppet_served
+    stained = exposed_plotters(world, faction)
+    standing = [c for c in standing_claimants(world, crisis) if c["person"] not in stained]
     if not standing:
         return
     weakest = min(realm_of(world, c["person"]) for c in standing)
+    backed = puppet_served(world, faction)
     weights = [1 + FAR_PROOF * len(C.proofs(world, crisis, c)) + FAR_REALM * (realm_of(world, c["person"]) - weakest)
-               for c in standing]
-    winner = rng.choices([c["person"] for c in standing], weights=weights)[0]
+               + (1 if c["person"] in backed else 0) for c in standing]
+    winner = far_founder(world, faction, standing, rng) or \
+        rng.choices([c["person"] for c in standing], weights=weights)[0]
+
     losers = [c["person"] for c in standing if c["person"] != winner]
     commit(world, [Event("crisis_lost", (winner, loser), event.place, {"faction": faction},
                          witnesses=(Witness(loser, "wronged", 0.6),)) for loser in losers]
