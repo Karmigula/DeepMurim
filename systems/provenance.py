@@ -20,6 +20,7 @@ KILL_WEIGHT, LEADER_WEIGHT, BESTED_WEIGHT, TITLE_WEIGHT = 3.0, 4.0, 2.0, 2.5
 NOTABLE_RANK, NOTABLE_REALM = 3, 2
 COVET_CHANCE, COVETOUS = 0.2, frozenset({"proud", "greedy"})
 KIN_HATRED = 0.6
+LEGENDS = frozenset({"wielded_in", "blade_legend", "weapon_ranked"})  # any tale of a blade makes it known
 DEED_HOOKS: list = []  # (world, item entity, deed) -> None: a famous weapon's epithet (Task 3)
 
 
@@ -108,7 +109,8 @@ def _title_with(world, event, event_id: int) -> None:
 
 def recognizers(world, item_id: int, people) -> set[int]:
     """Who among these believes any tale of this weapon (one query, the beliefs' actor index)."""
-    return {belief.knower for belief, _ in world.known_facts_about(people, actors=[item_id], predicate="wielded_in")}
+    return {belief.knower for belief, fact in world.known_facts_about(people, actors=[item_id])
+            if fact.predicate in LEGENDS}
 
 
 def known_blades(world, viewer: int, people) -> list[tuple[int, int]]:
@@ -117,8 +119,8 @@ def known_blades(world, viewer: int, people) -> list[tuple[int, int]]:
     held = [(p, found[0]) for p, found in held if found]
     if not held:
         return []
-    known = {fact.subject for _, fact in world.known_facts_about([viewer], actors=[i for _, i in held],
-                                                                 predicate="wielded_in")}
+    known = {fact.subject for _, fact in world.known_facts_about([viewer], actors=[i for _, i in held])
+             if fact.predicate in LEGENDS}
     return [(p, i) for p, i in held if i in known]
 
 
@@ -138,6 +140,9 @@ def reactions(world, bearer: int, place: int, present: list[int]) -> dict:
     grief = {k for victim in killed_by(world, item) for k, _ in kin_of(world, victim)}
     mine = realm_index(world.entity(bearer).data.get("realm", "mortal"))
     claimed = item.data.get("claimed_by")
+    if claimed is not None and any(f == claimed and d.get("status", "member") == "member"
+                                   for f, _, d in F.memberships(world, bearer)):
+        claimed = None  # carried by one of its own
     for person in knowing:
         data = world.entity(person).data
         if person in grief and not any(m.feeling == "hatred" for m in world.memories(person, about=bearer)):

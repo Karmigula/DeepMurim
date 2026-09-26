@@ -345,3 +345,4 @@ import systems.puppets  # noqa: E402,F401  phase 4h: puppets and cult spies
 import systems.frames  # noqa: E402,F401  phase 4h: forged wills, framed heirs and their return
 import systems.legitimacy  # noqa: E402,F401  phase 4h: the supreme art, the founder's test, marriage, arbiters
 import systems.scheming  # noqa: E402,F401  phase 4h: the player's own plots
+import systems.famous  # noqa: E402,F401  phase 5a: famous weapons, how they pass, the Hundred Weapons Chronicle

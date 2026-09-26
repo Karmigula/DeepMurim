@@ -274,8 +274,10 @@ def inherit(world, person: int, realm: int) -> None:
     entity = world.entity(realm)
     master = entity.data["master"]
     teach(world, person, master["art"], completeness=1.0, known_completeness=1.0, source="inheritance")
-    weapon = world.add_entity("treasure", master["weapon"], {"kind": "weapon", "used": False, "value": WEAPON_VALUE})
-    world.relate(person, weapon, "owns")
+    from systems.famous import make_famous  # phase 5a: the master's weapon is famous the day it is taken
+    form = world.entity(master["art"]).data.get("form")
+    make_famous(world, f"realm:{realm}", form if form in ("sword", "saber", "spear", "staff") else "sword", person,
+                "found", f"buried with {master['name']}", realm, name=master["weapon"], grade=4)
     titles = list(world.entity(person).data.get("titles", []))
     world.update_data(person, titles=titles + [f"Last Disciple of {master['name']}"])
     world.update_data(realm, inheritance_claimed_by=person, claims=entity.data.get("claims", 0) + 1)

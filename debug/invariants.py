@@ -163,6 +163,13 @@ def check_gear(world) -> list[str]:
                     out.append(f"#{holder} {rel} {item.name} (#{item.id}) without owning it")
                 if item.data["slot"] != slot:
                     out.append(f"#{holder} {rel} {item.name} (#{item.id}), which is no {slot}")
+    import systems.famous as FW
+    listed = FW.famous_weapons(world)
+    if len(listed) != len(set(listed)):
+        out.append("a famous weapon is listed twice")
+    famous = {i.id for i in world.entities("gear") if i.data.get("famous")}
+    if famous != set(listed):
+        out.append(f"the famous weapons listed are not the famous ones ({sorted(famous ^ set(listed))[:5]})")
     for rel in SLOTS.values():
         for holder, count in world._conn.execute(
                 "select a, count(*) from relations where kind = ? group by a having count(*) > 1", (rel,)):
