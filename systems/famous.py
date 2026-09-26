@@ -58,6 +58,9 @@ def make_famous(world, key: str, form: str, owner: int | None, how: str, legend:
     if owner is not None:
         world.unrelate(owner, "wields")
         world.relate(owner, item, "wields")
+        carried = dict(gear.carried(world, owner))
+        carried["weapon"] = None  # the famous blade is what they carry: no second one in their seeded gear
+        world.update_data(owner, gear=carried)
     variant = make_variant("blade_legend", item, owner, place=place_name(world, place) if place else None)
     variant.update(legend=legend)
     record_fact(world, item, "blade_legend", owner, place=place, weight=1.5, variant=variant)

@@ -8,13 +8,13 @@ import systems.gear as gear
 import systems.world_clock as world_clock
 from systems import factions as F
 from systems.facts import make_variant, place_name, record_fact
-from world.events import Event, effect, listen
+from world.events import Event, effect
 
 SEED = {"great": {0: 6, 1: 4, 2: 2, 3: 1}, "other": {0: 4, 1: 2, 2: 1}}
 RANK_GRADE = {1: 0, 2: 1, 3: 2}  # rank 1 draws iron, 2 fine, 3 spirit; an elder a treasure, once
 ELDER_GRADE = 3
 THEFT_WEIGHT = 1.5
-LEAVINGS = ("expelled", "deserted", "spy_exposed")
+GONE = frozenset({"expelled", "deserter", "spy", "released"})  # the statuses of every road out
 
 
 def seed_of(world, faction: int) -> dict[int, int]:
@@ -98,20 +98,24 @@ def _returned(world, event) -> None:
     world.update_data(d["item"], in_armoury=True)
 
 
-def _left_with(world, event, event_id: int) -> None:
-    """Leaving the sect with its armoury's gear is theft (spec 4.3)."""
-    person, faction = event.actors[0], event.data["faction"]
-    taken = [i for i in gear.gear_items(world, person) if i.data.get("armoury") == faction]
+def left_with(world, person: int, faction: int, status: str) -> None:
+    """Out of the sect by any road (spec 4.3): a release hands its armoury's gear back; any other road steals it."""
+    taken = [i for i in gear.gear_items(world, person) if i.data.get("armoury") == faction
+             and i.data.get("claimed_by") is None]
+    if not taken:
+        return
+    if status == "released":
+        for item in taken:
+            gear._passed(world, Event("gear_passed", (person,), None,
+                                      {"item": item.id, "giver": person, "taker": None, "how": "returned"}))
+            _returned(world, Event("armoury_returned", (person,), None, {"item": item.id, "faction": faction}))
+        return
     for item in taken:
         world.update_data(item.id, claimed_by=faction)
-    if taken:
-        variant = make_variant("stole", person, faction, place=place_name(world, event.place))
-        record_fact(world, person, "stole", faction, place=event.place, source_event=event_id,
-                    weight=THEFT_WEIGHT, variant=variant)
-
-
-for _kind in LEAVINGS:
-    listen(_kind)(_left_with)
+    here = world.targets(person, "located_in")
+    place = here[0] if here else None
+    variant = make_variant("stole", person, faction, place=place_name(world, place) if place else None)
+    record_fact(world, person, "stole", faction, place=place, weight=THEFT_WEIGHT, variant=variant)
 
 
 def season_hook(world, n: int) -> list:

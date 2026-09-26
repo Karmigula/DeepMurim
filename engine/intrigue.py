@@ -55,11 +55,11 @@ class IntrigueMixin:
         for occurrence in self._crises_here():  # the schemes (spec 8)
             crisis = SC.crisis_of(occurrence)
             if S.forge_block(world, me, occurrence) is None:
-                for c in SC.standing_claimants(world, crisis):
+                for c in self._nameable_claimants(crisis):
                     who = "yourself" if c["person"] == me else world.entity(c["person"]).name
                     extras.append(Choice(f"Have a will forged naming {who} ({S.FORGE_PRICE} silver)",
                                          Action("forge_will", (occurrence.id, c["person"]))))
-            for c in SC.standing_claimants(world, crisis):
+            for c in self._nameable_claimants(crisis):
                 if S.frame_block(world, me, occurrence, c["person"]) is None:
                     extras.append(Choice(f"Plant false evidence against {world.entity(c['person']).name} "
                                          f"({S.FRAME_PRICE} silver)", Action("frame_rival", (occurrence.id, c["person"]))))

@@ -41,8 +41,8 @@ def lawful(world, person: int, place: int | None = None) -> bool:
 
 
 def take_block(world, taker: int, loser: int, slot: str, place: int) -> str | None:
-    if place not in world.targets(loser, "located_in"):
-        return "They are not here."
+    if place not in world.targets(loser, "located_in") + world.targets(loser, "buried_at"):
+        return "They are not here."  # the slain lie where they fell (5a review)
     if not beaten_by(world, taker, loser):
         return "You have not beaten them."
     carried = gear.weapon_of(world, loser) if slot == "weapon" else gear.armour_of(world, loser)

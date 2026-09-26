@@ -134,7 +134,13 @@ def reactions(world, bearer: int, place: int, present: list[int]) -> dict:
     out = {"covets": None, "hates": [], "demands": None}
     if item is None:
         return out
-    knowing = sorted(recognizers(world, item.id, [p for p in present if p != bearer]))
+    others = [p for p in present if p != bearer]
+    knowing = set(recognizers(world, item.id, others))
+    own = item.data.get("armoury") or item.data.get("heirloom_of")
+    if own is not None:  # a sect knows its own blade on sight, tale or none (5a review)
+        knowing |= {p for p in others if any(f == own and d.get("status", "member") == "member"
+                                             for f, _, d in F.memberships(world, p))}
+    knowing = sorted(knowing)
     if not knowing:
         return out
     grief = {k for victim in killed_by(world, item) for k, _ in kin_of(world, victim)}

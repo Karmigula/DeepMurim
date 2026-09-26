@@ -21,6 +21,7 @@ class GearMixin:
     _demand: tuple | None = None
     _stake: tuple | None = None
     _covet_asked: frozenset = frozenset()  # who has already called you out for your blade since you came here
+    _demanded: frozenset = frozenset()  # the blades already asked back since you came here
 
     # --- choices ---------------------------------------------------------------------------------------------
     def _general_extras(self) -> list:
@@ -100,8 +101,8 @@ class GearMixin:
             commit(world, provenance.hatred_events(world, me, seen["hates"], here, item))
             names = ", ".join(world.entity(h).name for h in seen["hates"])
             lines.append((f"{names} know{'s' if len(seen['hates']) == 1 else ''} the blade you carry, and whose blood is on it.", "red"))
-        if seen["demands"] is not None and self._demand is None:
-            self._demand = (seen["demands"], item)
+        if seen["demands"] is not None and self._demand is None and item not in self._demanded:
+            self._demand, self._demanded = (seen["demands"], item), self._demanded | {item}
             lines.append((f"{world.entity(seen['demands']).name} knows {world.entity(item).name}: "
                           "their sect calls it its own, and wants it back.", "system"))
         if seen["covets"] is not None and seen["covets"] not in self._covet_asked                 and self.challenger is None and self.encounter is None:
@@ -113,7 +114,7 @@ class GearMixin:
         return lines
 
     def _after_arrival(self) -> list:
-        self._beaten, self._demand, self._covet_asked = None, None, frozenset()
+        self._beaten, self._demand, self._covet_asked, self._demanded = None, None, frozenset(), frozenset()
         return super()._after_arrival() + self._blade_reactions()
 
     def _after_look(self) -> list:
@@ -126,6 +127,11 @@ class GearMixin:
             return lines
         me, opponent = entry.actors[0], entry.actors[1]
         won = data.get("result") == "won"
+        for later in self.world.chronicle_about(me, limit=6):  # a victor who took your blade (spoils)
+            if later.kind == "gear_passed" and later.id > entry.id and later.data.get("giver") == me \
+                    and later.data.get("taker") == opponent:
+                lines.append((f"{self.world.entity(opponent).name} takes {self.world.entity(later.data['item']).name} "
+                              "from you.", "red"))
         if won:
             self._beaten = opponent
         purpose = data.get("purpose") or {}

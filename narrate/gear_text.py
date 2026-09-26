@@ -90,15 +90,26 @@ def _put_away_line(world, entry, names, place, other):
     return f"Put away {world.entity(entry.data['item']).name}."
 
 
+LOST_LINES = {"taken": "{item} is taken from you.", "won": "{item} is taken from you by the fight.",
+              "given": "{item} leaves your hands.", "sold": "You sell {item}.",
+              "returned": "You give {item} back to the armoury.", "lost": "{item} is left where it fell."}
+
+
+def _pass_words(world, data, how_lines=None) -> str:
+    """The line from the player's side: what they gained, or what was taken from them (5a review)."""
+    player = world.get_meta("player_id")
+    lines = LOST_LINES if data.get("giver") == player and data.get("taker") != player else HOW_LINES
+    return lines.get(data["how"], "{item} changes hands.").format(item=world.entity(data["item"]).name)
+
+
 @outcome("gear_passed", body_facts=False)
 def _passed(world, event):
-    item = world.entity(event.data["item"])
-    return [HOW_LINES.get(event.data["how"], "{item} changes hands.").format(item=item.name)], {}
+    return [_pass_words(world, event.data)], {}
 
 
 @summary("gear_passed")
 def _passed_line(world, entry, names, place, other):
-    return HOW_LINES.get(entry.data["how"], "{item} changed hands.").format(item=world.entity(entry.data["item"]).name)
+    return _pass_words(world, entry.data)
 
 
 @outcome("gear_bought", body_facts=False)

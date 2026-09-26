@@ -29,11 +29,15 @@ SLOTS = {"weapon": "wields", "armour": "wears"}
 
 # --- what someone carries ----------------------------------------------------------------------------
 
-def seeded(world, person: int) -> dict:
-    """What an NPC carries before anyone looks: a weapon grade (its form is their art's) and an armour grade."""
+def seeded(world, person: int, as_npc: bool = False) -> dict:
+    """What an NPC carries before anyone looks: a weapon grade (its form is their art's) and an armour grade.
+    `as_npc`: weigh a player as the NPC they were (an heir taking up the old hero's place)."""
     data = world.entity(person).data
-    if data.get("is_player") or data.get("beast"):
-        return {"weapon": None, "armour": None}  # the player's own is written at creation
+    if data.get("beast"):
+        return {"weapon": None, "armour": None}
+    if data.get("is_player") and not as_npc:
+        form = best_weapon_form(world, person)  # a hero from before 5a: the plain blade creation now writes
+        return {"weapon": 0 if form else None, "armour": None, "form": form}
     grade, role_best = REALM_GRADE[min(realm_index(data.get("realm", "mortal")), len(REALM_GRADE) - 1)], None
     for fid, _, d in F.memberships(world, person):
         if d.get("status", "member") != "member" or d.get("role") not in ROLE_GRADE:
@@ -234,9 +238,12 @@ def break_events(world, person: int, place) -> list[Event]:
 
 @effect("weapon_broke")
 def _broke(world, event) -> None:
-    """The lesser blade gives way: an item stays, broken, with its past; a carried grade is simply gone."""
+    """The lesser blade gives way: it stays, broken, an item with its past (a carried one is made real to break)."""
     person = event.actors[0]
     item = item_in(world, person, "weapon")
+    if item is None:
+        made = materialize(world, person, "weapon")  # a carried blade breaks into a thing with a past (5a review)
+        item = world.entity(made) if made is not None else None
     if item is not None:
         world.update_data(item.id, broken=True)
         return
@@ -270,3 +277,5 @@ def _heir_takes_up(world, event, event_id: int) -> None:
     carried_by_old = world.entity(old).data.get("gear")
     if carried_by_old is not None:
         world.update_data(heir, gear=dict(carried_by_old))
+    elif world.entity(heir).data.get("gear") is None:
+        world.update_data(heir, gear=seeded(world, heir, as_npc=True))  # the heir keeps the blade they carried

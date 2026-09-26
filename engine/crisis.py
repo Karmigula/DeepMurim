@@ -5,6 +5,8 @@ import systems.regency as R
 import systems.claimants as C
 import systems.succession_crisis as SC
 import systems.testament as T
+from systems.beliefs import known_people
+from world.gen.materialize import people_at
 from engine.actions import Action, Choice
 from systems import factions as F
 from world.events import Event, commit
@@ -14,6 +16,12 @@ SWAY_LABELS = {"speak": "Speak to them for {name}", "gift": "Offer them a gift f
 
 
 class CrisisMixin:
+    def _nameable_claimants(self, crisis: dict) -> list[dict]:
+        """The standing claimants a choice may name: those heard of or met, those here, and yourself (5a review)."""
+        world, me = self.world, self.player.id
+        known = set(known_people(world, me)) | {p.id for p in people_at(world, self.place.id)} | {me}
+        return [c for c in SC.standing_claimants(world, crisis) if c["person"] in known]
+
     def _crisis_here(self):
         return P.mine_here(self.world, self.player.id, self.place.id)
 
@@ -26,7 +34,7 @@ class CrisisMixin:
             faction = world.entity(crisis["faction"]).name
             if P.claim_block(world, occurrence, me) is None:
                 extras.append(Choice(f"Claim the seat of the {faction}", Action("claim_seat", occurrence.id)))
-            for c in SC.standing_claimants(world, crisis):
+            for c in self._nameable_claimants(crisis):
                 person = c["person"]
                 if P.declare_block(world, occurrence, me, person) is None:
                     extras.append(Choice(f"Declare for {world.entity(person).name}", Action("declare_for", person)))
@@ -45,7 +53,7 @@ class CrisisMixin:
                                      Action("fight_trial", occurrence.id)))
             for token in P.tokens_held_by(world, me):
                 if world.entity(token).data["faction"] == crisis["faction"]:
-                    for c in SC.standing_claimants(world, crisis):
+                    for c in self._nameable_claimants(crisis):
                         if c["person"] != me:
                             extras.append(Choice(f"Hand the leader's token to {world.entity(c['person']).name}",
                                                  Action("hand_token", (token, c["person"]))))
