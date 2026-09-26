@@ -186,6 +186,8 @@ def asked_events(world, player: int, npc: int, place: int, kind: str) -> list[Ev
 
 
 def _frame_exposed(world, plot, exposer) -> list[Event]:
+    if plot.data.get("failed"):
+        return []  # the evidence never took: no one was cast out to clear
     return [Event("frame_revealed", (plot.data["target"],), world.entity(plot.data["faction"]).data.get("seat"),
                   {"plot": plot.id, "faction": plot.data["faction"], "framer": plot.data["plotter"]})]
 

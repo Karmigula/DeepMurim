@@ -1,6 +1,7 @@
 """The player's investigation (phase 4h spec 3-7, 11): examine the body, ask, search, accuse, the founder's hall,
 the will, and the framed heir's return."""
 
+import systems.claimants as C
 import systems.encounters as encounters
 import systems.frames as R
 import systems.legitimacy as L
@@ -10,6 +11,7 @@ import systems.plots as P
 import systems.puppets as U
 import systems.scheming as S
 import systems.succession_crisis as SC
+from systems import factions as F
 from systems.founding import followers
 from engine.actions import Action, Choice
 from world.events import commit
@@ -77,7 +79,8 @@ class IntrigueMixin:
         for faction in self._seated_here():  # an exile's quarters, for one who has found a thread of the frame
             for plot in P.plots_of(world, faction, ("frame",)):
                 exile = plot.data["target"]
-                if exile != me and P.found_by(world, plot, me) and P.search_block(world, me, exile) is None                         and exile not in P.suspicions(world, me):
+                if exile != me and P.found_by(world, plot, me) and P.search_block(world, me, exile) is None \
+                        and exile not in P.suspicions(world, me):
                     extras.append(Choice(f"Search the quarters {world.entity(exile).name} left behind",
                                          Action("search_quarters", exile)))
         if framed and R.player_return_block(world, me, self.place.id) is None:
@@ -88,20 +91,29 @@ class IntrigueMixin:
     def _conversation_extras(self, npc) -> list:
         extras = super()._conversation_extras(npc)
         world, me = self.world, self.player.id
-        if M.witness_plot(world, me, npc.id) is not None:
+        seated = set(self._seated_here())
+        plots = [world.entity(p) for p in P.open_plots(world)]  # read once for every ask (4h minors)
+        plots = [p for p in plots if p.data["faction"] in seated]
+        # each ask is offered on a reason the player holds, to anyone it fits: the menu names no witness (4h minors)
+        if any(M.night_reason(world, me, p) for p in plots if p.data["type"] == "murder"):
             extras.append(Choice(ASKS["night"], Action("ask_clue", (npc.id, "witness"))))
-        if U.gift_plot(world, me, npc.id) is not None:
+        puppets = [p for p in plots if p.data["type"] == "puppet"
+                   and (P.knows(world, me, p) or P.found_by(world, p, me))]  # one suspects a puppet or knows of one
+        if any(npc.id in C.voters(world, p.data["faction"]) for p in puppets):
             extras.append(Choice(ASKS["silver"], Action("ask_clue", (npc.id, "silver"))))
-        if U.envoy_plot(world, me, npc.id) is not None:
+        if puppets and not any(C.role_in(world, npc.id, p.data["faction"]) for p in puppets):
             extras.append(Choice(ASKS["envoy"], Action("ask_clue", (npc.id, "envoy"))))
         if S.buy_poison_block(world, me, npc.id) is None:
             extras.append(Choice(f"Buy a poison ({S.POISON_PRICE} silver)", Action("buy_poison", npc.id)))
         if S.poison_block(world, me, npc.id) is None:
             extras.append(Choice("Slip poison into their tea", Action("slip_poison", npc.id)))
-        for kind, label in (("scribe", ASKS["scribe"]), ("false_witness", ASKS["false_witness"]), ("night", ASKS["seen"])):
-            plot = R.ask_plot(world, me, npc.id, kind)
-            if plot is not None and SC.live(world, plot.data["faction"]) is not None:  # people talk in a crisis
-                extras.append(Choice(label, Action("ask_clue", (npc.id, kind))))
+        if any((SC.crisis_of(o).get("will") or {}).get("state") == "read" for o in self._crises_here()):
+            extras.append(Choice(ASKS["scribe"], Action("ask_clue", (npc.id, "scribe"))))
+        if any(p.data["type"] == "frame" and not p.data.get("failed") for p in plots):  # the crime is told openly
+            extras.append(Choice(ASKS["false_witness"], Action("ask_clue", (npc.id, "false_witness"))))
+        mine = {f for f, _, d in F.memberships(world, me) if d.get("status", "member") == "member"}
+        if mine & seated:  # one of the sect asks about the walls at night, crisis or none (spec 5.2)
+            extras.append(Choice(ASKS["seen"], Action("ask_clue", (npc.id, "night"))))
         return extras
 
     def _occurrence_here(self, occurrence_id):

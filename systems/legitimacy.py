@@ -56,6 +56,8 @@ def art_known(world, person: int, faction: int) -> float:
     art = world.entity(faction).data.get("supreme_art")
     if art is None:
         return 0.0
+    if C.role_in(world, person, faction) == "leader":
+        return 1.0  # the master knows it whole (spec 7)
     return max((a.known_completeness for a in known_arts(world, person) if a.technique.id == art), default=0.0)
 
 
@@ -66,6 +68,9 @@ def teaching_events(world, n: int) -> list[Event]:
     events = []
     for faction in world.entities_after("faction", "heir", 0):
         heir, since = faction.data.get("heir"), faction.data.get("heir_since")
+        if since is None and isinstance(heir, int):
+            world.update_data(faction.id, heir_since=n)  # named before the art was taught: their year starts now
+            continue
         if great(world, faction.id) and since is not None and n - since >= HEIR_LEARNS and alive(world, heir) \
                 and art_known(world, heir, faction.id) < ART_KNOWN:
             events.append(Event("art_taught", (heir,), faction.data.get("seat"), {"faction": faction.id}))
@@ -84,17 +89,19 @@ def _named_since(world, event, event_id: int) -> None:
     world.update_data(event.data["faction"], heir_since=lives.current_season(world))
 
 
-@listen("died")
-def _manual_left(world, event, event_id: int) -> None:
+def _manual_left(world, event, rows) -> None:
     """A great sect's master dies: a manual of the supreme art may lie in their chambers (0.5)."""
     victim = event.actors[-1]
-    for fid, _, data in F.memberships(world, victim):
+    for fid, _, data in rows:
         if data.get("role") != "leader" or not great(world, fid) or world.entity(fid).data.get("dissolved"):
             continue
         if world.entity(fid).data.get("art_manual") is None \
                 and rng_for(world.world_seed, f"manual:{fid}:{victim}").random() < MANUAL_CHANCE:
             manual = create_manual(world, fid, supreme_art(world, fid), MANUAL_COMPLETENESS)  # the sect holds it
             world.update_data(fid, art_manual=manual)
+
+
+P.DIED_HOOKS.append(_manual_left)
 
 
 @listen("chambers_searched")
@@ -313,11 +320,10 @@ def outsider_for(world, faction: int, leader: int) -> int | None:
     return max(able, key=lambda p: (realm_of(world, p), -p)) if able else None
 
 
-@listen("died")
-def _outsider_named(world, event, event_id: int) -> None:
+def _outsider_named(world, event, rows) -> None:
     """A dying master with no chief disciple may name a respected outsider (0.1)."""
     victim = event.actors[-1]
-    for fid, _, data in F.memberships(world, victim):
+    for fid, _, data in rows:
         faction = world.entity(fid)
         if data.get("role") != "leader" or faction.data.get("type") not in F.STAFFED or faction.data.get("heir"):
             continue
@@ -325,6 +331,9 @@ def _outsider_named(world, event, event_id: int) -> None:
             chosen = outsider_for(world, fid, victim)
             if chosen is not None:
                 world.update_data(fid, outsider=chosen)
+
+
+P.DIED_HOOKS.append(_outsider_named)
 
 
 def _outsider_claims(world, occurrence) -> None:

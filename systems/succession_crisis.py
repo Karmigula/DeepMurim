@@ -53,6 +53,9 @@ def _fallen(world, event, event_id: int) -> None:
             world.update_data(fid, fallen={"leader": victim, "cause": event.data.get("cause"), "place": event.place,
                                            "killer": killer if killer != victim else None, "time": world.time})
     T.last_breath(world, event, rows)
+    from systems.plots import DIED_HOOKS  # phase 4h: the poison, the manual, the outsider share the one lookup
+    for hook in DIED_HOOKS:
+        hook(world, event, rows)
 
 
 def doubt(world, faction: int) -> str | None:

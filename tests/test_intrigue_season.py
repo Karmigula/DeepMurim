@@ -68,8 +68,12 @@ def test_the_plot_hooks_stay_cheap_with_fifty_open_plots(game):
     seat = halls.seat_of(world, sect)
     [leader] = halls.staff_at(world, sect, seat, roles=("leader",))
     elder = halls.staff_at(world, sect, seat, roles=("elder",))[0]
-    for i in range(50):
-        commit(world, P.made_events(world, "murder", f"speed:{i}", elder, sect, seat, target=leader,
+    cult = next(i for i in F.ensure_roster(world) if world.entity(i).data["type"] == "demonic_cult")
+    kinds = ("murder", "spy", "forgery")  # the lasting kinds (a puppet lives only in its crisis, a frame in one)
+    for i in range(50):  # every lasting type, as a long world gathers them
+        kind = kinds[i % len(kinds)]
+        commit(world, P.made_events(world, kind, f"speed:{i}", elder, sect, seat, target=leader,
+                                    patron=cult if kind == "spy" else None,
                                     clues=[P.clue("body", elder), P.clue("motive", elder, at="quarters")]))
     assert len(P.open_plots(world)) == 50
     n = lives.current_season(world)

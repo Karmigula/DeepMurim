@@ -172,7 +172,8 @@ no one but a claimant in the leader's seat during it, a token in exactly one pla
 
 A hidden truth is a `plot` entity: `type` one of `murder`, `puppet`, `spy`, `frame`, `forgery`; its plotter,
 patron, target, faction and the claimant it serves; its `clues` (each pointing at a person, some deliberately
-false: `RED_HERRING`); who knows it (`known_by`); its `state` (`open`, `exposed`, `buried`, `cold`, `void`); and a
+false: `RED_HERRING`); who knows it (`known_by`); its `state` (`open`, `exposed`, `cold`, `void`; the spec's `buried` never comes, since a lost witness leaves a
+`missing` clue behind); and a
 secret fact of its truth (recorded with `spread = False`). The meta row `open_plots` lists the open ones: the
 seasonal hooks (leaks, burial, `COLD_SEASONS`, each type's own) read only it.
 

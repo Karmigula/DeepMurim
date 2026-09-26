@@ -134,6 +134,7 @@ def gift_plot(world, player: int, npc: int):
     for plot in [world.entity(p) for p in P.open_plots(world)]:
         if plot.data["type"] == "puppet" and npc in plot.data.get("gifted", []) \
                 and P.unfound(plot, "silver", player) is not None \
+                and (P.knows(world, player, plot) or P.found_by(world, plot, player)) \
                 and here == [world.entity(plot.data["faction"]).data.get("seat")]:
             return plot
     return None

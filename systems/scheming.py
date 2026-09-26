@@ -41,8 +41,8 @@ def _wit(world, player: int) -> int:
 # --- poison -------------------------------------------------------------------------------------------------
 
 def poisons_of(world, player: int) -> list[int]:
-    return [i for i in world.targets(player, "owns") if world.entity(i).kind == "treasure"
-            and world.entity(i).data.get("kind") == "poison" and not world.entity(i).data.get("used")]
+    items = [world.entity(i) for i in world.targets(player, "owns")]  # each looked up once (4h minors)
+    return [i.id for i in items if i.kind == "treasure" and i.data.get("kind") == "poison" and not i.data.get("used")]
 
 
 def buy_poison_block(world, player: int, npc: int) -> str | None:

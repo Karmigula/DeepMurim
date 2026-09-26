@@ -6,8 +6,10 @@ poisoning: a `murder` plot. The world sees a natural death, but whispers of pois
 """
 
 import systems.claimants as C
+import systems.lives as lives
 import systems.plots as P
 import systems.succession_crisis as SC
+import systems.world_clock as world_clock
 from systems import factions as F
 from systems.facts import make_variant, place_name, record_fact
 from systems.kin import kin_of
@@ -62,13 +64,12 @@ def murder_events(world, faction: int, victim: int, plotter: int, patron, place:
                          patron=patron, clues=clues)
 
 
-@listen("died")
-def _poisoned(world, event, event_id: int) -> None:
+def _poisoned(world, event, rows) -> None:
     """A leader's natural death: with someone to want it, a seeded roll makes it murder (spec 4)."""
     victim = event.actors[-1]
     if event.data.get("cause") not in NATURAL or event.data.get("poisoned_by") is not None:
         return
-    for fid, _, data in F.memberships(world, victim):
+    for fid, _, data in rows:
         faction = world.entity(fid)
         if data.get("role") != "leader" or faction.data.get("type") not in F.STAFFED or faction.data.get("dissolved"):
             continue
@@ -81,6 +82,9 @@ def _poisoned(world, event, event_id: int) -> None:
         plotter, patron = rng.choice(choices)
         place = event.place if event.place is not None else faction.data.get("seat")
         commit(world, murder_events(world, fid, victim, plotter, patron, place, rng))
+
+
+P.DIED_HOOKS.append(_poisoned)
 
 
 @listen("plot_made")
@@ -136,6 +140,14 @@ def _examined(world, event) -> None:
     world.update_data(occurrence.id, data={**crisis, "examined": crisis.get("examined", []) + [event.actors[0]]})
 
 
+def night_reason(world, player: int, plot) -> bool:
+    """Whether the player has cause to ask about the night this murder was done: a clue, or the whispers."""
+    if P.found_by(world, plot, player):
+        return True
+    occurrence = SC.live(world, plot.data["faction"])
+    return occurrence is not None and SC.crisis_of(occurrence)["cause"] == "suspicion"
+
+
 def witness_plot(world, player: int, npc: int):
     """The open murder plot this person witnessed, if the player has reason to ask them about it."""
     for pid in P.open_plots(world):
@@ -144,11 +156,7 @@ def witness_plot(world, player: int, npc: int):
             continue
         witnessed = any(c["kind"] == "witness" and c.get("witness") == npc and player not in c["found_by"]
                         and not c.get("lost") for c in plot.data["clues"])
-        if not witnessed:
-            continue
-        occurrence = SC.live(world, plot.data["faction"])
-        whispers = occurrence is not None and SC.crisis_of(occurrence)["cause"] == "suspicion"
-        if P.found_by(world, plot, player) or whispers:
+        if witnessed and night_reason(world, player, plot):
             return plot
     return None
 
@@ -166,7 +174,8 @@ def _exposed(world, plot, exposer) -> list[Event]:
     victim = plot.data["target"]
     kin = tuple(Witness(k, "hatred", 0.8, True) for k, _ in kin_of(world, victim) if k != plot.data["plotter"])
     return [Event("murder_revealed", (plot.data["plotter"],), world.entity(plot.data["faction"]).data.get("seat"),
-                  {"plot": plot.id, "victim": victim, "faction": plot.data["faction"], "patron": plot.data["patron"]},
+                  {"plot": plot.id, "victim": victim, "faction": plot.data["faction"], "patron": plot.data["patron"],
+                   "held_seat": C.role_in(world, plot.data["plotter"], plot.data["faction"]) == "leader"},
                   witnesses=kin)]
 
 
@@ -186,6 +195,8 @@ def _revealed(world, event) -> None:
 @listen("murder_revealed")
 def _revealed_news(world, event, event_id: int) -> None:
     plotter = event.actors[0]
+    if event.data.get("held_seat"):  # the murderer sat in the seat: it is filled now, not next season
+        commit(world, world_clock.succession_events(world, event.data["faction"], lives.current_season(world)))
     variant = make_variant("murdered", plotter, event.data["victim"], place=place_name(world, event.place))
     record_fact(world, plotter, "murdered", event.data["victim"], place=event.place, source_event=event_id,
                 weight=3.0, variant=variant)

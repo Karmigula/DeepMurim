@@ -82,8 +82,8 @@ def test_the_puppets_silver_sways_the_voters_and_a_gifted_voter_can_be_asked(gam
     puppet = str(plot.data["serves"])
     assert plot.data["gifted"] and all(crisis["sways"][str(v)][puppet] >= U.GIFT for v in plot.data["gifted"])
     voter = plot.data["gifted"][0]
-    commit(world, U.asked_events(world, me, voter, seat, "silver"))
     commit(world, U.asked_events(world, me, plot.data["plotter"], seat, "envoy"))
+    commit(world, U.asked_events(world, me, voter, seat, "silver"))  # now one who knows of a puppet (spec 5.1)
     envoy = plot.data["plotter"]
     assert sorted(P.suspicions(world, me, sect)[envoy]) == ["envoy", "silver"]
     commit(world, P.accuse_events(world, me, envoy, sect, seat))

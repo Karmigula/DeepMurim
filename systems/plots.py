@@ -13,6 +13,7 @@ clues pointing at one person let the finder accuse them; a true accusation expos
 EXPOSE_HOOKS: dict = {}  # type -> (world, plot entity, exposer) -> list[Event]: each type's own consequence
 SEASON_HOOKS: dict = {}  # type -> (world, plot entity, n, rng) -> list[Event]: each type's own season (a spy's year)
 BEGUN_HOOKS: list = []  # (world, occurrence) -> None: called once a crisis has begun (a puppet backed)
+DIED_HOOKS: list = []  # (world, event, memberships) -> None: a death, with 4g's one lookup of the dead's sects
 
 import systems.claimants as C  # noqa: E402
 import systems.lives as lives  # noqa: E402
@@ -59,8 +60,7 @@ def plots_of(world, faction: int, types=TYPES) -> list:
 
 def exposed_plotters(world, faction: int) -> set[int]:
     """Plotters whose plots against this faction were exposed: far away, they cannot win its seat (spec 10)."""
-    return {p.data["plotter"] for p in world.entities("plot") if p.data["faction"] == faction
-            and p.data["state"] == "exposed"}
+    return set(world.entity(faction).data.get("stained") or ())  # kept at exposure: no scan of every plot
 
 
 def puppet_served(world, faction: int) -> set[int]:
@@ -300,6 +300,9 @@ def exposed_events(world, plot, exposer: int | None, place: int) -> list[Event]:
 def _exposed(world, event) -> None:
     plot = world.entity(event.data["plot"])
     _close(world, plot.id, "exposed")
+    stained = world.entity(plot.data["faction"]).data.get("stained") or []
+    if plot.data["plotter"] not in stained:
+        world.update_data(plot.data["faction"], stained=stained + [plot.data["plotter"]])
     occurrence = SC.live(world, plot.data["faction"])
     if occurrence is not None:  # the plotter is struck from any claim they hold
         crisis = SC.crisis_of(occurrence)
