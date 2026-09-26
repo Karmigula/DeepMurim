@@ -178,6 +178,8 @@ def test_the_camps_may_find_the_players_hand_in_a_plot(game, monkeypatch):
     sect, seat, keeper, proud, other, occurrence = crisis_at_seat(game)
     world.update_data(me, silver=500)
     game.perform(Action("forge_will", (occurrence.id, proud)))
+    [plot] = P.plots_of(world, sect, ("forgery",))
+    commit(world, P.found_events(world, plot, "seal", keeper, seat))  # a camp that has found a clue of it
     to_stage(world, occurrence, seat, "announced")
     [plot] = [world.entity(p.id) for p in world.entities("plot") if p.data["type"] == "forgery"]
     assert plot.data["state"] == "exposed" and world.facts(predicate="forger", subject=me)

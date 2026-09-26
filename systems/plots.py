@@ -131,6 +131,14 @@ def learn(world, person: int, plot, confidence: float = 1.0, channel: str = "tol
                 channel)  # who saw it for themself heard it at no retellings
 
 
+def spy_gone(world, person: int, faction: int) -> None:
+    """A spy cast out of the sect they spy on, by whatever road: their plot there is over (spec 12)."""
+    for plot in plots_of(world, faction, ("spy",)):
+        if plot.data["plotter"] == person:
+            _close(world, plot.id, "void")
+    world.update_data(person, spy_of=None)
+
+
 def _close(world, plot_id: int, state: str) -> None:
     world.update_data(plot_id, state=state)
     world.set_meta("open_plots", [p for p in open_plots(world) if p != plot_id])
@@ -180,7 +188,12 @@ SEARCH_CHANCE = 0.5
 def search_block(world, person: int, suspect: int) -> str | None:
     if suspect not in suspicions(world, person) and not world.entity(suspect).data.get("framed"):
         return "You have no reason to turn their quarters over."
-    if world.targets(suspect, "located_in") != world.targets(person, "located_in"):
+    framed = world.entity(suspect).data.get("framed") or {}
+    if framed:  # their quarters are at the seat they were cast out of, whether or not they are
+        seat = world.entity(framed["faction"]).data.get("seat")
+        if seat not in world.targets(person, "located_in"):
+            return "Their quarters are not here."
+    elif world.targets(suspect, "located_in") != world.targets(person, "located_in"):
         return "Their quarters are not here."
     if (world.entity(person).data.get("searched") or {}).get(str(suspect)) == lives.current_season(world):
         return "You searched their quarters this season."
@@ -238,8 +251,9 @@ def proven(world, person: int, suspect: int, faction: int):
 
 
 def accuse_block(world, person: int, suspect: int, faction: int) -> str | None:
-    clues = [k for k in suspicions(world, person, faction).get(suspect, [])]
-    if len(clues) < ACCUSE_CLUES:
+    most = max((sum(1 for c in found_by(world, plot, person) if c["points_to"] == suspect)
+                for plot in plots_of(world, faction)), default=0)
+    if most < ACCUSE_CLUES:  # two things of one plot: clues of two plots are no case
         return "You need two things that point at them before the elders will hear you."
     return None
 
@@ -341,7 +355,7 @@ def season_events(world, n: int) -> list[Event]:
         plot = world.entity(pid)
         d = plot.data
         rng = rng_for(world.world_seed, f"plots:{pid}:{n}")
-        if not alive(world, d["plotter"]) and d["type"] in ("spy", "puppet"):
+        if not alive(world, d["plotter"]) and d["type"] in ("spy", "puppet", "frame"):
             events.append(Event("plot_closed", (), None, {"plot": pid, "state": "void"}))
             continue
         if d["type"] in COLD_TYPES and n - d["season"] >= COLD_SEASONS:

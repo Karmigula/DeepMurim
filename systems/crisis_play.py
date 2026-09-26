@@ -83,6 +83,10 @@ def claim_block(world, occurrence, player: int) -> str | None:
         return "Claims are made in the days of mourning; that time has passed."
     if SC.claimant(crisis, player) is not None:
         return "You already claim the seat."
+    if player in crisis.get("tested", []):
+        return "You failed the founder's test; the hall will not hear your claim again."
+    if F.membership(world, player, crisis["faction"])[1].get("status", "member") != "member":
+        return "You are no longer of the sect."
     rank, _ = F.membership(world, player, crisis["faction"])
     if rank < CLAIM_RANK and world.entity(crisis["faction"]).data.get("heir") != player:
         return "Only a core disciple or better, or the named heir, may claim the seat."

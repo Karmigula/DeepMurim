@@ -18,7 +18,7 @@ from systems.facts import make_variant, place_name, record_fact
 from systems.membership import set_membership
 from systems.purse import silver_of
 from systems.tournaments import alive
-from world.events import Event, Witness, commit, effect, listen
+from world.events import Event, commit, effect, listen
 from world.seed import rng_for
 
 POISON_PRICE, SPY_PRICE, FRAME_PRICE, FORGE_PRICE = 50, 100, 100, 100
@@ -179,16 +179,6 @@ def _funded(world, event) -> None:
     _pay(world, event.actors[0], event.data["silver"])
 
 
-@listen("crisis_settled")
-def _grateful(world, event, event_id: int) -> None:
-    """A puppet the player bought who wins remembers who paid (spec 8)."""
-    for plot in P.plots_of(world, event.data["faction"], ("puppet",)):
-        plotter = plot.data["plotter"]
-        if plot.data["serves"] == event.data["winner"] and world.entity(plotter).data.get("is_player"):
-            commit(world, [Event("puppet_thanks", (plotter, event.data["winner"]), event.place, {},
-                                 witnesses=(Witness(event.data["winner"], "grateful", 0.8),))])
-
-
 # --- a frame, and a forgery -----------------------------------------------------------------------------
 
 def frame_chance(world, player: int) -> float:
@@ -265,21 +255,37 @@ def _spies_and_suspicion(world, event, event_id: int) -> None:
                                                                      + SPY_SWAY, 3)
                 crisis = {**crisis, "sways": sways}
                 world.update_data(occurrence.id, data=crisis)
+    backing = None
     for plot in P.plots_of(world, crisis["faction"]):
-        if plot.data["plotter"] != player or not [c for c in plot.data["clues"] if not c.get("lost")]:
+        if _schemer(world, plot) != player:
             continue
-        for c in SC.standing_claimants(world, SC.crisis_of(world.entity(occurrence.id))):
-            if not world.entity(c["person"]).data.get("is_player") and rng.random() < NPC_FIND:
+        finders = {p for c in plot.data["clues"] if not c.get("lost") for p in c["found_by"]}
+        if not finders:
+            continue  # only a camp that has found a clue of it may lay it bare (spec 8)
+        crisis = SC.crisis_of(world.entity(occurrence.id))
+        if backing is None:
+            backing, _ = C.camps(world, crisis)
+        for c in SC.standing_claimants(world, crisis):
+            camp = {c["person"], *backing.get(c["person"], [])}
+            if not world.entity(c["person"]).data.get("is_player") and camp & finders and rng.random() < NPC_FIND:
                 commit(world, P.exposed_events(world, plot, c["person"], occurrence.data["place"]))
                 break
 
 
 # --- the player's plot exposed ----------------------------------------------------------------------------
 
+def _schemer(world, plot) -> int:
+    """Whose scheme a plot is: its plotter, or for a spy the one who sent them."""
+    d = plot.data
+    if d["type"] == "spy" and isinstance(d.get("patron"), int) and world.entity(d["patron"]).kind != "faction":
+        return d["patron"]
+    return d["plotter"]
+
+
 @listen("plot_exposed")
 def _player_exposed(world, event, event_id: int) -> None:
     plot = world.entity(event.data["plot"])
-    plotter = plot.data["plotter"]
+    plotter = _schemer(world, plot)
     if not world.entity(plotter).data.get("is_player") or plot.data.get("failed"):
         return
     commit(world, [Event("scheme_exposed", (plotter,), event.place, {"plot": plot.id, "deed": DEEDS[plot.data["type"]],

@@ -26,6 +26,9 @@ LEFT = {"expelled": ("expelled", 2.0), "deserter": ("deserted", 2.0), "spy": ("s
 def set_membership(world, person: int, faction: int, rank: int | None = None, **changes) -> None:
     current_rank, data = F.membership(world, person, faction)
     world.relate(person, faction, "member_of", current_rank if rank is None else rank, {**data, **changes})
+    if changes.get("status", "member") != "member" and world.entity(person).data.get("spy_of"):
+        from systems.plots import spy_gone  # phase 4h: the plots come after membership in the import graph
+        spy_gone(world, person, faction)
 
 
 def open_martial(world, player: int) -> int | None:

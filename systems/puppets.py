@@ -16,7 +16,7 @@ from systems.attitude import attitude
 from systems.facts import make_variant, place_name, record_fact
 from systems.membership import set_membership
 from systems.tournaments import alive, realm_of
-from world.events import Event, commit, effect, listen
+from world.events import Event, Witness, commit, effect, listen
 from world.gen.materialize import people_at
 from world.seed import rng_for
 
@@ -163,6 +163,11 @@ def _pocket(world, event, event_id: int) -> None:
             world.relate(a, b, "stance", POCKET_STANCE)
             world.relate(b, a, "stance", POCKET_STANCE)
             world.update_data(a, pocket={"patron": b, "puppet": event.data["winner"]})
+        plotter = plot.data["plotter"]
+        if plot.data["serves"] == event.data["winner"] and world.entity(plotter).data.get("is_player"):
+            commit(world, [Event("puppet_thanks", (plotter, event.data["winner"]), event.place, {},
+                                 witnesses=(Witness(event.data["winner"], "grateful", 0.8),))])  # spec 8
+        commit(world, [Event("plot_closed", (), None, {"plot": plot.id, "state": "void"})])  # its crisis is over
 
 
 def in_pocket(world, a: int, b: int) -> bool:

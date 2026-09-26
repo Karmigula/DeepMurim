@@ -72,6 +72,14 @@ class IntrigueMixin:
                                          f"{world.entity(faction).name} in secret ({S.SPY_PRICE} silver)",
                                          Action("plant_spy", (follower, faction))))
         framed = self.player.data.get("framed") or {}
+        if framed and P.search_block(world, me, me) is None:
+            extras.append(Choice("Search your old quarters", Action("search_quarters", me)))
+        for faction in self._seated_here():  # an exile's quarters, for one who has found a thread of the frame
+            for plot in P.plots_of(world, faction, ("frame",)):
+                exile = plot.data["target"]
+                if exile != me and P.found_by(world, plot, me) and P.search_block(world, me, exile) is None                         and exile not in P.suspicions(world, me):
+                    extras.append(Choice(f"Search the quarters {world.entity(exile).name} left behind",
+                                         Action("search_quarters", exile)))
         if framed and R.player_return_block(world, me, self.place.id) is None:
             extras.append(Choice(f"Demand the seat of the {world.entity(framed['faction']).name} you were cast out of",
                                  Action("return_seat", framed["faction"])))

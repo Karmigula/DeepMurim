@@ -198,6 +198,11 @@ class Game(IntrigueMixin, CrisisMixin, SealedMixin, RivalMixin, ChamberMixin, De
 
     def perform(self, action: Action) -> Turn:
         self.last_briefs = []
+        gone = self._gone_meanwhile()  # someone who died since the last turn is no longer at your side
+        if gone:
+            turn = self.perform(action)
+            turn.lines[:0] = gone
+            return turn
         gate = self._gate(action)
         if gate is not None:
             return gate
