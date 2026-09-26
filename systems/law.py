@@ -12,6 +12,8 @@ from world.gen.materialize import people_at, region_of
 from world.seed import rng_for
 
 FINE_PER, WANTED, HUNTED = 20, 30, 50
+SCHEMES = frozenset({"poisoner", "spymaster", "framer", "forger", "puppet_master", "murdered"})  # 4h: 100 silver
+SCHEME_WEIGHT = 5.0
 ARREST_CHANCE, HUNTER_CHANCE = 0.4, 0.2
 ALLIANCE_RANGE = 3
 WATCHES_PER_DAY = 4
@@ -45,6 +47,8 @@ def crimes(world, town_id: int, subject: int) -> list[tuple[int, float]]:
             weight = fact.weight
         elif fact.predicate == "crippled":
             weight = fact.weight
+        elif fact.predicate in SCHEMES:
+            weight = SCHEME_WEIGHT
         elif fact.predicate == "member_of" and target is not None and target.kind == "faction" \
                 and target.data["type"] in F.DARK:
             doubled = _alliance_doubles(world, town_id) if doubled is None else doubled

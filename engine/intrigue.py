@@ -8,7 +8,9 @@ import systems.lives as lives
 import systems.murder as M
 import systems.plots as P
 import systems.puppets as U
+import systems.scheming as S
 import systems.succession_crisis as SC
+from systems.founding import followers
 from engine.actions import Action, Choice
 from world.events import commit
 
@@ -48,6 +50,27 @@ class IntrigueMixin:
                 if P.accuse_block(world, me, suspect, faction) is None:
                     extras.append(Choice(f"Accuse {world.entity(suspect).name} before the elders",
                                          Action("accuse", (suspect, faction))))
+        for occurrence in self._crises_here():  # the schemes (spec 8)
+            crisis = SC.crisis_of(occurrence)
+            if S.forge_block(world, me, occurrence) is None:
+                for c in SC.standing_claimants(world, crisis):
+                    who = "yourself" if c["person"] == me else world.entity(c["person"]).name
+                    extras.append(Choice(f"Have a will forged naming {who} ({S.FORGE_PRICE} silver)",
+                                         Action("forge_will", (occurrence.id, c["person"]))))
+            for c in SC.standing_claimants(world, crisis):
+                if S.frame_block(world, me, occurrence, c["person"]) is None:
+                    extras.append(Choice(f"Plant false evidence against {world.entity(c['person']).name} "
+                                         f"({S.FRAME_PRICE} silver)", Action("frame_rival", (occurrence.id, c["person"]))))
+                if S.fund_block(world, me, occurrence, c["person"]) is None:
+                    extras.append(Choice(f"Put silver behind {world.entity(c['person']).name}'s claim "
+                                         f"({S.fund_price(world, crisis['faction'])} silver)",
+                                         Action("fund_claim", (occurrence.id, c["person"]))))
+        for faction in self._seated_here():
+            for follower in followers(world, me):
+                if S.spy_block(world, me, follower, faction) is None:
+                    extras.append(Choice(f"Send {world.entity(follower).name} to join the "
+                                         f"{world.entity(faction).name} in secret ({S.SPY_PRICE} silver)",
+                                         Action("plant_spy", (follower, faction))))
         framed = self.player.data.get("framed") or {}
         if framed and R.player_return_block(world, me, self.place.id) is None:
             extras.append(Choice(f"Demand the seat of the {world.entity(framed['faction']).name} you were cast out of",
@@ -63,6 +86,10 @@ class IntrigueMixin:
             extras.append(Choice(ASKS["silver"], Action("ask_clue", (npc.id, "silver"))))
         if U.envoy_plot(world, me, npc.id) is not None:
             extras.append(Choice(ASKS["envoy"], Action("ask_clue", (npc.id, "envoy"))))
+        if S.buy_poison_block(world, me, npc.id) is None:
+            extras.append(Choice(f"Buy a poison ({S.POISON_PRICE} silver)", Action("buy_poison", npc.id)))
+        if S.poison_block(world, me, npc.id) is None:
+            extras.append(Choice("Slip poison into their tea", Action("slip_poison", npc.id)))
         for kind, label in (("scribe", ASKS["scribe"]), ("false_witness", ASKS["false_witness"]), ("night", ASKS["seen"])):
             plot = R.ask_plot(world, me, npc.id, kind)
             if plot is not None and SC.live(world, plot.data["faction"]) is not None:  # people talk in a crisis
@@ -141,3 +168,45 @@ class IntrigueMixin:
             return self._turn([(why, "system")])
         return self._turn(self._commit_quiet(R.return_events(self.world, self.player.id,
                                                              lives.current_season(self.world))))
+
+    # --- the schemes (spec 8) ------------------------------------------------------------------------------
+
+    def _scheme_target(self, target):
+        occurrence_id, person = target if isinstance(target, tuple) else (None, None)
+        return self._occurrence_here(occurrence_id), person
+
+    def _do_forge_will(self, target):
+        occurrence, names = self._scheme_target(target)
+        if occurrence is None or (why := S.forge_block(self.world, self.player.id, occurrence)) is not None:
+            return self._turn([(why if occurrence else "There is no crisis here.", "system")])
+        return self._turn(self._commit_quiet(S.forge_events(self.world, self.player.id, occurrence, names)))
+
+    def _do_frame_rival(self, target):
+        occurrence, rival = self._scheme_target(target)
+        if occurrence is None or (why := S.frame_block(self.world, self.player.id, occurrence, rival)) is not None:
+            return self._turn([(why if occurrence else "There is no crisis here.", "system")])
+        return self._turn(self._commit_quiet(S.frame_events(self.world, self.player.id, occurrence, rival)))
+
+    def _do_fund_claim(self, target):
+        occurrence, claimant = self._scheme_target(target)
+        if occurrence is None or (why := S.fund_block(self.world, self.player.id, occurrence, claimant)) is not None:
+            return self._turn([(why if occurrence else "There is no crisis here.", "system")])
+        return self._turn(self._commit_quiet(S.fund_events(self.world, self.player.id, occurrence, claimant)))
+
+    def _do_plant_spy(self, target):
+        follower, faction = target if isinstance(target, tuple) else (None, None)
+        if follower is None or (why := S.spy_block(self.world, self.player.id, follower, faction)) is not None:
+            return self._turn([(why if follower is not None else "Send whom?", "system")])
+        return self._turn(self._commit_quiet(S.spy_events(self.world, self.player.id, follower, faction, self.place.id)))
+
+    def _do_buy_poison(self, npc):
+        if self.focus != npc or (why := S.buy_poison_block(self.world, self.player.id, npc)) is not None:
+            return self._turn([(why if self.focus == npc else "Speak with them first.", "system")])
+        return self._turn(self._commit(S.buy_poison_events(self.world, self.player.id, npc, self.place.id)))
+
+    def _do_slip_poison(self, npc):
+        if self.focus != npc or (why := S.poison_block(self.world, self.player.id, npc)) is not None:
+            return self._turn([(why if self.focus == npc else "Speak with them first.", "system")])
+        lines = self._commit_quiet(S.poison_events(self.world, self.player.id, npc, self.place.id))
+        self.focus = None  # they will not finish the conversation
+        return self._turn(lines)

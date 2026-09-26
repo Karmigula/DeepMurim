@@ -211,3 +211,83 @@ for kind in ("murder_revealed", "puppet_revealed", "spy_revealed", "forgery_reve
     @outcome(kind, body_facts=False)
     def _quiet(world, event):
         return [], {}
+
+
+def _deed(predicate: str, words: str):
+    def story(world, v, viewer) -> str:
+        return cap(f"{who(world, v.get('actor'), viewer)} {words} {_faction(world, v.get('target'))}.")
+    return story
+
+
+SPECIAL_PHRASES.update({"poisoner": _deed("poisoner", "was exposed as the poisoner in"),
+                        "spymaster": _deed("spymaster", "was exposed as the one who planted a spy in"),
+                        "framer": _deed("framer", "was exposed as the one who framed a claimant of"),
+                        "forger": _deed("forger", "was exposed as the forger of a will in"),
+                        "puppet_master": _deed("puppet_master", "was exposed as the silver behind a claimant of")})
+
+
+@outcome("poison_bought", body_facts=False)
+def _poison_bought(world, event):
+    return [f"{_name(world, event.actors[1])} wraps a small black vial in cloth and takes your silver without a word."], {}
+
+
+@summary("poison_bought")
+def _poison_bought_line(world, entry, names, place, other):
+    return f"Bought a poison in {place}."
+
+
+@outcome("poison_slipped", body_facts=False)
+def _slipped(world, event):
+    return [f"You pour the tea. {_name(world, event.actors[1])} drinks, and does not see the dawn."], {}
+
+
+@summary("poison_slipped")
+def _slipped_line(world, entry, names, place, other):
+    return f"Poisoned {other}."
+
+
+@outcome("spy_sent", body_facts=False)
+def _spy_sent(world, event):
+    return [f"{_name(world, event.actors[1])} bows, takes your silver, and goes to knock on the "
+            f"{world.entity(event.data['faction']).name}'s gate as a stranger."], {}
+
+
+@summary("spy_sent")
+def _spy_sent_line(world, entry, names, place, other):
+    return f"Sent {other} to spy for you."
+
+
+@outcome("claim_funded", body_facts=False)
+def _funded(world, event):
+    return [f"Your silver goes quietly to {_name(world, event.actors[1])}'s camp."], {}
+
+
+@summary("claim_funded")
+def _funded_line(world, entry, names, place, other):
+    return f"Put silver behind {other}'s claim."
+
+
+@outcome("frame_paid", body_facts=False)
+def _frame_paid(world, event):
+    return ["The evidence is made, and placed where it will be found."], {}
+
+
+@summary("frame_paid")
+def _frame_paid_line(world, entry, names, place, other):
+    return f"Paid for false evidence against {other}."
+
+
+@outcome("forgery_paid", body_facts=False)
+def _forgery_paid(world, event):
+    return ["A scribe who owes no one anything copies the late master's hand, and a will is read out."], {}
+
+
+@summary("forgery_paid")
+def _forgery_paid_line(world, entry, names, place, other):
+    return f"Had a will forged at {place}."
+
+
+for kind in ("scheme_exposed", "puppet_thanks", "spy_reported", "framed_out", "plot_made"):
+    @outcome(kind, body_facts=False)
+    def _quiet_deed(world, event):
+        return [], {}
