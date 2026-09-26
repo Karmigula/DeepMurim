@@ -19,8 +19,9 @@ PLAYER_FAVOUR = 0.5  # the leader's attitude that names a player member chief di
 BACKING = 0.2  # a voter backs their best claimant only if they lean this far
 REALM_LEAN = 0.2
 PROOF_LEAN = {"chief": 0.2, "blood": 0.3, "will": 0.5, "transmission": 0.4, "token": 0.3,  # blood: in clans only
-              "truth": 0.5}  # 4h: a returned heir whose frame was exposed
+              "truth": 0.5, "supreme_art": 0.6, "married_line": 0.3}  # 4h
 LOYAL_LEAN = 0.2
+OUTSIDER_LEAN = -0.2
 
 
 def ambitious(world, person: int) -> bool:
@@ -150,6 +151,11 @@ def proofs(world, crisis: dict, claimant: dict) -> list[str]:
     plot = world.entity(claimant["plot"]) if claimant.get("plot") is not None else None
     if claimant["kind"] == "returned" and plot is not None and plot.data.get("state") == "exposed":
         found.append("truth")
+    from systems.legitimacy import ART_KNOWN, art_known, married_line  # phase 4h
+    if art_known(world, person, crisis["faction"]) >= ART_KNOWN:
+        found.append("supreme_art")
+    if married_line(world, crisis, person):
+        found.append("married_line")
     return found
 
 
@@ -170,6 +176,8 @@ def lean(world, crisis: dict, voter: int, claimant: dict, full: bool = True) -> 
         value += attitude(world, voter, person).score
     if "loyal" in world.entity(voter).data.get("traits", ()) and person == named(world, crisis):
         value += LOYAL_LEAN
+    if claimant["kind"] == "outsider":
+        value += OUTSIDER_LEAN  # the sect's own resent an outsider (4h)
     return round(value, 3)
 
 

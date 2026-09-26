@@ -343,3 +343,4 @@ import systems.regency  # noqa: E402,F401  phase 4g: regents, usurpers, and heir
 import systems.murder  # noqa: E402,F401  phase 4h: plots, and the poisoned master
 import systems.puppets  # noqa: E402,F401  phase 4h: puppets and cult spies
 import systems.frames  # noqa: E402,F401  phase 4h: forged wills, framed heirs and their return
+import systems.legitimacy  # noqa: E402,F401  phase 4h: the supreme art, the founder's test, marriage, arbiters

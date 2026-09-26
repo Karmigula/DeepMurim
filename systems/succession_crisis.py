@@ -244,6 +244,10 @@ def decide_events(world, occurrence) -> list[Event]:
     ranked = sorted(tally, key=lambda p: (-tally[p], -realm_of(world, p), p))
     if tally[ranked[0]] * 2 > total:
         return settle_events(world, occurrence, ranked[0], "backing")
+    from systems.legitimacy import arbitration_events  # phase 4h: an arbiter may rule before any trial
+    ruled = arbitration_events(world, occurrence, standing, ranked)
+    if ruled:
+        return ruled
     a, b = ranked[:2]
     fighters = {str(a): champion(world, crisis, a, backing[a]), str(b): champion(world, crisis, b, backing[b])}
     trial = {"a": a, "b": b, "champions": fighters, "winner": None, "pending": False}

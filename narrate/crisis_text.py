@@ -8,7 +8,8 @@ KIND_WORDS = {"chief": "the chief disciple", "blood": "the late master's blood",
               "returned": "the heir cast out, come back", "outsider": "an outsider named heir"}
 HOW_WORDS = {"backing": "with the elders behind them", "trial": "by trial of arms", "unopposed": "unopposed",
              "chosen": "chosen by the elders", "far": "after a bitter contest", "strife": "by force of arms",
-             "stepped_down": "named by the old master", "regency": "as regent"}
+             "stepped_down": "named by the old master", "regency": "as regent",
+             "founder": "chosen by the founder's hall", "arbiter": "by an arbiter's verdict"}
 
 
 def names(world, people, viewer: int) -> str:
