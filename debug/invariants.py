@@ -181,6 +181,16 @@ def check_alchemy_world(world) -> list[str]:
     for faction in world.entities_after("faction", "pill_hall", 0):
         if any(count < 0 for count in faction.data["pill_hall"].values()):
             out.append(f"the pill hall of {faction.name} holds less than nothing")
+    for person in world.entities_after("person", "guild_rank", -1):
+        if not 0 <= person.data["guild_rank"] <= 9:
+            out.append(f"{person.name} (#{person.id}) holds Guild rank {person.data['guild_rank']}")
+    for scroll in world.entities("scroll"):
+        owners = world.sources(scroll.id, "owns")
+        if len(owners) > 1:
+            out.append(f"{scroll.name} (#{scroll.id}) has {len(owners)} owners")
+        recipe = world.entity(scroll.data.get("recipe") or 0)
+        if recipe is None or recipe.kind != "recipe":
+            out.append(f"{scroll.name} (#{scroll.id}) names no recipe")
     return out
 
 

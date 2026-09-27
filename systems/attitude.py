@@ -152,6 +152,11 @@ def attitude(world, npc_id: int, subject_id: int) -> Attitude:
     for belief, fact in heard:
         if belief.variant.get("actor") not in seen or fact.object == npc_id:
             continue  # things done to them are already in their memories
+        if fact.predicate == "guild_rank":  # phase 5c: an alchemist's rank, the highest one heard
+            value = 0.05 * belief.variant.get("rank", 0) * belief.confidence
+            if value > best.get(-1, (0.0, None))[0]:
+                best[-1] = (value, "they respect a ranked alchemist")
+            continue
         if fact.predicate == "member_of":  # enemies by association (phase 3b spec 3.4)
             if fact.object not in still_of:
                 continue
