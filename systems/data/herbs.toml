@@ -1,0 +1,195 @@
+# The herbs of the world (phase 5b spec 2.1): the same properties in every world.
+# element: fire water wood metal earth poison none; polarity: yin yang balanced;
+# potency and toxicity 1-5 and 0-5; terrains where it grows; price in silver for a year-old herb.
+
+[ginseng]
+element = "earth"
+polarity = "yang"
+potency = 4
+toxicity = 0
+terrains = ["mountains", "forest"]
+price = 30
+
+["blood lotus"]
+element = "fire"
+polarity = "yang"
+potency = 4
+toxicity = 1
+terrains = ["marsh", "river"]
+price = 35
+
+["snow lingzhi"]
+element = "water"
+polarity = "yin"
+potency = 4
+toxicity = 0
+terrains = ["mountains"]
+price = 40
+
+["dragon-bone moss"]
+element = "metal"
+polarity = "yang"
+potency = 5
+toxicity = 1
+terrains = ["hills", "mountains"]
+price = 50
+
+["frost lotus leaf"]
+element = "water"
+polarity = "yin"
+potency = 2
+toxicity = 0
+terrains = ["river", "marsh"]
+price = 12
+
+["red flame root"]
+element = "fire"
+polarity = "yang"
+potency = 3
+toxicity = 1
+terrains = ["hills", "plains"]
+price = 15
+
+["jade bamboo heart"]
+element = "wood"
+polarity = "balanced"
+potency = 2
+toxicity = 0
+terrains = ["forest", "river"]
+price = 10
+
+["iron thorn"]
+element = "metal"
+polarity = "yang"
+potency = 2
+toxicity = 1
+terrains = ["hills", "plains"]
+price = 8
+
+["yellow earth tuber"]
+element = "earth"
+polarity = "balanced"
+potency = 2
+toxicity = 0
+terrains = ["plains", "hills"]
+price = 6
+
+["moon dew grass"]
+element = "water"
+polarity = "yin"
+potency = 1
+toxicity = 0
+terrains = ["plains", "river", "forest"]
+price = 4
+
+["sunfire pepper"]
+element = "fire"
+polarity = "yang"
+potency = 1
+toxicity = 0
+terrains = ["plains", "hills"]
+price = 4
+
+["willow bark"]
+element = "wood"
+polarity = "yin"
+potency = 1
+toxicity = 0
+terrains = ["river", "forest", "plains"]
+price = 3
+
+["seven-star grass"]
+element = "wood"
+polarity = "balanced"
+potency = 3
+toxicity = 0
+terrains = ["forest", "mountains"]
+price = 18
+
+["silver needle leaf"]
+element = "metal"
+polarity = "yin"
+potency = 2
+toxicity = 0
+terrains = ["mountains", "hills"]
+price = 11
+
+["tiger bone vine"]
+element = "earth"
+polarity = "yang"
+potency = 3
+toxicity = 0
+terrains = ["mountains", "forest"]
+price = 20
+
+["heaven's dew orchid"]
+element = "none"
+polarity = "balanced"
+potency = 3
+toxicity = 0
+terrains = ["mountains", "forest"]
+price = 25
+
+["black lotus"]
+element = "poison"
+polarity = "yin"
+potency = 3
+toxicity = 5
+terrains = ["marsh"]
+price = 30
+
+["scorpion tail weed"]
+element = "poison"
+polarity = "yang"
+potency = 2
+toxicity = 4
+terrains = ["plains", "hills"]
+price = 14
+
+["corpse flower"]
+element = "poison"
+polarity = "yin"
+potency = 2
+toxicity = 3
+terrains = ["marsh", "forest"]
+price = 12
+
+["green viper moss"]
+element = "poison"
+polarity = "balanced"
+potency = 1
+toxicity = 3
+terrains = ["forest", "marsh"]
+price = 8
+
+["ghost reed"]
+element = "poison"
+polarity = "yin"
+potency = 1
+toxicity = 2
+terrains = ["marsh", "river"]
+price = 5
+
+["purple cloud fungus"]
+element = "wood"
+polarity = "yang"
+potency = 3
+toxicity = 1
+terrains = ["forest", "hills"]
+price = 16
+
+["cold iron sand"]
+element = "metal"
+polarity = "yin"
+potency = 3
+toxicity = 2
+terrains = ["mountains", "river"]
+price = 18
+
+["golden sun peach"]
+element = "fire"
+polarity = "balanced"
+potency = 2
+toxicity = 0
+terrains = ["plains", "hills", "river"]
+price = 9
