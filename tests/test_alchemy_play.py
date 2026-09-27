@@ -65,6 +65,7 @@ def test_a_known_recipe_is_refined_from_the_herbs_carried(game, monkeypatch):
     world.relate(me, recipe, "knows_recipe", 0.1)
     for name in ("ginseng", "tiger bone vine", "willow bark"):
         H.make_herb(world, name, 0, me)
+    H.learn(world, me, ["ginseng", "tiger bone vine", "willow bark"])  # one refines only from herbs one knows
     turn = game.perform(Action("alchemy"))
     assert f"Refine {world.entity(recipe).name}" in labels(turn)
     game.perform(Action("refine", recipe))

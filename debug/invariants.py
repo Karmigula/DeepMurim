@@ -169,13 +169,19 @@ def check_alchemy(world) -> list[str]:
 
 
 def check_toxins(world) -> list[str]:
-    """The poisoned index lists only living-or-dead NPCs, once each (phase 5b)."""
+    """The poisoned index lists only living-or-dead NPCs, once each, and every living NPC carrying a poison (5b)."""
     listed = world.get_meta("poisoned") or []
     out = [] if len(listed) == len(set(listed)) else ["an NPC is listed twice as poisoned"]
     for person in listed:
         entity = world.entity(person)
         if entity is None or entity.kind != "person" or entity.data.get("is_player"):
             out.append(f"the poisoned index lists #{person}, no NPC")
+    known = set(listed)
+    for entity in world.entities("person"):
+        d = entity.data
+        if (d.get("body") or {}).get("poisons") and entity.id not in known and not d.get("is_player") \
+                and not d.get("dead") and settle(from_dict(d["body"]), world.time).poisons:  # stored, and still live
+            out.append(f"#{entity.id} carries a poison the poisoned index does not list")
     return out
 
 

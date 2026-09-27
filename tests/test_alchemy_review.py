@@ -166,3 +166,84 @@ def test_an_heir_leaves_the_poisoned_index(game):
     X.poison(world, heir, 5, 40, "a hidden needle")  # the heir, now the player, dies at a turn's end, not a season's
     world.set_time(world.time + 4 * WATCHES_PER_DAY)
     assert X.season_hook(world, 0) == []
+
+
+# --- the deferred minors ------------------------------------------------------------------------------------
+
+def test_the_rules_catch_a_poisoned_npc_missing_from_the_index(game):
+    world = game.world
+    npc = someone(game, "sick")
+    X.poison(world, npc, 2, 8, "a hidden needle")
+    assert check_toxins(world) == []
+    world.set_meta("poisoned", [])
+    assert any(f"#{npc}" in p for p in check_toxins(world))
+
+
+def test_only_the_worst_failures_crack_a_furnace_and_the_crack_burns(game, monkeypatch):
+    world, me = game.world, game.player.id
+    recipe = A.recipe_entity(world, "earth_qi")
+    world.relate(me, recipe, "knows_recipe", 0.1)
+    monkeypatch.setattr(A, "CHANCE_BOUNDS", (0.95, 0.95))
+
+    class Roll:
+        def __init__(self, value):
+            self.value = value
+
+        def random(self):
+            return self.value
+    for value, cracks in ((0.96, False), (0.999, True)):
+        monkeypatch.setattr(A, "rng_for", lambda seed, path, v=value: Roll(v))
+        batch = [H.make_herb(world, name, 0, me) for name in ("ginseng", "tiger bone vine", "willow bark")]
+        event = A.refine_events(world, me, game.place.id, recipe, batch)[0]
+        assert not event.data["success"] and event.data["cracked"] is cracks, value
+    commit(world, [event])
+    assert any(i.kind == "burn" for i in load_body(world, me).injuries)
+
+
+def test_heavy_residue_harms_a_meridian_by_chance(game):
+    import random
+    hit = set()
+    for seed in range(40):
+        body = load_body(game.world, game.player.id)
+        body.residue = 95.0
+        X.leave_residue(body, 1, 0.5, random.Random(seed))
+        hit |= {m for m, v in body.meridians.items() if v.state == "damaged"}
+    assert len(hit) > 1
+
+
+def test_a_slain_beast_is_remembered_here_and_only_here(game):
+    world, me = game.world, game.player.id
+    beast = world.add_entity("person", "a red toad", {"beast": True, "venomous": True, "occupation": "red toad",
+                                                      "traits": ["hot-tempered"], "realm": "second-rate"}, "test:toad2")
+    world.update_data(beast, dead=True)
+    game._slain_beast = beast
+    assert world.entity(me).data["slain_beast"]["beast"] == beast  # kept with the hero, so a reload keeps it
+    from systems import agendas
+    from systems.succession import succession_events
+    heir = someone(game, "heir2", age=20)
+    agendas._pair(world, me, heir, "child")
+    commit(world, succession_events(world, me, heir))
+    assert game.player.id == heir and game._slain_beast is None  # the heir did not slay it
+
+
+def test_a_poisons_daily_harm_is_dated_by_its_day(game):
+    world, me = game.world, game.player.id
+    start = world.time
+    X.poison(world, me, 2, 12, "a hidden needle")
+    body = load_body(world, me)
+    from world.body import settle
+    settled = settle(body, start + 3 * WATCHES_PER_DAY)
+    times = sorted(i.since for i in settled.injuries if i.cause == "poison")
+    assert times == [start + WATCHES_PER_DAY, start + 2 * WATCHES_PER_DAY, start + 3 * WATCHES_PER_DAY]
+
+
+def test_refine_is_offered_only_from_herbs_one_knows(game):
+    world, me = game.world, game.player.id
+    recipe = A.recipe_entity(world, "earth_qi")
+    world.relate(me, recipe, "knows_recipe", 0.1)
+    for name in ("ginseng", "tiger bone vine", "willow bark"):
+        H.make_herb(world, name, 0, me)
+    label = f"Refine {world.entity(recipe).name}"
+    assert label not in [c.label for c in game.perform(Action("alchemy")).all_choices]
+    H.learn(world, me, ["ginseng", "tiger bone vine", "willow bark"])
+    assert label in [c.label for c in game.perform(Action("alchemy")).all_choices]

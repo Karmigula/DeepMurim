@@ -21,7 +21,7 @@ MERIDIANS = REGULAR + EXTRAORDINARY
 STATES = ("open", "blocked", "damaged", "scarred", "severed")
 BODY_PARTS = ("head", "torso", "left arm", "right arm", "left leg", "right leg")
 LOCATIONS = BODY_PARTS + MERIDIANS
-INJURY_KINDS = ("bruise", "cut", "fracture", "internal", "meridian")
+INJURY_KINDS = ("bruise", "cut", "fracture", "internal", "meridian", "burn")
 ELEMENTS = ("metal", "wood", "water", "fire", "earth")
 PHYSIQUE = ("strength", "agility", "endurance", "comprehension")
 CONSTITUTIONS = (
@@ -162,8 +162,10 @@ def _run_poisons(body: Body, now: int) -> None:
         days_before = p.get("days", 0.0)
         p = {**p, "strength": p["strength"] - watches, "days": days_before + watches / WATCHES_PER_DAY,
              "at": now}
-        for day in range(int(days_before) + 1, int(p["days"]) + 1):
-            add_injury(body, "torso", "internal", p["grade"], now, "poison")
+        began = now - active
+        for day in range(int(days_before) + 1, int(p["days"]) + 1):  # each day's harm on its own day
+            when = min(now, began + round((day - days_before) * WATCHES_PER_DAY))
+            add_injury(body, "torso", "internal", p["grade"], when, "poison")
         if p["grade"] >= LETHAL_POISON and p["days"] > body.realm + 2 and POISONED_TO_DEATH not in body.flags:
             body.flags.append(POISONED_TO_DEATH)  # it outlasted the body, even if it ran out since
         if p["strength"] > 0:

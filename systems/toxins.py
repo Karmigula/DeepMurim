@@ -44,7 +44,7 @@ def leave_residue(body, grade: int, purity: float, rng) -> list[str]:
     if before > MERIDIAN_AT and rng.random() < MERIDIAN_RISK:
         open_ones = [m for m, v in body.meridians.items() if v.state == "open"]
         if open_ones:
-            body.meridians[sorted(open_ones)[0]].state = "damaged"
+            body.meridians[rng.choice(sorted(open_ones))].state = "damaged"
             harms.append("meridian")
     return harms
 
@@ -189,9 +189,11 @@ world_clock.SEASON_HOOKS.append(season_hook)
 @listen("succession")
 def _heir_unlisted(world, event, event_id: int) -> None:
     """The heir becomes the player, whose poisons are watched turn by turn, not season by season."""
-    listed = world.get_meta("poisoned") or []
-    if event.actors[1] in listed:
-        world.set_meta("poisoned", [p for p in listed if p != event.actors[1]])
+    old, heir = event.actors
+    listed = [p for p in world.get_meta("poisoned") or [] if p != heir]
+    if not world.entity(old).data.get("dead") and load_body(world, old).poisons and old not in listed:
+        listed.append(old)  # one who steps aside still carries their poison, now watched with the world's
+    world.set_meta("poisoned", listed)
 
 
 def days_to_death(body, poison_: dict) -> float | None:

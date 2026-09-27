@@ -26,7 +26,7 @@ BALANCED = 1               # a net polarity within this is balanced
 FUMES_AT = 5               # a sludge this toxic poisons its maker
 DISCOVERED_MASTERY, MASTERY_STEP = 0.1, 0.05
 CHANCE_BOUNDS = (0.1, 0.95)
-CRACK_SHARE = 0.1          # the worst tenth of the chance's failing rolls cracks the furnace (ruling 6)
+CRACK_SHARE = 0.1          # the worst tenth of the failing rolls cracks the furnace (ruling 6)
 WATCHES = 2
 FIRST_WORDS = ("Azure", "Jade", "Golden", "Crimson", "Nine-Turn", "Heavenly", "Purple Cloud", "Silver Moon",
                "Black Tortoise", "White Crane", "Thousand-Year", "Spring Rain")
@@ -195,7 +195,7 @@ def refine_events(world, person: int, place, recipe: int, herb_ids) -> list[Even
     return [Event("refined", (person,), place, {
         "recipe": recipe, "herbs": list(herb_ids), "names": [H.herb_info(world.entity(h))[0] for h in herb_ids],
         "success": success, "count": count if success else 0, "grade": grade, "purity": purity,
-        "cracked": not success and roll > 1 - chance * CRACK_SHARE, "rent": _rent(world, person)})]
+        "cracked": not success and roll > 1 - (1 - chance) * CRACK_SHARE, "rent": _rent(world, person)})]
 
 
 @effect("refined")
@@ -216,7 +216,7 @@ def _refined(world, event) -> None:
         if furnace is not None:
             world.update_data(furnace, cracked=True)
         body = load_body(world, person)
-        add_injury(body, "right arm", "bruise", 2, world.time, "a cracked furnace")
+        add_injury(body, "right arm", "burn", 2, world.time, "a cracked furnace")
         save_body(world, person, body)
 
 
@@ -237,6 +237,8 @@ def find_batch(world, person: int, recipe: int) -> list[int] | None:
     from itertools import combinations
     base = RECIPES[world.entity(recipe).data["key"]]
     herbs = sorted(H.herbs_of(world, person), key=lambda h: (H.herb_info(h)[1], H.props(H.herb_info(h)[0])["price"], h.id))
+    lore = set(world.entity(person).data.get("herb_lore") or [])
+    herbs = [h for h in herbs if H.herb_info(h)[0] in lore]  # only what one knows (spec 6)
     fitting = [h for h in herbs if H.props(H.herb_info(h)[0])["element"] in (base["element"], "none")
                or H.props(H.herb_info(h)[0])["polarity"] == base["polarity"]][:10]
     for size in range(MIN_HERBS, MAX_HERBS + 1):

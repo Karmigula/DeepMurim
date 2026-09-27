@@ -70,6 +70,7 @@ def test_the_refine_choices_stay_quick_with_many_herbs(game):
     world, me = game.world, game.player.id
     for n in range(30):
         H.make_herb(world, sorted(H.HERBS)[n % len(H.HERBS)], 0, me)
+    H.learn(world, me, list(H.HERBS))  # every herb known: the refine choices weigh them all
     for key in list(A.RECIPES)[:6]:
         world.relate(me, A.recipe_entity(world, key), "knows_recipe", 0.2)
     assert average(lambda: [A.find_batch(world, me, r) for r, _ in A.known_recipes(world, me)]) < 0.05

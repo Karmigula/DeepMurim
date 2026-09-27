@@ -29,7 +29,17 @@ def _distinct(items) -> list:
 
 class AlchemyMixin:
     _tray: tuple = ()
-    _slain_beast: int | None = None
+
+    @property
+    def _slain_beast(self) -> int | None:
+        """The venomous beast just slain here, kept with the hero (so a reload keeps it and an heir has none)."""
+        slain = self.world.entity(self.player.id).data.get("slain_beast")
+        return slain["beast"] if slain and slain.get("place") == self.place.id else None
+
+    @_slain_beast.setter
+    def _slain_beast(self, beast: int | None) -> None:
+        self.world.update_data(self.player.id,
+                               slain_beast=None if beast is None else {"beast": beast, "place": self.place.id})
 
     # --- choices -----------------------------------------------------------------------------------------------
     def _general_extras(self) -> list:
