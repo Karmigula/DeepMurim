@@ -357,3 +357,4 @@ import systems.poison_path  # noqa: E402,F401  phase 5b: the poison path, venomo
 import systems.pill_hall  # noqa: E402,F401  phase 5c: sects' pill halls and herb gardens
 import systems.guild  # noqa: E402,F401  phase 5c: the Alchemists' Guild
 import systems.recipe_trade  # noqa: E402,F401  phase 5c: recipe scrolls bought, given, taught and sold
+import systems.hall_theft  # noqa: E402,F401  phase 5c: gardens and halls robbed by night
