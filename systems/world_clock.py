@@ -351,3 +351,4 @@ import systems.armoury  # noqa: E402,F401  phase 5a: a sect's armoury, drawn fro
 import systems.spoils  # noqa: E402,F401  phase 5a: what the fallen carried
 import systems.toxins  # noqa: E402,F401  phase 5b: residue, and the poisons that kill the NPCs who carry them
 import systems.herbs  # noqa: E402,F401  phase 5b: herbs, tasting, gathering, the herbalist
+import systems.alchemy  # noqa: E402,F401  phase 5b: experiments and refining
