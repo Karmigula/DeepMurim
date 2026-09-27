@@ -74,6 +74,8 @@ def sheet_lines(world: World, player_id: int) -> list[Line]:
     lines += sheet_realm_lines(world, player_id)
     from engine.crisis_page import sheet_crisis_lines  # phase 4g
     lines += sheet_crisis_lines(world, player_id)
+    from engine.alchemy_world_page import sheet_alchemy_world_lines  # phase 5c
+    lines += sheet_alchemy_world_lines(world, player_id)
     return lines
 
 

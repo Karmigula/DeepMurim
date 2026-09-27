@@ -4,7 +4,17 @@ from narrate.outcomes import cap, outcome, summary
 
 VERBS = {"hunt": "Hunt down {target} in the {region}", "deliver": "Carry a sealed letter to {town}",
          "escort": "Escort a caravan to {town}", "collect": "Collect {amount} silver owed by {target} of {town}",
-         "gather": "Find out what you can about {target}", "guard": "Stand guard at the seat for {days} days"}
+         "gather": "Find out what you can about {target}", "guard": "Stand guard at the seat for {days} days",
+         "alchemy": "{alchemy}"}
+
+
+def _alchemy(world, d) -> str:
+    """An alchemy duty's task in words (phase 5c)."""
+    if d.get("task") == "bring":
+        return f"Bring {d['count']} {d['herb']} to the seat"
+    if d.get("task") == "refine":
+        return f"Refine a {world.entity(d['recipe']).name} and bring it to the seat"
+    return ""
 
 
 def _faction(world, data) -> str:
@@ -18,7 +28,8 @@ def _issued(world, event):
     town = world.entity(d["town"]).name if d.get("town") else "the seat"
     region = world.entity(world.targets(d["target"], "located_in")[0]).name if d["kind"] == "hunt" else ""
     days = max(1, (d["deadline"] - world.time) // 4)
-    task = VERBS[d["kind"]].format(target=target, town=town, region=region, amount=d.get("amount", 0), days=d["days"])
+    task = VERBS[d["kind"]].format(target=target, town=town, region=region, amount=d.get("amount", 0), days=d["days"],
+                                   alchemy=_alchemy(world, d))
     return [f"Your duty for the {_faction(world, d)}: {task}, within {days} days."], {}
 
 

@@ -13,6 +13,7 @@ import systems.talk as talk
 import systems.travel as travel
 from engine.crisis import CrisisMixin
 from engine.alchemy import AlchemyMixin
+from engine.alchemy_world import AlchemyWorldMixin
 from engine.gear import GearMixin
 from engine.intrigue import IntrigueMixin
 from engine.delve import ChamberMixin, DelveMixin, RivalMixin, SealedMixin
@@ -86,11 +87,13 @@ HELP = [
     ("  gear | smith | wield <item> | wear <item> | unwield | inspect <item>: weapons and armour", "system"),
     ("  alchemy | gather | herbalist | taste <herb> | refine <recipe> | swallow | seal | force out: herbs, pills, poison",
      "system"),
+    ("  guild | clinic | doctors | pill hall | night | bound | read <scroll> | treat <name>: the alchemy world",
+     "system"),
     ("  F2 swap art side | F3 hide art | F4 character sheet | F9 report a bug | F12 debug | Esc menu", "system"),
 ]
 
 
-class Game(AlchemyMixin, GearMixin, IntrigueMixin, CrisisMixin, SealedMixin, RivalMixin, ChamberMixin, DelveMixin, LineageMixin, MarketMixin, SkyMixin, TournamentMixin, WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, LeavingMixin, LawMixin, LandMixin, FoundingMixin, SectMixin, SeasonsMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
+class Game(AlchemyWorldMixin, AlchemyMixin, GearMixin, IntrigueMixin, CrisisMixin, SealedMixin, RivalMixin, ChamberMixin, DelveMixin, LineageMixin, MarketMixin, SkyMixin, TournamentMixin, WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, LeavingMixin, LawMixin, LandMixin, FoundingMixin, SectMixin, SeasonsMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
     def __init__(self, world: World, narrator: Narrator | None = None) -> None:
         self.world = world
         self.narrator = narrator or ProceduralNarrator()
