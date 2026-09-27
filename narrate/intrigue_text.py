@@ -238,6 +238,8 @@ def _poison_bought_line(world, entry, names, place, other):
 
 @outcome("poison_slipped", body_facts=False)
 def _slipped(world, event):
+    if event.data.get("grade", 4) < 4:  # too weak to kill (phase 5b): they fall ill
+        return [f"You pour the tea. {_name(world, event.actors[1])} drinks, and by evening is grey and shaking."], {}
     return [f"You pour the tea. {_name(world, event.actors[1])} drinks, and does not see the dawn."], {}
 
 

@@ -30,6 +30,10 @@ GLOBAL = {
     "examine body": Action("examine_body"), "examine the body": Action("examine_body"),
     "gear": Action("inventory"), "inventory": Action("inventory"), "i": Action("inventory"),
     "smith": Action("smith"), "unwield": Action("put_away", "weapon"), "sheathe": Action("put_away", "weapon"),
+    "alchemy": Action("alchemy"), "pills": Action("alchemy"), "gather": Action("gather"),
+    "search for herbs": Action("gather"), "herbalist": Action("herbalist"), "seal": Action("seal"),
+    "seal acupoints": Action("seal"), "force out": Action("force_out"), "force poison": Action("force_out"),
+    "light furnace": Action("experiment"), "experiment": Action("experiment"), "empty furnace": Action("empty_furnace"),
     "tournaments": Action("tournaments"), "tournament": Action("tournaments"), "bracket": Action("bracket"),
     "odds": Action("odds"), "bookmaker": Action("odds"), "register": Action("register"), "watch": Action("watch"),
     "wear mask": Action("wear_mask"), "mask": Action("wear_mask"), "put on mask": Action("wear_mask"),
@@ -39,7 +43,8 @@ PREFIX_VERBS = {
     "talk": "talk", "speak": "talk", "go": "travel", "travel": "travel", "walk": "travel", "ask": ("ask", "ask_about", "news"),
     "meditate": "meditate", "practise": "practise", "practice": "practise", "train": "practise",
     "open": "open_meridian", "use": "use", "declare": "declare_for", "accuse": "accuse",
-    "wield": "wield", "wear": "wield", "inspect": "inspect", "buy": "buy_gear", "sell": "sell_gear",
+    "wield": "wield", "wear": "wield", "inspect": "inspect", "buy": ("buy_gear", "buy_herb"), "sell": "sell_gear",
+    "taste": "taste", "refine": "refine", "add": "add_herb", "temper": "bathe",
 }
 FILLER = {"to", "about", "with", "the"}
 WORD = re.compile(r"[a-z0-9']+")

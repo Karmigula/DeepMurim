@@ -221,3 +221,29 @@ it matters; `gear.materialize` then makes the item, its history begun. Nothing i
 **The rules:** `check_gear` in `debug/invariants.py` holds one owner per item and an owner that ends its history,
 wielding only what one owns (one at a time), deeds that happened, famous weapons listed once, and armouries within
 their seed.
+
+## 11. Alchemy, medicine and poison (phase 5b)
+
+**Herbs** are entities (`kind = "herb"`: a `herb` name and a `grade` of age, 0-3) whose properties belong to the
+name, in `systems/data/herbs.toml` (element, polarity, potency, toxicity, terrains, price). A 4d treasure herb
+counts as a herb of the table (`herbs.herb_info`). A person's `herb_lore` lists the names they know.
+
+**Recipes** are the base needs in `systems/data/recipes.toml` (a dominant element, a polarity, a total potency, a
+toxicity bound); a world's recipe entity (`recipe:{key}`) is made when first found, and a person knows it through a
+`knows_recipe` relation whose value is their mastery. **Pills** are entities (`kind = "pill"`: `effect`, `grade`,
+`purity`, `recipe`, `maker`).
+
+**The body** gains `residue`, `venom`, `poisons` (active: grade, strength, days, sealed_until, named), `resist`,
+`baths` and `breakthrough_aid`, all run lazily by `world.body.settle`. The meta row `poisoned` lists the NPCs
+carrying a poison, so only they are looked at for a poison's death.
+
+**Where the rules live:**
+- `systems/toxins.py`: residue, active poison, sealing, forcing out, antidotes, death by poison; the registries
+  `WOUND_HOOKS` (a wound that poisons) and `ABSORB_HOOKS` (what a body lets in).
+- `systems/herbs.py`, `systems/alchemy.py`, `systems/pills.py`: herbs, experiments and refining, pills and venom.
+- `systems/poison_path.py`: the poison path, the Myriad Poison Body, venomous beasts (`encounters.BEAST_HOOKS`),
+  tempering baths.
+
+**The rules:** `check_alchemy` in `debug/invariants.py` holds herbs of the table, well-made pills and masteries
+within 0-1; `check_body` keeps residue and venom within 0-100 and poisons well formed; `check_toxins` keeps the
+poisoned index to NPCs.

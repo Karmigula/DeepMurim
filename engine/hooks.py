@@ -86,3 +86,7 @@ class GameHooks:
 
     def _after_duel(self, data: dict) -> list:
         return []
+
+    def _after_turn(self, turn):
+        """The turn once the whole deed is done (phase 5b: a poison's death waits for it)."""
+        return turn

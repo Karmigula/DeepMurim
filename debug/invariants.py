@@ -63,6 +63,8 @@ def check_world(world) -> list[str]:
             problems += check_arts(world, person)
     problems += check_items(world)
     problems += check_gear(world)
+    problems += check_toxins(world)
+    problems += check_alchemy(world)
     problems += check_knowledge(world)
     problems += check_factions(world)
     problems += check_sect(world)
@@ -93,6 +95,12 @@ def check_body(person, body) -> list[str]:
         out.append(f"{who} has negative energy")
     if not 0 <= body.deviation <= 100:
         out.append(f"{who} deviation {body.deviation:.1f} outside 0..100")
+    for gauge in ("residue", "venom"):  # phase 5b
+        if not 0 <= getattr(body, gauge) <= 100:
+            out.append(f"{who} {gauge} {getattr(body, gauge):.1f} outside 0..100")
+    for p in body.poisons:
+        if not 1 <= p["grade"] <= 5 or p["strength"] <= 0:
+            out.append(f"{who} carries a malformed poison {p}")
     if not 0 <= body.realm <= MAX_REALM:
         return out + [f"{who} realm {body.realm} out of range"]
     low, high = REALMS[body.realm].threshold, next_threshold(body.realm)
@@ -138,6 +146,42 @@ def check_items(world) -> list[str]:
             out.append(f"manual #{manual.id} holds no real technique")
         if manual.data.get("claimed_completeness", 1.0) < manual.data.get("true_completeness", 1.0) - EPS:
             out.append(f"manual #{manual.id} claims less than it holds")
+    return out
+
+
+def check_alchemy(world) -> list[str]:
+    """Herbs of the table, pills of a known effect, grade and purity, recipes learnt within 0-1 (phase 5b)."""
+    from systems.herbs import HERBS
+    from systems.pills import SWALLOWED
+    effects = SWALLOWED | {"venom", "tempering"}
+    out = []
+    for herb in world.entities("herb"):
+        if herb.data.get("herb") not in HERBS or not 0 <= herb.data.get("grade", -1) <= 3:
+            out.append(f"{herb.name} (#{herb.id}) is no herb of the table")
+    for pill in world.entities("pill"):
+        d = pill.data
+        if d.get("effect") not in effects or not 1 <= d.get("grade", 0) <= 5 or not 0 <= d.get("purity", -1) <= 1:
+            out.append(f"{pill.name} (#{pill.id}) is a malformed pill")
+    for person, value in world._conn.execute("select a, value from relations where kind = 'knows_recipe'"):
+        if not 0 <= value <= 1:
+            out.append(f"#{person} knows a recipe at mastery {value}")
+    return out
+
+
+def check_toxins(world) -> list[str]:
+    """The poisoned index lists only living-or-dead NPCs, once each, and every living NPC carrying a poison (5b)."""
+    listed = world.get_meta("poisoned") or []
+    out = [] if len(listed) == len(set(listed)) else ["an NPC is listed twice as poisoned"]
+    for person in listed:
+        entity = world.entity(person)
+        if entity is None or entity.kind != "person" or entity.data.get("is_player"):
+            out.append(f"the poisoned index lists #{person}, no NPC")
+    known = set(listed)
+    for entity in world.entities("person"):
+        d = entity.data
+        if (d.get("body") or {}).get("poisons") and entity.id not in known and not d.get("is_player") \
+                and not d.get("dead") and settle(from_dict(d["body"]), world.time).poisons:  # stored, and still live
+            out.append(f"#{entity.id} carries a poison the poisoned index does not list")
     return out
 
 

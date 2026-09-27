@@ -16,11 +16,14 @@ SWAY_LABELS = {"speak": "Speak to them for {name}", "gift": "Offer them a gift f
 
 
 class CrisisMixin:
-    def _nameable_claimants(self, crisis: dict) -> list[dict]:
-        """The standing claimants a choice may name: those heard of or met, those here, and yourself (5a review)."""
+    def _nameable(self) -> set[int]:
+        """Whom a choice may name: those heard of or met, those here, and yourself (5a review, 5b)."""
         world, me = self.world, self.player.id
-        known = set(known_people(world, me)) | {p.id for p in people_at(world, self.place.id)} | {me}
-        return [c for c in SC.standing_claimants(world, crisis) if c["person"] in known]
+        return set(known_people(world, me)) | {p.id for p in people_at(world, self.place.id)} | {me}
+
+    def _nameable_claimants(self, crisis: dict) -> list[dict]:
+        known = self._nameable()
+        return [c for c in SC.standing_claimants(self.world, crisis) if c["person"] in known]
 
     def _crisis_here(self):
         return P.mine_here(self.world, self.player.id, self.place.id)
@@ -61,7 +64,8 @@ class CrisisMixin:
             extras.append(Choice(f"Pick up {world.entity(token).name}", Action("take_token", token)))
         for fid in R.led_by(world, me):
             if world.entity(fid).data["seat"] == self.place.id and SC.live(world, fid) is None:
-                for successor in R.successors(world, me, fid):
+                known = self._nameable()
+                for successor in [s for s in R.successors(world, me, fid) if s in known]:  # only whom you know (5b)
                     extras.append(Choice(f"Step down in favour of {world.entity(successor).name}",
                                          Action("step_down", (fid, successor))))
         for fid, _, data in F.memberships(world, me):

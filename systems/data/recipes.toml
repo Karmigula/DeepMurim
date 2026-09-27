@@ -1,0 +1,115 @@
+# The base recipes (phase 5b spec 3.1): each asks a dominant element and a polarity of its herbs, a total potency
+# of at least `potency`, and a total toxicity of at most `toxicity` (or, for a poison, at least `toxic`).
+# No two share an element and a polarity, so a batch of herbs can answer only one.
+
+[earth_qi]
+effect = "qi"
+element = "earth"
+polarity = "yang"
+potency = 6
+toxicity = 2
+
+[fire_qi]
+effect = "qi"
+element = "fire"
+polarity = "yang"
+potency = 6
+toxicity = 2
+
+[bottleneck]
+effect = "bottleneck"
+element = "metal"
+polarity = "yang"
+potency = 8
+toxicity = 3
+
+[purity]
+effect = "purity"
+element = "none"
+polarity = "balanced"
+potency = 5
+toxicity = 1
+
+[wood_healing]
+effect = "healing"
+element = "wood"
+polarity = "balanced"
+potency = 4
+toxicity = 1
+
+[earth_healing]
+effect = "healing"
+element = "earth"
+polarity = "balanced"
+potency = 4
+toxicity = 1
+
+[mending]
+effect = "mending"
+element = "water"
+polarity = "balanced"
+potency = 6
+toxicity = 1
+
+[calming]
+effect = "calming"
+element = "water"
+polarity = "yin"
+potency = 3
+toxicity = 0
+
+[cleansing]
+effect = "cleansing"
+element = "wood"
+polarity = "yin"
+potency = 4
+toxicity = 0
+
+[metal_antidote]
+effect = "antidote"
+element = "metal"
+polarity = "yin"
+potency = 5
+toxicity = 2
+
+[pure_antidote]
+effect = "antidote"
+element = "none"
+polarity = "yin"
+potency = 4
+toxicity = 1
+
+[yin_poison]
+effect = "poison"
+element = "poison"
+polarity = "yin"
+potency = 3
+toxic = 6
+
+[yang_poison]
+effect = "poison"
+element = "poison"
+polarity = "yang"
+potency = 3
+toxic = 6
+
+[venom]
+effect = "venom"
+element = "poison"
+polarity = "balanced"
+potency = 2
+toxic = 4
+
+[fire_tempering]
+effect = "tempering"
+element = "fire"
+polarity = "balanced"
+potency = 5
+toxicity = 2
+
+[metal_tempering]
+effect = "tempering"
+element = "metal"
+polarity = "balanced"
+potency = 5
+toxicity = 2

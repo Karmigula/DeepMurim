@@ -21,7 +21,7 @@ MERIDIANS = REGULAR + EXTRAORDINARY
 STATES = ("open", "blocked", "damaged", "scarred", "severed")
 BODY_PARTS = ("head", "torso", "left arm", "right arm", "left leg", "right leg")
 LOCATIONS = BODY_PARTS + MERIDIANS
-INJURY_KINDS = ("bruise", "cut", "fracture", "internal", "meridian")
+INJURY_KINDS = ("bruise", "cut", "fracture", "internal", "meridian", "burn")
 ELEMENTS = ("metal", "wood", "water", "fire", "earth")
 PHYSIQUE = ("strength", "agility", "endurance", "comprehension")
 CONSTITUTIONS = (
@@ -30,6 +30,8 @@ CONSTITUTIONS = (
 )
 CONSTITUTION_CHANCE = 0.04
 WATCHES_PER_DAY = 4
+RESIDUE_FADE_PER_WEEK, PURE_FADE = 2.0, 0.8  # residue fades twice as fast in a body purer than this (5b)
+LETHAL_POISON, POISONED_TO_DEATH = 4, "poisoned to death"
 DEVIATION_DECAY_PER_DAY = 0.5
 QI_REGEN_PER_DAY = 0.5  # fraction of max qi recovered per day
 HEAL_FASTER = {"Iron Bone Body": 1.5}
@@ -74,6 +76,12 @@ class Body:
     meditated_days: float = 0.0
     settled_at: int = 0
     next_injury_id: int = 1
+    residue: float = 0.0        # pill residue, 0-100 (phase 5b)
+    venom: float = 0.0          # poison taken in along the poison path, 0-100
+    poisons: list = field(default_factory=list)  # active poisons: {grade, strength, days, sealed_until, source}
+    resist: int = 0             # poisons of this grade or less pass harmlessly (a beast's blood)
+    baths: dict = field(default_factory=dict)    # physique stat -> times raised by a tempering bath
+    breakthrough_aid: float = 0.0  # a breakthrough pill's help, spent on the next attempt
 
 
 def max_qi(body: Body) -> float:
@@ -136,9 +144,33 @@ def settle(body: Body, now: int) -> Body:
             meridian.state = "open" if meridian.flow >= 0.5 else "scarred"
             meridian.heals_at = None
     settled.deviation = max(0.0, settled.deviation - DEVIATION_DECAY_PER_DAY * days)
+    fade = RESIDUE_FADE_PER_WEEK * (2 if settled.purity > PURE_FADE else 1) * days / 7
+    settled.residue = max(0.0, round(settled.residue - fade, 3))
+    _run_poisons(settled, now)
     settled.qi = min(max_qi(settled), settled.qi + max_qi(settled) * QI_REGEN_PER_DAY * days)
     settled.settled_at = now
     return settled
+
+
+def _run_poisons(body: Body, now: int) -> None:
+    """Poisons spread watch by watch while unsealed: strength ebbs, and each full day does internal harm (5b)."""
+    left = []
+    for p in body.poisons:
+        start = max(p.get("at", body.settled_at), body.settled_at)
+        active = max(0, now - max(start, min(now, p.get("sealed_until") or 0)))
+        watches = min(active, p["strength"])
+        days_before = p.get("days", 0.0)
+        p = {**p, "strength": p["strength"] - watches, "days": days_before + watches / WATCHES_PER_DAY,
+             "at": now}
+        began = now - active
+        for day in range(int(days_before) + 1, int(p["days"]) + 1):  # each day's harm on its own day
+            when = min(now, began + round((day - days_before) * WATCHES_PER_DAY))
+            add_injury(body, "torso", "internal", p["grade"], when, "poison")
+        if p["grade"] >= LETHAL_POISON and p["days"] > body.realm + 2 and POISONED_TO_DEATH not in body.flags:
+            body.flags.append(POISONED_TO_DEATH)  # it outlasted the body, even if it ran out since
+        if p["strength"] > 0:
+            left.append(p)
+    body.poisons = left
 
 
 def _clamp(value: float, low: float, high: float) -> float:

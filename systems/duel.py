@@ -204,7 +204,7 @@ def start_events(world, player: int, opponent: int, place: int, mode: str,
 
 def _blow(target: str, damage: float, form: str, rng, gentle: bool, armour: float = 0.0) -> dict:
     hit = wound(form, damage * (1 - armour), rng, spar=gentle)  # armour softens the wound, not the fight (5a)
-    return {"target": target, "damage": round(damage, 2), "wound": list(hit) if hit else None}
+    return {"target": target, "damage": round(damage, 2), "wound": list(hit) if hit else None, "form": form}
 
 
 def exchange_events(world, d: Duel, intent: str) -> list[Event]:
@@ -457,6 +457,10 @@ def _exchange(world, event: Event) -> None:
             hitter = "opponent" if blow["target"] == "player" else "player"
             weapon = "claws" if people[hitter].data.get("beast") else (arts[hitter] or "bare hands")
             add_injury(bodies[blow["target"]], location, kind, severity, world.time, f"{people[hitter].name}'s {weapon}")
+            from systems.toxins import WOUND_HOOKS  # phase 5b: a wound may carry poison
+            for hook in WOUND_HOOKS:
+                hook(world, ids[hitter], ids[blow["target"]], blow.get("form", "bare"), bodies[hitter],
+                     bodies[blow["target"]])
     for side, body in bodies.items():
         body.qi = max(0.0, body.qi - data["qi_spent"][side]) + (2.0 if side in data["recover"] else 0.0)
     bodies["player"].deviation = min(100.0, bodies["player"].deviation + data["deviation_added"])

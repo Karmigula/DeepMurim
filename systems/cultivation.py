@@ -282,6 +282,8 @@ def breakthrough_events(world, pid: int, place: int) -> list[Event]:
     rng = _rng(world, pid, "breakthrough")
     chance = realms.breakthrough_chance(body, met)
     chance = min(max(chance, 0.95), chance * W.factor(world, place, "breakthrough"))  # a qi tide (phase 4d)
+    if body.breakthrough_aid:  # a breakthrough pill's help (phase 5b)
+        chance = min(0.95, round(chance + body.breakthrough_aid, 3))
     success = rng.random() < chance
     damaged = []
     if not success:
@@ -326,6 +328,7 @@ def _breakthrough(world, event: Event) -> None:
         body.deviation = min(100.0, body.deviation + 30)
     if data["discovered"]:
         body.constitution_known = True
+    body.breakthrough_aid = 0.0  # a breakthrough pill's help is spent, whatever came of it (phase 5b)
     save_body(world, pid, body)
 
 

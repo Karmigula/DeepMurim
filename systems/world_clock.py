@@ -349,3 +349,8 @@ import systems.famous  # noqa: E402,F401  phase 5a: famous weapons, how they pas
 import systems.smithy  # noqa: E402,F401  phase 5a: the smith's stall
 import systems.armoury  # noqa: E402,F401  phase 5a: a sect's armoury, drawn from and restocked
 import systems.spoils  # noqa: E402,F401  phase 5a: what the fallen carried
+import systems.toxins  # noqa: E402,F401  phase 5b: residue, and the poisons that kill the NPCs who carry them
+import systems.herbs  # noqa: E402,F401  phase 5b: herbs, tasting, gathering, the herbalist
+import systems.alchemy  # noqa: E402,F401  phase 5b: experiments and refining
+import systems.pills  # noqa: E402,F401  phase 5b: pills, residue, venom on a blade
+import systems.poison_path  # noqa: E402,F401  phase 5b: the poison path, venomous beasts, tempering baths

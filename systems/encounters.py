@@ -30,6 +30,7 @@ RIVAL_CHANCE = 0.2          # a proud, stronger fighter calls out a renowned one
 AVENGER_ROAD_CHANCE = 0.25  # an avenger from elsewhere finds you on the road
 AVENGER_RANGE = 3           # regions from their home
 ROAD_HOOKS: list = []       # fn(world, player, town, rng) -> events or None; tried before the normal roll (phase 3b)
+BEAST_HOOKS: list = []      # fn(world, player, region) -> a beast or None: what comes when a beast comes (phase 5b)
 HUNTER_HOOKS: list = []     # fn(world, player) -> ids who, in town, call the player out like avengers (phase 3b)
 UNTALKABLE = frozenset({"sect_hunter", "bounty_hunter"})
 BEASTS = {"forest": ("grey wolf", "wild boar"), "mountains": ("mountain tiger", "grey wolf"), "marsh": ("marsh crocodile",)}
@@ -112,6 +113,9 @@ def random_encounter(world, player: int, town, rng) -> list[Event]:
     kinds = ["bandit", "wanderer"] + (["beast"] if region.data["terrain"] in BEASTS else [])
     tide = W.factor(world, town.id, "beasts")  # a beast tide (phase 4d): most of what comes is a beast
     kind = "beast" if "beast" in kinds and tide > 1.0 and rng.random() < 1 - 1 / tide else rng.choice(kinds)
+    special = next((b for b in (h(world, player, region) for h in BEAST_HOOKS) if b), None) if kind == "beast" else None
+    if special is not None:
+        return encounter_events(player, special, town.id, kind, 0, {"venomous": True})
     known = [p for p in roamers(world, region.id) if world.entity(p).data.get("roamer_kind") == kind]
     if known and rng.random() < 0.5:
         person = rng.choice(known)

@@ -42,7 +42,13 @@ def _wit(world, player: int) -> int:
 
 def poisons_of(world, player: int) -> list[int]:
     items = [world.entity(i) for i in world.targets(player, "owns")]  # each looked up once (4h minors)
-    return [i.id for i in items if i.kind == "treasure" and i.data.get("kind") == "poison" and not i.data.get("used")]
+    return [i.id for i in items if not i.data.get("used") and ((i.kind == "treasure" and i.data.get("kind") == "poison")
+                                                               or (i.kind == "pill" and i.data.get("effect") == "poison"))]
+
+
+def poison_grade(item) -> int:
+    """A bought vial kills (grade 4); a brewed poison is as strong as its brewing (phase 5b)."""
+    return item.data.get("grade", 4) if item.kind == "pill" else 4
 
 
 def buy_poison_block(world, player: int, npc: int) -> str | None:
@@ -84,10 +90,14 @@ def poison_events(world, player: int, leader: int, place: int) -> list[Event]:
     """Into their tea: they die in the night of an illness, and a murder plot bears the player's name."""
     faction = next(f for f, _, d in F.memberships(world, leader) if d.get("role") == "leader"
                    and d.get("status", "member") == "member")
-    vial = poisons_of(world, player)[0]
+    vial = max(poisons_of(world, player), key=lambda i: (poison_grade(world.entity(i)), -i))
+    grade = poison_grade(world.entity(vial))
     rng = rng_for(world.world_seed, f"scheme:poison:{player}:{leader}")
-    return [Event("poison_slipped", (player, leader), place, {"faction": faction, "vial": vial}),
-            Event("died", (leader, leader), place, {"cause": "illness", "world": True, "poisoned_by": player})] \
+    slipped = [Event("poison_slipped", (player, leader), place, {"faction": faction, "vial": vial, "grade": grade})]
+    if grade < 4:  # too weak to kill: they fall ill, and live (phase 5b)
+        return slipped
+    return slipped + [Event("died", (leader, leader), place, {"cause": "illness", "world": True,
+                                                              "poisoned_by": player})] \
         + M.murder_events(world, faction, leader, player, None, place, rng)
 
 
@@ -96,6 +106,9 @@ def _slipped(world, event) -> None:
     vial = event.data["vial"]
     world.unrelate(event.actors[0], "owns", vial)
     world.update_data(vial, used=True)
+    if event.data.get("grade", 4) < 4:
+        from systems.toxins import poison
+        poison(world, event.actors[1], event.data["grade"], event.data["grade"] * 4, "a poisoned cup")
 
 
 # --- a spy of one's own ----------------------------------------------------------------------------------

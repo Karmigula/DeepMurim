@@ -30,7 +30,8 @@ NUMBER_WORDS = ("one", "two", "three", "four", "five", "six", "seven", "eight", 
 BODY_KINDS = frozenset({
     "began", "body_awakened", "cultivated", "practised", "opening_meridian", "rested", "breakthrough", "deviation",
 })
-INJURY_WORDS = {"bruise": "bruised", "cut": "cut", "fracture": "fractured", "internal": "hurt inside", "meridian": "damaged"}
+INJURY_WORDS = {"bruise": "bruised", "cut": "cut", "fracture": "fractured", "internal": "hurt inside", "meridian": "damaged",
+                "burn": "burned"}
 
 
 @dataclass(frozen=True)
