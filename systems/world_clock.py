@@ -354,3 +354,4 @@ import systems.herbs  # noqa: E402,F401  phase 5b: herbs, tasting, gathering, th
 import systems.alchemy  # noqa: E402,F401  phase 5b: experiments and refining
 import systems.pills  # noqa: E402,F401  phase 5b: pills, residue, venom on a blade
 import systems.poison_path  # noqa: E402,F401  phase 5b: the poison path, venomous beasts, tempering baths
+import systems.pill_hall  # noqa: E402,F401  phase 5c: sects' pill halls and herb gardens

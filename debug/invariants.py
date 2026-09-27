@@ -65,6 +65,7 @@ def check_world(world) -> list[str]:
     problems += check_gear(world)
     problems += check_toxins(world)
     problems += check_alchemy(world)
+    problems += check_alchemy_world(world)
     problems += check_knowledge(world)
     problems += check_factions(world)
     problems += check_sect(world)
@@ -165,6 +166,21 @@ def check_alchemy(world) -> list[str]:
     for person, value in world._conn.execute("select a, value from relations where kind = 'knows_recipe'"):
         if not 0 <= value <= 1:
             out.append(f"#{person} knows a recipe at mastery {value}")
+    return out
+
+
+def check_alchemy_world(world) -> list[str]:
+    """Gardens of herbs of the table within 0-12, halls never below nothing (phase 5c)."""
+    from systems.herbs import HERBS
+    from systems.pill_hall import GARDEN_CAP
+    out = []
+    for faction in world.entities_after("faction", "garden", 0):
+        for name, (count, grade) in faction.data["garden"]["herbs"].items():
+            if name not in HERBS or not 0 <= count <= GARDEN_CAP or not 0 <= grade <= 3:
+                out.append(f"the garden of {faction.name} holds {count} of {name} (grade {grade})")
+    for faction in world.entities_after("faction", "pill_hall", 0):
+        if any(count < 0 for count in faction.data["pill_hall"].values()):
+            out.append(f"the pill hall of {faction.name} holds less than nothing")
     return out
 
 
