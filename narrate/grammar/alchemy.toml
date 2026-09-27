@@ -1,0 +1,54 @@
+[symbols]
+furnace_air = ["The furnace ticks as it cools.", "Bitter smoke hangs under the eaves.", "A smell of roots and iron.", "Somewhere a mortar grinds.", "The herbs keep their secrets poorly.", "Steam beads on the bronze."]
+
+[herb_tasted]
+colour = "dim"
+lines = ["#furnace_air#"]
+
+[herbs_gathered]
+colour = "dim"
+lines = ["#furnace_air#"]
+
+[herb_bought]
+colour = "dim"
+lines = ["#furnace_air#"]
+
+[furnace_bought]
+colour = "dim"
+lines = ["#furnace_air#"]
+
+[experimented]
+colour = "dim"
+lines = ["#furnace_air#"]
+
+[refined]
+colour = "dim"
+lines = ["#furnace_air#"]
+
+[pill_taken]
+colour = "dim"
+lines = ["#furnace_air#"]
+
+[blade_coated]
+colour = "dim"
+lines = ["#furnace_air#"]
+
+[acupoints_sealed]
+colour = "dim"
+lines = ["#furnace_air#"]
+
+[poison_forced]
+colour = "dim"
+lines = ["#furnace_air#"]
+
+[poison_art_bought]
+colour = "dim"
+lines = ["#furnace_air#"]
+
+[beast_butchered]
+colour = "dim"
+lines = ["#furnace_air#"]
+
+[bathed]
+colour = "dim"
+lines = ["#furnace_air#"]

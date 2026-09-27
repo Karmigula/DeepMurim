@@ -316,7 +316,7 @@ def test_a_tournament_season(tmp_path, seed, monkeypatch):
             readied = game.player.id
         if game.combat is not None or game.encounter is not None or game.challenger is not None:
             app.submit(rng.choice(FIGHTING + ["1", "2", "3"]))
-        elif T.here(game.world, game.place.id, T.KINDS, ("announced",)) is not None and rng.random() < 0.5:
+        elif game.world.targets(game.player.id, "located_in")                 and T.here(game.world, game.place.id, T.KINDS, ("announced",)) is not None and rng.random() < 0.5:
             app.submit("register")  # a tournament-goer: names are being taken here
         elif rng.random() < 0.4 and app.choices:  # anything on the menu but the road: the tournaments come to them
             stay = [n for n, c in enumerate(app.choices, 1) if c.action.verb not in ("travel", "routes")]

@@ -31,6 +31,7 @@ CONSTITUTIONS = (
 CONSTITUTION_CHANCE = 0.04
 WATCHES_PER_DAY = 4
 RESIDUE_FADE_PER_WEEK, PURE_FADE = 2.0, 0.8  # residue fades twice as fast in a body purer than this (5b)
+LETHAL_POISON, POISONED_TO_DEATH = 4, "poisoned to death"
 DEVIATION_DECAY_PER_DAY = 0.5
 QI_REGEN_PER_DAY = 0.5  # fraction of max qi recovered per day
 HEAL_FASTER = {"Iron Bone Body": 1.5}
@@ -163,6 +164,8 @@ def _run_poisons(body: Body, now: int) -> None:
              "at": now}
         for day in range(int(days_before) + 1, int(p["days"]) + 1):
             add_injury(body, "torso", "internal", p["grade"], now, "poison")
+        if p["grade"] >= LETHAL_POISON and p["days"] > body.realm + 2 and POISONED_TO_DEATH not in body.flags:
+            body.flags.append(POISONED_TO_DEATH)  # it outlasted the body, even if it ran out since
         if p["strength"] > 0:
             left.append(p)
     body.poisons = left

@@ -230,3 +230,17 @@ def make_pill(world, person: int, recipe: int, grade: int, purity: float) -> int
                                                 "used": False})
     world.relate(person, item, "owns")
     return item
+
+
+def find_batch(world, person: int, recipe: int) -> list[int] | None:
+    """The cheapest handful of carried herbs that meets a known recipe, if any (for the refine choice)."""
+    from itertools import combinations
+    base = RECIPES[world.entity(recipe).data["key"]]
+    herbs = sorted(H.herbs_of(world, person), key=lambda h: (H.herb_info(h)[1], H.props(H.herb_info(h)[0])["price"], h.id))
+    fitting = [h for h in herbs if H.props(H.herb_info(h)[0])["element"] in (base["element"], "none")
+               or H.props(H.herb_info(h)[0])["polarity"] == base["polarity"]][:10]
+    for size in range(MIN_HERBS, MAX_HERBS + 1):
+        for batch in combinations(fitting, size):
+            if all(met(base, combine([H.herb_info(h)[0] for h in batch])).values()):
+                return [h.id for h in batch]
+    return None

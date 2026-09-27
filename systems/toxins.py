@@ -14,7 +14,7 @@ ABSORB_HOOKS: list = []  # (world, person, body, grade, strength) -> (grade, str
 import systems.lives as lives  # noqa: E402
 import systems.world_clock as world_clock
 from systems.bodies import load_body, save_body
-from world.body import WATCHES_PER_DAY
+from world.body import POISONED_TO_DEATH, WATCHES_PER_DAY
 from world.events import Event, effect
 from world.seed import rng_for
 
@@ -24,6 +24,7 @@ DEVIATION_RISK, MERIDIAN_RISK = 15.0, 0.3
 LETHAL_GRADE = 4        # a poison this strong kills if it outlasts realm + 2 days
 SEAL_REALM, SEAL_WATCHES = 1, 4
 FORCE_REALM, FORCE_QI = 3, 10.0
+NAMED = frozenset({"a swallowed poison", "a furnace's fumes"})
 
 
 # --- residue -------------------------------------------------------------------------------------------
@@ -66,8 +67,9 @@ def add_poison(world, person: int, body, grade: int, strength: int, source: str)
         grade, strength = hook(world, person, body, grade, strength)
     if strength <= 0:
         return "absorbed"
+    named = source in NAMED or source.startswith("tasting ")  # a poison one took knowingly: its grade is known
     body.poisons = body.poisons + [{"grade": int(grade), "strength": int(strength), "days": 0.0,
-                                    "at": world.time, "sealed_until": 0, "source": source}]
+                                    "at": world.time, "sealed_until": 0, "source": source, "named": named}]
     if not world.entity(person).data.get("is_player"):
         listed = world.get_meta("poisoned") or []
         if person not in listed:
@@ -80,8 +82,12 @@ def worst(body) -> dict | None:
 
 
 def lethal(body) -> dict | None:
-    """The poison that has outlasted this body: of grade 4 or more, past realm + 2 days (spec 4.2)."""
-    return next((p for p in body.poisons if p["grade"] >= LETHAL_GRADE and p["days"] > body.realm + 2), None)
+    """The poison that has outlasted this body: of grade 4 or more, past realm + 2 days (spec 4.2), even if it has
+    since run its course (a long rest does not outwait one's own death)."""
+    found = next((p for p in body.poisons if p["grade"] >= LETHAL_GRADE and p["days"] > body.realm + 2), None)
+    if found is None and POISONED_TO_DEATH in body.flags:
+        return {"grade": LETHAL_GRADE, "strength": 0, "days": body.realm + 3, "source": "a poison"}
+    return found
 
 
 def seal_block(body, now: int) -> str | None:

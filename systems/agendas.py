@@ -18,6 +18,7 @@ from world.gen.materialize import people_at
 
 MARRY_CHANCE, BIRTH_CHANCE, MOVE_CHANCE = 0.03, 0.08, 0.03
 REVENGE_CHANCE, FEUD_DEATH, APPRENTICE_CHANCE = 0.1, 0.2, 0.05
+MASTER_AGE = 20  # no child takes a disciple, however strong
 POP_CAP = 1.5
 REVENGE_REST = 4  # seasons before the same grudge is acted on again
 GRUDGES = frozenset({"wronged", "hatred", "grief"})
@@ -177,8 +178,8 @@ def revenge_events(world, person: int, n: int, rng) -> list[Event]:
 
 def apprentice_events(world, person: int, n: int, rng) -> list[Event]:
     entity = world.entity(person)
-    if realm_index(entity.data.get("realm", "mortal")) < 2 or _kin(world, person, "disciple") \
-            or rng.random() >= APPRENTICE_CHANCE:
+    if realm_index(entity.data.get("realm", "mortal")) < 2 or _age(entity) < MASTER_AGE \
+            or _kin(world, person, "disciple") or rng.random() >= APPRENTICE_CHANCE:  # a master is grown (5b fuzz)
         return []
     town = _town(world, person)
     if town is None:

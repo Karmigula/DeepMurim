@@ -4,6 +4,7 @@ Never shows hidden truth: an art's real completeness and an undiscovered
 constitution stay hidden; only what the character believes is printed.
 """
 
+from engine.alchemy_page import constitution_words
 from engine.gear_page import armour_words, weapon_words
 from narrate.base import Line
 from render.body_chart import SYMBOL
@@ -28,7 +29,8 @@ def sheet_lines(world: World, player_id: int) -> list[Line]:
         ("Nature: " + "  ".join(f"{k} {v:.2f}" for k, v in body.nature.items()), "dim"),
         ("Physique: " + "  ".join(f"{k} {v}" for k, v in body.physique.items()), "default"),
         (f"Insight {body.insight:.1f} | silver {player.data.get('silver', 0)} | {armour_words(world, player_id)}", "default"),
-        (f"Constitution: {body.constitution if body.constitution and body.constitution_known else 'unknown'}", "default"),
+        (f"Constitution: {body.constitution if body.constitution and body.constitution_known else 'unknown'}"
+         f"{constitution_words(world, player_id)}", "default"),
         ("", "default"),
         ("Arts:", "heading"),
     ]
