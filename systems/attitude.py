@@ -24,6 +24,8 @@ JUDGEMENT = {
     "poisoner": -1.0, "murdered": -1.0, "framer": -0.8, "forger": -0.6, "spymaster": -0.6, "puppet_master": -0.5,
     "false_accusation": -0.3, "spy_exposed": -0.8,
     "poison_body": -0.4,  # phase 5b: folk keep away from a body that is poison
+    "healed": 0.3,  # phase 5c: a healer is thought well of
+    "poisoned_for_hire": -1.0,
 }
 HARSH = frozenset({"killed", "crippled", "robbed"})
 HARM = frozenset({"killed", "crippled"})
