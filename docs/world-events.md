@@ -247,3 +247,36 @@ carrying a poison, so only they are looked at for a poison's death.
 **The rules:** `check_alchemy` in `debug/invariants.py` holds herbs of the table, well-made pills and masteries
 within 0-1; `check_body` keeps residue and venom within 0-100 and poisons well formed; `check_toxins` keeps the
 poisoned index to NPCs.
+
+## 12. The alchemy world (phase 5c)
+
+**Halls and gardens** are numbers on the faction, read without writing. A sect's `pill_hall` is
+`{"grade:effect": count}`, stored only once something is drawn (until then it is the seed `pill_hall:{sect}`), and
+set back to its seed each spring. Its `garden` is `{"at": season, "herbs": {name: [count, grade]}}`, stored only
+when something is taken; `pill_hall.garden` brings it forward from `at` (growth, ageing). The player's own sect
+builds a `herb_garden` and a `pill_hall` (3c's `BUILDINGS`); its hall is filled by its alchemist disciples, worked
+out from `pill_hall_at` when read.
+
+**The Guild** is no faction: a person's `guild_rank` (0 once joined; an NPC alchemist's is seeded until first
+written) and the fact `guild_rank`, whose variant carries the `rank`. **Scrolls** are entities (`kind =
+"scroll"`: `recipe`, `key`, `source`, and a sect's `faction`). Secret recipes live in
+`systems/data/secret_recipes.toml` (`alchemy.SECRET`), never in `recipes.toml`, so `best_match` never finds them.
+
+**The clinic and the doctors:** a town's physician is the person `physician:{town}`, made when first paid. A
+famous doctor is `doctor:{bx}:{by}` for each block of 4 x 2 regions, made when first asked after; the asker's
+`doctors_seen` remembers where. `physic.CURE_HOOKS` lets a later system add what a doctor cures (the control pill
+does). A player's `healings` counts healings by town; five make them its healer.
+
+**NPC alchemy** is a lives agenda: an NPC's `pills` is `{grade: count}`, made into pill entities only when the
+player robs, strips, buys or inherits them.
+
+**Control pills:** the bound carry `bound_to = {master, since, fed_until, hurt_to}`; the meta row `bound` lists the
+bound NPCs (never the player, who is watched turn by turn), so only they are looked at each season.
+
+**Where the rules live:** `systems/pill_hall.py`, `systems/hall_theft.py`, `systems/guild.py`,
+`systems/recipe_trade.py`, `systems/physic.py`, `systems/npc_alchemy.py`, `systems/control.py`; the player's side
+in `engine/alchemy_world.py` and `engine/alchemy_world_page.py`.
+
+**The rules:** `check_alchemy_world` in `debug/invariants.py` holds gardens to herbs of the table within 0-12, halls
+to no less than nothing, Guild ranks within 0-9, NPCs' pills to real grades, every scroll to one owner and a
+recipe, and the bound index to the living bound of living people.
