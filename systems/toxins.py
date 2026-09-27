@@ -7,7 +7,10 @@ kills. Poisons run lazily with the body; the meta row `poisoned` lists the NPCs 
 looked at for a poison's death.
 """
 
-import systems.lives as lives
+# The registry first: modules that fill it (pills, the poison path) may load while this one is still loading.
+WOUND_HOOKS: list = []  # (world, hitter, target, form, hitter_body, target_body): a wound that poisons (5b)
+
+import systems.lives as lives  # noqa: E402
 import systems.world_clock as world_clock
 from systems.bodies import load_body, save_body
 from world.body import WATCHES_PER_DAY
@@ -49,11 +52,17 @@ def leave_residue(body, grade: int, purity: float, rng) -> list[str]:
 def poison(world, person: int, grade: int, strength: int, source: str) -> str:
     """Put a poison in someone's body; a resistance or immunity may let it pass. Returns what happened."""
     body = load_body(world, person)
+    result = add_poison(world, person, body, grade, strength, source)
+    save_body(world, person, body)
+    return result
+
+
+def add_poison(world, person: int, body, grade: int, strength: int, source: str) -> str:
+    """The same, into a body already loaded (a duel's wound): the caller saves it."""
     if grade <= body.resist:
         return "resisted"
     body.poisons = body.poisons + [{"grade": int(grade), "strength": int(strength), "days": 0.0,
                                     "at": world.time, "sealed_until": 0, "source": source}]
-    save_body(world, person, body)
     if not world.entity(person).data.get("is_player"):
         listed = world.get_meta("poisoned") or []
         if person not in listed:
