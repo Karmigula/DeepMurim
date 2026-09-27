@@ -52,6 +52,7 @@ def test_a_year_away_ages_everyone_a_year(game, monkeypatch):
 def test_commoners_do_not_cultivate_and_fighters_do(game, monkeypatch):
     monkeypatch.setattr(lives, "death_chance", lambda age, realm: 0.0)
     monkeypatch.setattr(lives, "breakthrough_chance", lambda body, met: 0.0)
+    monkeypatch.setattr("systems.npc_alchemy.TAKE_CHANCE", 0.0)  # phase 5c: cultivation alone, no pills
     clerk = person(game, "test:clerk", occupation="innkeeper")
     blade = person(game, "test:blade", occupation="wandering swordsman", realm="third-rate")
     before = {p: load_body(game.world, p).energy_years for p in (clerk, blade)}

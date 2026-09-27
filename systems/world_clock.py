@@ -359,3 +359,4 @@ import systems.guild  # noqa: E402,F401  phase 5c: the Alchemists' Guild
 import systems.recipe_trade  # noqa: E402,F401  phase 5c: recipe scrolls bought, given, taught and sold
 import systems.hall_theft  # noqa: E402,F401  phase 5c: gardens and halls robbed by night
 import systems.physic  # noqa: E402,F401  phase 5c: physicians, famous doctors, healers and poisoners for hire
+import systems.npc_alchemy  # noqa: E402,F401  phase 5c: NPCs refine and take pills in their seasons

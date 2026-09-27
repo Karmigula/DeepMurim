@@ -184,6 +184,9 @@ def check_alchemy_world(world) -> list[str]:
     for person in world.entities_after("person", "guild_rank", -1):
         if not 0 <= person.data["guild_rank"] <= 9:
             out.append(f"{person.name} (#{person.id}) holds Guild rank {person.data['guild_rank']}")
+    for person in world.entities_after("person", "pills", 0):
+        if any(int(k) not in range(1, 6) or v < 0 for k, v in person.data["pills"].items()):
+            out.append(f"{person.name} (#{person.id}) carries pills of no grade or fewer than none")
     for scroll in world.entities("scroll"):
         owners = world.sources(scroll.id, "owns")
         if len(owners) > 1:
