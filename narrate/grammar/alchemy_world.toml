@@ -1,0 +1,136 @@
+# The alchemy world (phase 5c): halls and gardens, the Guild, the clinic, the dark, and the worms.
+
+[symbols]
+hall_air = ["Jars line the shelves, each sealed with red wax.", "The pill hall smells of cinnabar and old smoke.", "A disciple sweeps ash from beneath the furnaces.", "Bees work the garden rows in the sun.", "The ledger scratches as the keeper writes.", "Water ticks in a bamboo pipe among the herbs."]
+guild_air = ["The Guild's hall is quiet as a library.", "A brass bell marks the examiners' hour.", "Clerks in grey pass scrolls hand to hand.", "Nine ranks of names hang carved on the wall.", "Someone argues about a recipe in a low voice.", "Incense and ink, and under them, sulphur."]
+clinic_air = ["Needles lie in rows on a clean cloth.", "Dried roots hang from the rafters.", "A patient groans behind a screen.", "The clinic smells of vinegar and ginger.", "A mortar grinds somewhere in the back.", "Pulse charts are pinned to the wall."]
+night_air = ["A dog barks once and falls quiet.", "The moon goes behind a cloud.", "Tiles shift underfoot.", "A watchman's lantern bobs along the far wall.", "Crickets stop, then start again.", "The wind covers your footsteps."]
+worm_air = ["Something turns over in your belly.", "A cold ache settles under the ribs.", "You taste iron at the back of your throat.", "Your hands are steady; your gut is not.", "The night is long for those who need an antidote.", "A dull pulse beats where no pulse should."]
+
+[pill_drawn]
+colour = "dim"
+lines = ["#hall_air#"]
+
+[garden_harvested]
+colour = "dim"
+lines = ["#hall_air#"]
+
+[secret_scroll_given]
+colour = "dim"
+lines = ["#hall_air#"]
+
+[guild_joined]
+colour = "dim"
+lines = ["#guild_air#"]
+
+[guild_exam]
+colour = "dim"
+lines = ["#guild_air#"]
+
+[scroll_bought]
+colour = "dim"
+lines = ["#guild_air#"]
+
+[scroll_sold]
+colour = "dim"
+lines = ["#guild_air#"]
+
+[scroll_read]
+colour = "dim"
+lines = ["#guild_air#"]
+
+[recipe_taught]
+colour = "dim"
+lines = ["#guild_air#"]
+
+[secret_sold]
+colour = "dim"
+lines = ["#guild_air#"]
+
+[npc_pill_bought]
+colour = "dim"
+lines = ["#guild_air#"]
+
+[physician_treated]
+colour = "dim"
+lines = ["#clinic_air#"]
+
+[physician_cured]
+colour = "dim"
+lines = ["#clinic_air#"]
+
+[body_read]
+colour = "dim"
+lines = ["#clinic_air#"]
+
+[asked_doctor]
+colour = "dim"
+lines = ["#clinic_air#"]
+
+[go_played]
+colour = "dim"
+lines = ["#clinic_air#"]
+
+[doctor_cured]
+colour = "dim"
+lines = ["#clinic_air#"]
+
+[healed]
+colour = "dim"
+lines = ["#clinic_air#"]
+
+[patient_brought]
+colour = "dim"
+lines = ["#clinic_air#"]
+
+[waited_for_night]
+colour = "dim"
+lines = ["#night_air#"]
+
+[hall_surveyed]
+colour = "dim"
+lines = ["#night_air#"]
+
+[hall_theft]
+colour = "dim"
+lines = ["#night_air#"]
+
+[contract_taken]
+colour = "dim"
+lines = ["#night_air#"]
+
+[contract_poisoned]
+colour = "dim"
+lines = ["#night_air#"]
+
+[contract_paid]
+colour = "dim"
+lines = ["#night_air#"]
+
+[contract_void]
+colour = "dim"
+lines = ["#night_air#"]
+
+[service_rendered]
+colour = "dim"
+lines = ["#worm_air#"]
+
+[worms_forced]
+colour = "dim"
+lines = ["#worm_air#"]
+
+[control_forced]
+colour = "dim"
+lines = ["#worm_air#"]
+
+[servant_fed]
+colour = "dim"
+lines = ["#worm_air#"]
+
+[worms_killed]
+colour = "dim"
+lines = ["#worm_air#"]
+
+[control_freed]
+colour = "dim"
+lines = ["#worm_air#"]

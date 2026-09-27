@@ -24,6 +24,9 @@ JUDGEMENT = {
     "poisoner": -1.0, "murdered": -1.0, "framer": -0.8, "forger": -0.6, "spymaster": -0.6, "puppet_master": -0.5,
     "false_accusation": -0.3, "spy_exposed": -0.8,
     "poison_body": -0.4,  # phase 5b: folk keep away from a body that is poison
+    "healed": 0.3,  # phase 5c: a healer is thought well of
+    "poisoned_for_hire": -1.0,
+    "enslaved": -0.8,  # phase 5c: a control pill forced on someone
 }
 HARSH = frozenset({"killed", "crippled", "robbed"})
 HARM = frozenset({"killed", "crippled"})
@@ -152,6 +155,11 @@ def attitude(world, npc_id: int, subject_id: int) -> Attitude:
     for belief, fact in heard:
         if belief.variant.get("actor") not in seen or fact.object == npc_id:
             continue  # things done to them are already in their memories
+        if fact.predicate == "guild_rank":  # phase 5c: an alchemist's rank, the highest one heard
+            value = 0.05 * belief.variant.get("rank", 0) * belief.confidence
+            if value > best.get(-1, (0.0, None))[0]:
+                best[-1] = (value, "they respect a ranked alchemist")
+            continue
         if fact.predicate == "member_of":  # enemies by association (phase 3b spec 3.4)
             if fact.object not in still_of:
                 continue

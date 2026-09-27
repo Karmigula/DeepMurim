@@ -16,7 +16,7 @@ from world.seed import rng_for
 
 MAX_DISCIPLES, MAX_ELDERS = 12, 3
 BUILDINGS = {"training_yard": (150, 10), "library": (200, 10), "infirmary": (150, 10),
-             "guest_hall": (100, 5), "walls": (300, 15)}
+             "guest_hall": (100, 5), "walls": (300, 15), "herb_garden": (250, 10), "pill_hall": (300, 15)}
 SEASON = 360
 HARM = HARMFUL
 PACT_FLOOR = 0.6

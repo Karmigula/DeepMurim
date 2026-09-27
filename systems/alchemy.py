@@ -20,6 +20,7 @@ from world.events import Event, effect
 from world.seed import rng_for
 
 RECIPES = tomllib.loads((Path(__file__).parent / "data" / "recipes.toml").read_text(encoding="utf-8"))
+SECRET = tomllib.loads((Path(__file__).parent / "data" / "secret_recipes.toml").read_text(encoding="utf-8"))
 NEEDS = ("element", "polarity", "potency", "toxicity")
 MIN_HERBS, MAX_HERBS = 2, 4
 BALANCED = 1               # a net polarity within this is balanced
@@ -33,7 +34,7 @@ FIRST_WORDS = ("Azure", "Jade", "Golden", "Crimson", "Nine-Turn", "Heavenly", "P
 LAST_WORDS = {"qi": "Qi Pill", "bottleneck": "Breakthrough Pill", "purity": "Clear Marrow Pill",
               "healing": "Wound-Closing Pill", "mending": "Meridian-Mending Pill", "calming": "Heart-Calming Pill",
               "cleansing": "Cleansing Pill", "antidote": "Antidote", "poison": "Poison", "venom": "Blade Venom",
-              "tempering": "Tempering Draught"}
+              "tempering": "Tempering Draught", "control": "Corpse-Worm Pill"}
 HINTS = {"element": "the herbs lean to the wrong element", "polarity": "the balance of yin and yang is off",
          "potency": "the brew is too weak", "toxicity": "the brew is too toxic" }
 
@@ -69,6 +70,11 @@ def best_match(mix: dict) -> tuple[str | None, dict]:
 
 # --- recipes as knowledge ----------------------------------------------------------------------------------
 
+def recipe_base(key: str) -> dict:
+    """A base recipe's needs, or a secret one's (5c)."""
+    return RECIPES[key] if key in RECIPES else SECRET[key]
+
+
 def recipe_entity(world, key: str) -> int:
     """A world's recipe for this base: named once, the same entity for everyone who learns it."""
     path = f"recipe:{key}"
@@ -76,7 +82,7 @@ def recipe_entity(world, key: str) -> int:
     if found is not None:
         return found.id
     rng = rng_for(world.world_seed, path)
-    base = RECIPES[key]
+    base = recipe_base(key)
     name = f"{rng.choice(FIRST_WORDS)} {LAST_WORDS[base['effect']]}"
     return world.add_entity("recipe", name, {"key": key, **base}, path)
 
@@ -175,7 +181,7 @@ def refine_block(world, person: int, place, recipe: int, herb_ids) -> str | None
     why = _herbs_block(world, person, herb_ids) or furnace_block(world, person, place)
     if why:
         return why
-    needs = met(RECIPES[world.entity(recipe).data["key"]], combine([H.herb_info(world.entity(h))[0] for h in herb_ids]))
+    needs = met(recipe_base(world.entity(recipe).data["key"]), combine([H.herb_info(world.entity(h))[0] for h in herb_ids]))
     if not all(needs.values()):
         return f"These herbs will not make it: {HINTS[next(n for n in NEEDS if not needs[n])]}."
     return None
@@ -235,7 +241,7 @@ def make_pill(world, person: int, recipe: int, grade: int, purity: float) -> int
 def find_batch(world, person: int, recipe: int) -> list[int] | None:
     """The cheapest handful of carried herbs that meets a known recipe, if any (for the refine choice)."""
     from itertools import combinations
-    base = RECIPES[world.entity(recipe).data["key"]]
+    base = recipe_base(world.entity(recipe).data["key"])
     herbs = sorted(H.herbs_of(world, person), key=lambda h: (H.herb_info(h)[1], H.props(H.herb_info(h)[0])["price"], h.id))
     lore = set(world.entity(person).data.get("herb_lore") or [])
     herbs = [h for h in herbs if H.herb_info(h)[0] in lore]  # only what one knows (spec 6)

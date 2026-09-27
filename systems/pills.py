@@ -93,6 +93,8 @@ def _taken(world, event) -> None:
     save_body(world, person, body)
     if kind == "antidote":
         toxins.cure(world, person, d["grade"])
+        from systems.control import antidote_frees  # phase 5c: a grade-5 antidote kills a control pill's worms
+        antidote_frees(world, person, d["grade"])
     elif kind == "poison":
         toxins.poison(world, person, d["grade"], d["grade"] * POISON_STRENGTH, "a swallowed poison")
 

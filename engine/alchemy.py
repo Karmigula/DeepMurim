@@ -100,7 +100,7 @@ class AlchemyMixin:
         elif self.submenu == "herbalist":
             choices = [Choice(f"Buy a bronze furnace ({H.FURNACE_PRICE} silver)", Action("buy_furnace"))] \
                 if H.furnace_block(world, me) is None else []
-            choices += [Choice(f"Buy {H.herb_name(o['herb'], o['grade'])} ({H.price(world, here, o['herb'], o['grade'])} "
+            choices += [Choice(f"Buy {H.herb_name(o['herb'], o['grade'])} ({H.price(world, here, o['herb'], o['grade'], me)} "
                                f"silver)", Action("buy_herb", o["key"])) for o in H.stock(world, here)]
             options["herbalist"] = (choices, Action("back"))
         else:

@@ -354,3 +354,10 @@ import systems.herbs  # noqa: E402,F401  phase 5b: herbs, tasting, gathering, th
 import systems.alchemy  # noqa: E402,F401  phase 5b: experiments and refining
 import systems.pills  # noqa: E402,F401  phase 5b: pills, residue, venom on a blade
 import systems.poison_path  # noqa: E402,F401  phase 5b: the poison path, venomous beasts, tempering baths
+import systems.pill_hall  # noqa: E402,F401  phase 5c: sects' pill halls and herb gardens
+import systems.guild  # noqa: E402,F401  phase 5c: the Alchemists' Guild
+import systems.recipe_trade  # noqa: E402,F401  phase 5c: recipe scrolls bought, given, taught and sold
+import systems.hall_theft  # noqa: E402,F401  phase 5c: gardens and halls robbed by night
+import systems.physic  # noqa: E402,F401  phase 5c: physicians, famous doctors, healers and poisoners for hire
+import systems.npc_alchemy  # noqa: E402,F401  phase 5c: NPCs refine and take pills in their seasons
+import systems.control  # noqa: E402,F401  phase 5c: control pills, their masters and their bound

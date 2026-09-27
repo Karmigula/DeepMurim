@@ -65,6 +65,7 @@ def check_world(world) -> list[str]:
     problems += check_gear(world)
     problems += check_toxins(world)
     problems += check_alchemy(world)
+    problems += check_alchemy_world(world)
     problems += check_knowledge(world)
     problems += check_factions(world)
     problems += check_sect(world)
@@ -153,7 +154,7 @@ def check_alchemy(world) -> list[str]:
     """Herbs of the table, pills of a known effect, grade and purity, recipes learnt within 0-1 (phase 5b)."""
     from systems.herbs import HERBS
     from systems.pills import SWALLOWED
-    effects = SWALLOWED | {"venom", "tempering"}
+    effects = SWALLOWED | {"venom", "tempering", "control"}
     out = []
     for herb in world.entities("herb"):
         if herb.data.get("herb") not in HERBS or not 0 <= herb.data.get("grade", -1) <= 3:
@@ -165,6 +166,43 @@ def check_alchemy(world) -> list[str]:
     for person, value in world._conn.execute("select a, value from relations where kind = 'knows_recipe'"):
         if not 0 <= value <= 1:
             out.append(f"#{person} knows a recipe at mastery {value}")
+    return out
+
+
+def check_alchemy_world(world) -> list[str]:
+    """Gardens of herbs of the table within 0-12, halls never below nothing (phase 5c)."""
+    from systems.herbs import HERBS
+    from systems.pill_hall import GARDEN_CAP
+    out = []
+    for faction in world.entities_after("faction", "garden", 0):
+        for name, (count, grade) in faction.data["garden"]["herbs"].items():
+            if name not in HERBS or not 0 <= count <= GARDEN_CAP or not 0 <= grade <= 3:
+                out.append(f"the garden of {faction.name} holds {count} of {name} (grade {grade})")
+    for faction in world.entities_after("faction", "pill_hall", 0):
+        if any(count < 0 for count in faction.data["pill_hall"].values()):
+            out.append(f"the pill hall of {faction.name} holds less than nothing")
+    for person in world.entities_after("person", "guild_rank", -1):
+        if not 0 <= person.data["guild_rank"] <= 9:
+            out.append(f"{person.name} (#{person.id}) holds Guild rank {person.data['guild_rank']}")
+    for person in world.entities_after("person", "pills", 0):
+        if any(int(k) not in range(1, 6) or v < 0 for k, v in person.data["pills"].items()):
+            out.append(f"{person.name} (#{person.id}) carries pills of no grade or fewer than none")
+    for person in world.get_meta("bound") or []:
+        entity = world.entity(person)
+        b = entity.data.get("bound_to") if entity is not None else None
+        if not b or entity.data.get("is_player"):
+            out.append(f"the bound index lists #{person}, bound to no one")
+        elif world.entity(b["master"]) is None or world.entity(b["master"]).kind != "person":
+            out.append(f"{entity.name} (#{person}) is bound to #{b['master']}, no person")
+        elif world.entity(b["master"]).data.get("dead") or entity.data.get("dead"):
+            out.append(f"{entity.name} (#{person}) is still bound, though one of them is dead")
+    for scroll in world.entities("scroll"):
+        owners = world.sources(scroll.id, "owns")
+        if len(owners) > 1:
+            out.append(f"{scroll.name} (#{scroll.id}) has {len(owners)} owners")
+        recipe = world.entity(scroll.data.get("recipe") or 0)
+        if recipe is None or recipe.kind != "recipe":
+            out.append(f"{scroll.name} (#{scroll.id}) names no recipe")
     return out
 
 

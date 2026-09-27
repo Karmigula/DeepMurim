@@ -23,6 +23,32 @@ KIND_WEIGHTS = {
 RAID_CHANCE = 0.3
 WATCHES_PER_DAY = 4
 REST_KINDS = frozenset({"rested", "cultivated", "practised"})
+ALCHEMY_DAYS = 30          # phase 5c: herbs brought or a pill refined, within a month
+BRING = (2, 4)
+
+
+def alchemy_task(world, rng, player: int, faction: int) -> dict:
+    """Bring N herbs of a kind that grows on the sect's land, or refine one pill of a recipe the player knows."""
+    import systems.alchemy as A
+    import systems.herbs as H
+    known = [r for r, _ in A.known_recipes(world, player)]
+    seat = world.entity(faction).data["seat"]
+    if known and rng.random() < 0.5:
+        return {"task": "refine", "recipe": rng.choice(known), "town": seat}
+    growing = H.growing(world.entity(seat).data["terrain"]) or sorted(H.HERBS)
+    return {"task": "bring", "herb": rng.choice(growing), "count": rng.randint(*BRING), "town": seat}
+
+
+def alchemy_items(world, player: int, d: dict) -> list[int]:
+    """What the player would hand in for an alchemy duty now, or nothing if they have not enough."""
+    if d.get("task") == "bring":
+        import systems.herbs as H
+        found = [h.id for h in H.herbs_of(world, player) if H.herb_info(h)[0] == d["herb"]]
+        return found[:d["count"]] if len(found) >= d["count"] else []
+    import systems.pills as P
+    made = [p.id for p in P.pills_of(world, player) if p.data.get("recipe") == d["recipe"]
+            and p.data.get("maker") == player and p.created_at > d["issued_at"]]
+    return made[:1]
 
 
 def open_duty(world, player: int):
@@ -94,9 +120,12 @@ def issue_events(world, player: int, faction: int, keeper: int, place: int, kind
         data["target"] = _hostile_member(world, rng, faction)
     elif kind == "guard":
         data.update(town=halls.seat_of(world, faction), days=5 * data["difficulty"])
+    elif kind == "alchemy":  # phase 5c: only where the sect keeps a pill hall
+        data.update(alchemy_task(world, rng, player, faction))
     if kind in ("collect", "gather") and data["target"] is None:  # nobody fitting: carry a letter instead
         return issue_events(world, player, faction, keeper, place, kind="deliver", release=release)
-    days = data["days"] + 7 if kind == "guard" else _road_days(world, here, data) + 7
+    days = data["days"] + 7 if kind == "guard" else ALCHEMY_DAYS if kind == "alchemy" \
+        else _road_days(world, here, data) + 7
     data["deadline"] = world.time + days * WATCHES_PER_DAY
     target = data["target"] if kind in ("collect", "gather") else None
     return [Event("duty_issued", (player, keeper) + ((target,) if target else ()), place, data)]
@@ -130,6 +159,8 @@ def progress(world, player: int):
         return "done"  # a watch kept longer than asked still counts
     if world.time > d["deadline"]:
         return "failed"
+    if d["kind"] == "alchemy" and d["town"] in world.targets(player, "located_in") and alchemy_items(world, player, d):
+        return "done"
     if d["kind"] in ("deliver", "escort") and d["town"] in world.targets(player, "located_in"):
         return "done"
     if d["kind"] == "collect" and d.get("paid"):
@@ -148,9 +179,11 @@ def done_events(world, player: int, place: int, reason: str = "done") -> list[Ev
     d = duty.data
     sponsor = F.membership(world, player, d["faction"])[1].get("sponsor")
     witnesses = (Witness(sponsor, "respect", 0.3),) if sponsor else ()
+    items = alchemy_items(world, player, d) if d["kind"] == "alchemy" else []
     return [Event("duty_done", (player,), place, {"duty": duty.id, "faction": d["faction"], "kind": d["kind"],
                                                   "merit": 10 * d["difficulty"], "silver": 5 * d["difficulty"],
-                                                  "release": d.get("release", False)}, witnesses=witnesses)]
+                                                  "release": d.get("release", False), "items": items},
+                  witnesses=witnesses)]
 
 
 def failed_events(world, player: int, place: int, reason: str = "late") -> list[Event]:
@@ -169,6 +202,9 @@ def _done(world, event) -> None:
     set_membership(world, player, d["faction"], merit=data.get("merit", 0) + d["merit"])
     world.update_data(player, silver=int(world.entity(player).data.get("silver", 0)) + d["silver"], duty=None)
     world.update_data(d["duty"], status="done")
+    for item in d.get("items") or []:  # phase 5c: the herbs or the pill handed in
+        world.unrelate(player, "owns", item)
+        world.update_data(item, used=True)
 
 
 @effect("duty_failed")

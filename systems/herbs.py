@@ -152,18 +152,19 @@ def stock(world, town: int) -> list[dict]:
     return [o for o in out if o["key"] not in sold]
 
 
-def price(world, town: int, name: str, grade: int) -> int:
+def price(world, town: int, name: str, grade: int, buyer: int | None = None) -> int:
+    from systems.guild import discount  # phase 5c: the Guild's own buy cheaper
     terrain = region_of(world, town).data["terrain"]
     factor = 1.0 if terrain in props(name)["terrains"] else LACKED
     return max(1, round(props(name)["price"] * AGE_PRICE[grade] * factor * event_factor(world, town, "herbs")
-                        * drift(world, town, "herbs")))
+                        * drift(world, town, "herbs") * discount(world, buyer)))
 
 
 def buy_block(world, person: int, town: int, key: str) -> str | None:
     offer = next((o for o in stock(world, town) if o["key"] == key), None)
     if offer is None:
         return "The herbalist has nothing like that now."
-    if silver_of(world, person) < price(world, town, offer["herb"], offer["grade"]):
+    if silver_of(world, person) < price(world, town, offer["herb"], offer["grade"], person):
         return "You cannot pay for it."
     return None
 
@@ -171,7 +172,7 @@ def buy_block(world, person: int, town: int, key: str) -> str | None:
 def buy_events(world, person: int, town: int, key: str) -> list[Event]:
     offer = next(o for o in stock(world, town) if o["key"] == key)
     return [Event("herb_bought", (person,), town, {**offer, "season": lives.current_season(world),
-                                                    "price": price(world, town, offer["herb"], offer["grade"])})]
+                                                    "price": price(world, town, offer["herb"], offer["grade"], person)})]
 
 
 @effect("herb_bought")
