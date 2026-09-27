@@ -102,10 +102,16 @@ def needs_guardian(world, person: int, faction: int) -> bool:
 
 
 def guardian_events(world, person: int, faction: int, place) -> list[Event]:
-    """The guardian comes out of the dark: a beast encounter with it (the engine runs the fight)."""
-    region = region_of(world, place)
-    beast = encounters.make_roamer(world, region, "beast", encounters._free_roamer_slot(world, region), 0.7)
-    world.update_data(beast, guardian_of=faction)
+    """The guardian comes out of the dark: a beast encounter with it (the engine runs the fight). A garden keeps
+    one guardian: the same beast comes back until it is slain (5c minors)."""
+    known = world.entity(world.entity(faction).data.get("guardian") or 0)
+    if known is not None and not known.data.get("dead"):
+        beast = known.id
+    else:
+        region = region_of(world, place)
+        beast = encounters.make_roamer(world, region, "beast", encounters._free_roamer_slot(world, region), 0.7)
+        world.update_data(beast, guardian_of=faction)
+        world.update_data(faction, guardian=beast)
     return encounters.encounter_events(person, beast, place, "beast", 0)
 
 

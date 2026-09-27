@@ -393,6 +393,10 @@ class AlchemyWorldMixin:
         npc = self.world.entity(self.focus)
         rank = G.rank_of(self.world, npc.id) if G.is_alchemist(self.world, npc.id) else None
         told = [(f"{npc.name} is {G.title(rank)}.", "dim")] if rank else []  # their rank, told when you talk shop
+        if npc.data.get("doctor"):  # a famous doctor says their terms before refusing you (5c minors)
+            terms = {"gold": f"{PY.DOCTOR_GOLD} silver", "task": "a thousand-year herb",
+                     "righteous": "that you walk the orthodox path", "eccentric": "that you beat them at go"}
+            told.append((f"{npc.data['doctor']['title']} asks {terms[npc.data['doctor']['whim']]}.", "dim"))
         return self._turn(told + [("What will you do?", "system")])
 
     def _talk_deed(self, npc, why, events):

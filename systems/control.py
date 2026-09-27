@@ -233,10 +233,12 @@ def service(world, person: int) -> dict | None:
     rng = rng_for(world.world_seed, f"service:{person}:{b['master']}:{month}")
     kind = rng.choice(SERVICES)
     out = {"kind": kind, "month": month}
-    if kind == "message":
-        here = world.entity(lives.home(world, person) or 0)
-        x = (here.data["x"] if here is not None and here.kind == "town" else 0) + rng.randint(-2, 2)
-        y = (here.data["y"] if here is not None and here.kind == "town" else 0) + rng.randint(-2, 2)
+    if kind == "message":  # from the master's town, never to it: the errand stays put however the bound roam
+        home = world.entity(lives.home(world, b["master"]) or 0)
+        hx, hy = (home.data["x"], home.data["y"]) if home is not None and home.kind == "town" else (0, 0)
+        x, y = hx + rng.randint(-2, 2), hy + rng.randint(-2, 2)
+        if (x, y) == (hx, hy):
+            x += 1
         i = rng.randrange(region_spec(world.world_seed, x, y).town_count)
         out.update(at=[x, y, i], town=town_label(world, x, y, i))
     return out
