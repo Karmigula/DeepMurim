@@ -77,10 +77,9 @@ class AlchemyWorldMixin:
             if npc.data["doctor"]["whim"] == "eccentric" and npc.id not in (world.entity(me).data.get("go_won") or []):
                 out.append(Choice("Play them at go", Action("play_go", npc.id)))
         if G.is_alchemist(world, npc.id):
-            for key in RT.teach_offers(world, me, npc.id):
-                if RT.teach_block(world, me, npc.id, key) is None:
-                    out.append(Choice(f"Learn their {recipe_label(world, key)} ({RT.price(key)} silver)",
-                                      Action("learn_recipe", (npc.id, key))))
+            for key in RT.teach_offers(world, me, npc.id):  # offered even to a stranger: the answer tells why not
+                out.append(Choice(f"Learn their {recipe_label(world, key)} ({RT.price(key)} silver)",
+                                  Action("learn_recipe", (npc.id, key))))
             for grade in N.stall_offers(world, npc.id):
                 out.append(Choice(f"Buy a grade-{grade} pill ({N.stall_price(grade)} silver)",
                                   Action("buy_npc_pill", (npc.id, grade))))
@@ -132,22 +131,27 @@ class AlchemyWorldMixin:
         if self.submenu not in WORLD_MENUS:
             return options
         choices = []
-        if self.submenu == "pill_hall":
+        if self.submenu == "pill_hall":  # the best of each pill first, then secrets and herbs, then cheaper pills
+            best, cheaper, rest = [], [], []
             for fid in self._my_halls():
                 name = world.entity(fid).name
+                seen = set()
                 for grade, kind in PH.offers(world, me, fid):
                     cost = PH.cost(world, fid, grade)
-                    choices.append(Choice(f"Draw a grade-{grade} {kind} pill from the {name} ({cost} merit)",
-                                          Action("draw_pill", (fid, grade, kind))))
-                for herb, (count, grade) in sorted(PH.garden(world, fid).items()):
-                    if count > 0 and PH.harvest_block(world, me, fid, herb, here) is None:
-                        choices.append(Choice(f"Harvest {herb} from the {name}'s garden "
-                                              f"({PH.harvest_cost(world, fid, grade)} merit)", Action("harvest", (fid, herb))))
+                    choice = Choice(f"Draw a grade-{grade} {kind} pill from the {name} ({cost} merit)",
+                                    Action("draw_pill", (fid, grade, kind)))
+                    (cheaper if kind in seen else best).append(choice)
+                    seen.add(kind)
                 if not PH.own(world, fid):
                     for key in RT.secret_recipes(world, fid):
                         if RT.secret_block(world, me, fid, key, here) is None:
-                            choices.append(Choice(f"Ask for the {name}'s secret scroll ({RT.secret_cost(key)} merit)",
-                                                  Action("secret_scroll", (fid, key))))
+                            rest.append(Choice(f"Ask for the {name}'s secret scroll ({RT.secret_cost(key)} merit)",
+                                               Action("secret_scroll", (fid, key))))
+                for herb, (count, grade) in sorted(PH.garden(world, fid).items()):
+                    if count > 0 and PH.harvest_block(world, me, fid, herb, here) is None:
+                        rest.append(Choice(f"Harvest {herb} from the {name}'s garden "
+                                           f"({PH.harvest_cost(world, fid, grade)} merit)", Action("harvest", (fid, herb))))
+            choices = best + rest + cheaper
         elif self.submenu == "guild":
             if G.join_block(world, me, here) is None:
                 choices.append(Choice("Join the Guild", Action("guild_join")))
@@ -220,7 +224,12 @@ class AlchemyWorldMixin:
         if C.bound(world, me):
             if C.service_done(world, me):
                 lines += self._commit(C.served_events(world, me, self.place.id))
+            hurt = C.bound(world, me).get("hurt_to", 0)
             C.starve(world, me)
+            if C.bound(world, me).get("hurt_to", 0) > hurt:  # the worms bit today: say so (5c review)
+                left = max(0, round(C.STARVE_DAYS - C.days_starved(world, me)))
+                lines.append((f"The worms bite: {round(C.days_starved(world, me))} day(s) without the antidote, "
+                               f"{left} before they wake.", "red"))
             deaths = C.death_events(world, me)
             if deaths:
                 return self._turn(list(turn.lines) + self._commit(deaths) + self._death_lines())

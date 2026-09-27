@@ -50,35 +50,51 @@ def test_the_fork_guide_covers_the_alchemy_world():
 
 
 def crowd(world, town, tag, n=200):
+    """People as a town has them: the world's own occupations and realms, in turn."""
+    from world.gen.npc import OCCUPATIONS, REALMS
     out = []
     for i in range(n):
         pid = world.add_entity("person", f"Crowd {tag} {i}", {
-            "occupation": JOBS[i % len(JOBS)], "traits": ["curious"], "age": 30, "silver": 200,
-            "realm": "third-rate" if i % 2 else "mortal", "portrait": {"hair": 0, "face": 0, "robe": 0}},
-            f"test:crowd:{tag}:{i}")
+            "occupation": OCCUPATIONS[i % len(OCCUPATIONS)], "traits": ["curious"], "age": 30, "silver": 200,
+            "realm": REALMS[i % len(REALMS)], "portrait": {"hair": 0, "face": 0, "robe": 0}}, f"test:crowd:{tag}:{i}")
         world.relate(pid, town, "located_in")
         lives.lived_to(world, pid)
         out.append(pid)
     return out
 
 
+class _Undo(Exception):
+    pass
+
+
 def test_a_season_of_two_hundred_npcs_stays_within_a_tenth_of_5bs(game, monkeypatch):
+    """The same 200 people live the same season again and again, each time rolled back, with and without the
+    alchemy agendas in turn (5c review: separate crowds and single runs measured only the machine's noise)."""
     world = game.world
     everything = list(lives.AGENDAS)
-    ours = [N.season_events, C.world_events]
-    before = [a for a in everything if a not in ours]
-    crowds = [crowd(world, game.place.id, n) for n in range(6)]
+    before = [a for a in everything if a not in (N.season_events, C.world_events)]
+    people = crowd(world, game.place.id, "season")
     world.set_time(world.time + lives.SEASON)
-    timings = {"5b": [], "5c": []}
-    for n, people in enumerate(crowds):  # alternating, the best of three each: the machine's noise is not ours
-        which = "5b" if n % 2 == 0 else "5c"
-        monkeypatch.setattr(lives, "AGENDAS", before if which == "5b" else everything)
+
+    def season(agendas) -> float:
+        monkeypatch.setattr(lives, "AGENDAS", agendas)
         gc.collect()
         start = time.process_time()
-        for person in people:
-            lives.catch_up(world, person)
-        timings[which].append(time.process_time() - start)
-    assert min(timings["5c"]) <= 1.10 * min(timings["5b"]) + 0.016, timings  # one tick of Windows' CPU clock
+        try:
+            with world.transaction():
+                for person in people:
+                    lives.catch_up(world, person)
+                spent = time.process_time() - start
+                raise _Undo
+        except _Undo:
+            return spent
+
+    timings = {"5b": [], "5c": []}
+    for n in range(12):
+        which = "5b" if n % 2 == 0 else "5c"
+        timings[which].append(season(before if which == "5b" else everything))
+    total = {k: sum(sorted(v)[:-1]) for k, v in timings.items()}  # the slowest of each dropped
+    assert total["5c"] <= 1.10 * total["5b"] + 0.016, timings  # one tick of Windows' CPU clock
 
 
 def at_the_seat(game):

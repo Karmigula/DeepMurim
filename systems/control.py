@@ -141,6 +141,17 @@ def _freed_news(world, event, event_id: int) -> None:
                 variant=make_variant("freed", person, None, place=place_name(world, event.place)))
 
 
+@listen("succession")
+def _heir_unlisted(world, event, event_id: int) -> None:
+    """The heir becomes the player, whose worms are weighed turn by turn; one who steps aside bound is watched with
+    the world's (5c review, as 5b's poisoned index)."""
+    old, heir = event.actors
+    listed = [p for p in world.get_meta("bound") or [] if p != heir]
+    if not world.entity(old).data.get("dead") and bound(world, old) and old not in listed:
+        listed.append(old)
+    world.set_meta("bound", listed)
+
+
 @listen("died")
 def _master_dies(world, event, event_id: int) -> None:
     """Nothing more is owed to a dead master: their bound are free, and grateful to whoever killed them."""
@@ -197,7 +208,8 @@ PY.CURE_HOOKS["control"] = (lambda world, person: bool(bound(world, person)), fr
 # --- the player bound -----------------------------------------------------------------------------------------
 
 def binds(world, npc: int) -> bool:
-    return PY.unorthodox(world, npc) and realm_index(world.entity(npc).data.get("realm", "mortal")) >= BIND_REALM
+    """An unorthodox master of realm 3 or more (the realm first: it is read without a query)."""
+    return realm_index(world.entity(npc).data.get("realm", "mortal")) >= BIND_REALM and PY.unorthodox(world, npc)
 
 
 @listen("duel_ended")

@@ -18,7 +18,7 @@ from systems.purse import silver_of
 from systems.realms import realm_index
 from world.body import add_injury, to_dict
 from world.events import Event, effect, listen
-from world.seed import rng_for
+from world.seed import rng_for, seed_for
 
 REFINE = (1, 3)
 RISE_CHANCE = 0.1
@@ -38,18 +38,23 @@ def held(entity) -> dict[int, int]:
 def season_events(world, person: int, n: int, rng) -> list[Event]:
     """This season's refining and pill-taking for one NPC, from its own seeded stream (not the life clock's)."""
     entity = world.entity(person)
-    mine = rng_for(world.world_seed, f"npc_alchemy:{lives.key(entity)}:{n}")
-    data: dict = {"season": n, "refined": 0, "grade": 0, "rank": None, "took": None, "deviation": False,
-                  "dies": False, "bought": 0}
     occupation = entity.data.get("occupation")
     alchemist = occupation in G.ALCHEMIST_JOBS or (occupation == "hall keeper" and G.is_pill_master(world, person))
+    path = f"npc_alchemy:{lives.key(entity)}:{n}"
+    takes = realm_index(entity.data.get("realm", "mortal")) >= 1 \
+        and seed_for(world.world_seed, f"{path}:take") / 2 ** 64 < TAKE_CHANCE  # one hash, not a whole Random
+    if not alchemist and not takes:
+        return []  # most people neither refine nor take a pill this season (5c review: speed)
+    mine = rng_for(world.world_seed, path)
+    data: dict = {"season": n, "refined": 0, "grade": 0, "rank": None, "took": None, "deviation": False,
+                  "dies": False, "bought": 0}
     if alchemist:
         rank = G.rank_of(world, person) or 1
         data["grade"] = min(5, max(1, math.ceil(rank / 2)))
         data["refined"] = mine.randint(*REFINE)
         if rank < G.MAX_RANK and mine.random() < RISE_CHANCE:
             data["rank"] = rank + 1
-    if realm_index(entity.data.get("realm", "mortal")) >= 1 and mine.random() < TAKE_CHANCE:
+    if takes:
         own = held(entity)
         if own or data["refined"]:
             data["took"] = max(own) if own else data["grade"]
