@@ -96,7 +96,7 @@ def _tasted(world, event) -> None:
     learn(world, person, [d["herb"]])
     spend(world, person, [d["item"]])
     if d["toxicity"] >= TASTE_POISON_AT:
-        toxins.poison(world, person, d["toxicity"], d["toxicity"] * 2, f"tasting {d['herb']}")
+        toxins.poison(world, person, d["toxicity"], d["toxicity"], f"tasting {d['herb']}")  # a taste: never lethal
 
 
 # --- gathering -------------------------------------------------------------------------------------------

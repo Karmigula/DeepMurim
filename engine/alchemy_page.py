@@ -1,8 +1,12 @@
 """The alchemist's page (phase 5b spec 5-6): recipes, herbs as known, the furnace's tray, the body's poisons."""
 
+import math
+
 import systems.alchemy as A
 import systems.herbs as H
+import systems.toxins as X
 from systems.bodies import load_body
+from world.body import WATCHES_PER_DAY
 
 
 def herb_line(world, viewer: int, item) -> str:
@@ -19,7 +23,12 @@ def poison_words(body) -> list[str]:
     out = []
     for p in body.poisons:
         grade = f"grade {p['grade']}" if p.get("named") else "grade unknown"
-        out.append(f"poison in your blood ({grade}), {max(1, p['strength'] // 4)} day(s) of it left")
+        death = X.days_to_death(body, p)
+        if death is not None:
+            out.append(f"poison in your blood ({grade}): it will kill you within {max(1, math.ceil(death))} day(s)")
+        else:
+            out.append(f"poison in your blood ({grade}), {max(1, math.ceil(p['strength'] / WATCHES_PER_DAY))} "
+                       f"day(s) of it left")
     return out
 
 

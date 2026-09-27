@@ -15,7 +15,7 @@ import systems.lives as lives  # noqa: E402
 import systems.world_clock as world_clock
 from systems.bodies import load_body, save_body
 from world.body import POISONED_TO_DEATH, WATCHES_PER_DAY
-from world.events import Event, effect
+from world.events import Event, effect, listen
 from world.seed import rng_for
 
 DULL = 150.0            # a pill works at 1 - residue / 150
@@ -174,7 +174,7 @@ def season_hook(world, n: int) -> list[Event]:
     events = []
     for person in list(world.get_meta("poisoned") or []):
         entity = world.entity(person)
-        if entity is None or entity.data.get("dead"):
+        if entity is None or entity.data.get("dead") or entity.data.get("is_player"):
             world.set_meta("poisoned", [p for p in world.get_meta("poisoned") or [] if p != person])
             continue
         body = load_body(world, person)
@@ -184,6 +184,14 @@ def season_hook(world, n: int) -> list[Event]:
 
 
 world_clock.SEASON_HOOKS.append(season_hook)
+
+
+@listen("succession")
+def _heir_unlisted(world, event, event_id: int) -> None:
+    """The heir becomes the player, whose poisons are watched turn by turn, not season by season."""
+    listed = world.get_meta("poisoned") or []
+    if event.actors[1] in listed:
+        world.set_meta("poisoned", [p for p in listed if p != event.actors[1]])
 
 
 def days_to_death(body, poison_: dict) -> float | None:

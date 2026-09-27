@@ -37,7 +37,7 @@ def test_tasting_teaches_a_herb_and_a_toxic_one_poisons(game):
     black = H.make_herb(world, "black lotus", 0, me)
     commit(world, H.taste_events(world, me, black, game.place.id))
     [p] = load_body(world, me).poisons
-    assert p["grade"] == 5 and p["strength"] == 10
+    assert p["grade"] == 5 and p["strength"] == 5  # a taste: grade by toxicity, strength = toxicity (5b review)
 
 
 def test_gathering_finds_the_herbs_of_the_land(game):

@@ -144,9 +144,9 @@ def _experimented(world, event) -> None:
     person, d = event.actors[0], event.data
     world.update_data(person, silver=silver_of(world, person) - d["rent"])
     H.spend(world, person, d["herbs"])
-    H.learn(world, person, d["names"])
     advance(world, WATCHES)
     if d["result"] == "discovered":
+        H.learn(world, person, d["names"])  # only a success teaches its herbs (spec 2.2)
         recipe = recipe_entity(world, d["recipe"])
         if mastery(world, person, recipe) is None:
             world.relate(person, recipe, "knows_recipe", DISCOVERED_MASTERY)
@@ -203,9 +203,9 @@ def _refined(world, event) -> None:
     person, d = event.actors[0], event.data
     world.update_data(person, silver=silver_of(world, person) - d["rent"])
     H.spend(world, person, d["herbs"])
-    H.learn(world, person, d["names"])
     advance(world, WATCHES)
     if d["success"]:
+        H.learn(world, person, d["names"])
         for _ in range(d["count"]):
             make_pill(world, person, d["recipe"], d["grade"], d["purity"])
         skill = mastery(world, person, d["recipe"])

@@ -17,6 +17,16 @@ from world.gen.materialize import region_of
 ALCHEMY_MENUS = ("alchemy", "herbalist", "bath")
 
 
+def _distinct(items) -> list:
+    """One of each kind: herbs and pills alike are told apart by name (a menu lists each once)."""
+    seen, out = set(), []
+    for item in items:
+        if item.name not in seen:
+            seen.add(item.name)
+            out.append(item)
+    return out
+
+
 class AlchemyMixin:
     _tray: tuple = ()
     _slain_beast: int | None = None
@@ -59,15 +69,9 @@ class AlchemyMixin:
         if self.focus is not None or self.submenu not in ALCHEMY_MENUS:
             return options
         world, me, here = self.world, self.player.id, self.place.id
-        if self.submenu == "alchemy":
-            choices = [Choice(f"Swallow {p.name}", Action("swallow", p.id)) for p in P.pills_of(world, me)
-                       if P.swallow_block(world, me, p.id) is None]
+        if self.submenu == "alchemy":  # the furnace first; each kind of herb and pill once (5b review)
+            choices = []
             tray = [t for t in self._tray if t in world.targets(me, "owns")]
-            for herb in H.herbs_of(world, me):
-                name = H.herb_name(*H.herb_info(herb))
-                choices.append(Choice(f"Taste {name}", Action("taste", herb.id)))
-                if herb.id not in tray and len(tray) < A.MAX_HERBS:
-                    choices.append(Choice(f"Put {name} in the furnace", Action("add_herb", herb.id)))
             if len(tray) >= A.MIN_HERBS:
                 choices.append(Choice(f"Light the furnace ({len(tray)} herbs)", Action("experiment")))
             if tray:
@@ -75,16 +79,28 @@ class AlchemyMixin:
             for recipe, _ in A.known_recipes(world, me):
                 if A.find_batch(world, me, recipe) is not None:
                     choices.append(Choice(f"Refine {world.entity(recipe).name}", Action("refine", recipe)))
+            herbs = H.herbs_of(world, me)
+            if len(tray) < A.MAX_HERBS:
+                choices += [Choice(f"Put {H.herb_name(*H.herb_info(h))} in the furnace", Action("add_herb", h.id))
+                            for h in _distinct(h for h in herbs if h.id not in tray)]
+            choices += [Choice(f"Swallow {p.name}", Action("swallow", p.id))
+                        for p in _distinct(p for p in P.pills_of(world, me) if P.swallow_block(world, me, p.id) is None)]
+            choices += [Choice(f"Taste {H.herb_name(*H.herb_info(h))}", Action("taste", h.id)) for h in _distinct(herbs)]
             options["alchemy"] = (choices, Action("back"))
         elif self.submenu == "herbalist":
-            choices = [Choice(f"Buy {H.herb_name(o['herb'], o['grade'])} ({H.price(world, here, o['herb'], o['grade'])} "
-                              f"silver)", Action("buy_herb", o["key"])) for o in H.stock(world, here)]
-            if H.furnace_block(world, me) is None:
-                choices.append(Choice(f"Buy a bronze furnace ({H.FURNACE_PRICE} silver)", Action("buy_furnace")))
+            choices = [Choice(f"Buy a bronze furnace ({H.FURNACE_PRICE} silver)", Action("buy_furnace"))] \
+                if H.furnace_block(world, me) is None else []
+            choices += [Choice(f"Buy {H.herb_name(o['herb'], o['grade'])} ({H.price(world, here, o['herb'], o['grade'])} "
+                               f"silver)", Action("buy_herb", o["key"])) for o in H.stock(world, here)]
             options["herbalist"] = (choices, Action("back"))
         else:
-            options["bath"] = ([Choice(f"Temper your {stat}", Action("bathe", stat)) for stat in PHYSIQUE],
-                               Action("back"))
+            choices = [Choice(f"Temper your {stat}", Action("bathe", stat)) for stat in PHYSIQUE]
+            if load_body(world, me).constitution is None:
+                for herb in _distinct(h for h in H.herbs_of(world, me) if H.herb_info(h)[1] >= 3):
+                    name = H.herb_info(herb)[0]
+                    choices += [Choice(f"Temper your {stat} with {name}", Action("bathe", (stat, herb.id)))
+                                for stat in PHYSIQUE]
+            options["bath"] = (choices, Action("back"))
         return options
 
     # --- the world around ---------------------------------------------------------------------------------------
@@ -176,8 +192,9 @@ class AlchemyMixin:
 
     def _do_swallow(self, item):
         world, me = self.world, self.player.id
-        if item is None:  # typed: the first pill one can swallow
-            item = next((p.id for p in P.pills_of(world, me) if P.swallow_block(world, me, p.id) is None), None)
+        if item is None:  # typed: the first pill one can swallow, never a poison (only named, it is drunk)
+            item = next((p.id for p in P.pills_of(world, me)
+                         if P.effect_of(p) != "poison" and P.swallow_block(world, me, p.id) is None), None)
         if item is None or (why := P.swallow_block(world, me, item)) is not None:
             return self._turn([(why if item is not None else "You have no pill to swallow.", "system")])
         return self._turn(self._commit(P.swallow_events(world, me, self.place.id, item)))
@@ -218,10 +235,12 @@ class AlchemyMixin:
 
     def _do_bathe(self, stat):
         world, me, here = self.world, self.player.id, self.place.id
+        stat, herb = stat if isinstance(stat, tuple) else (stat, None)
         draught = next((p.id for p in P.pills_of(world, me) if P.effect_of(p) == "tempering"), None)
         if (why := PP.bath_block(world, me, here, stat, draught)) is not None:
             return self._turn([(why, "system")])
-        herb = next((h.id for h in H.herbs_of(world, me) if H.herb_info(h)[1] >= 3), None)
+        if herb is not None and (herb not in world.targets(me, "owns") or H.herb_info(world.entity(herb)) is None):
+            return self._turn([("You have no such herb.", "system")])
         return self._turn(self._commit(PP.bath_events(world, me, here, stat, draught, herb)))
 
     def _do_buy_poison_art(self, npc):

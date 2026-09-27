@@ -207,7 +207,7 @@ def bath_events(world, person: int, place, stat: str, draught: int, herb: int | 
     rng = rng_for(world.world_seed, f"bath:{person}:{world.time}")
     info = herb_info(world.entity(herb)) if herb is not None else None
     awaken = None
-    if info is not None and info[1] >= 3 and rng.random() < AWAKEN:
+    if info is not None and info[1] >= 3 and load_body(world, person).constitution is None and rng.random() < AWAKEN:
         awaken = AWAKENING.get(_element(info[0]))
     return [Event("bathed", (person,), place, {
         "stat": stat, "draught": draught, "herb": herb, "pain": rng.random() < BATH_PAIN, "awaken": awaken,
