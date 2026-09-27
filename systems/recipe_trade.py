@@ -132,7 +132,10 @@ def _sold(world, event) -> None:
 def secret_recipes(world, faction: int) -> list[str]:
     """The one or two recipes this sect's hall keeps to itself, seeded from the base recipes."""
     rng = rng_for(world.world_seed, f"secret:{faction}")
-    return sorted(rng.sample(sorted(A.RECIPES), rng.randint(*SECRETS)))
+    keys = sorted(rng.sample(sorted(A.RECIPES), rng.randint(*SECRETS)))
+    if world.entity(faction).data.get("type") in F.DARK:  # the control pill: an unorthodox sect's alone (Task 6)
+        return ["control"] + keys[:1]
+    return keys
 
 
 def secret_cost(key: str) -> int:

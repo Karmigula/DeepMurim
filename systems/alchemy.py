@@ -20,7 +20,7 @@ from world.events import Event, effect
 from world.seed import rng_for
 
 RECIPES = tomllib.loads((Path(__file__).parent / "data" / "recipes.toml").read_text(encoding="utf-8"))
-SECRET: dict[str, dict] = {}  # recipes never found by experiment, only learnt (phase 5c: the control pill)
+SECRET = tomllib.loads((Path(__file__).parent / "data" / "secret_recipes.toml").read_text(encoding="utf-8"))
 NEEDS = ("element", "polarity", "potency", "toxicity")
 MIN_HERBS, MAX_HERBS = 2, 4
 BALANCED = 1               # a net polarity within this is balanced
@@ -34,7 +34,7 @@ FIRST_WORDS = ("Azure", "Jade", "Golden", "Crimson", "Nine-Turn", "Heavenly", "P
 LAST_WORDS = {"qi": "Qi Pill", "bottleneck": "Breakthrough Pill", "purity": "Clear Marrow Pill",
               "healing": "Wound-Closing Pill", "mending": "Meridian-Mending Pill", "calming": "Heart-Calming Pill",
               "cleansing": "Cleansing Pill", "antidote": "Antidote", "poison": "Poison", "venom": "Blade Venom",
-              "tempering": "Tempering Draught"}
+              "tempering": "Tempering Draught", "control": "Corpse-Worm Pill"}
 HINTS = {"element": "the herbs lean to the wrong element", "polarity": "the balance of yin and yang is off",
          "potency": "the brew is too weak", "toxicity": "the brew is too toxic" }
 

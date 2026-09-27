@@ -13,7 +13,7 @@ from world.seed import rng_for
 
 FINE_PER, WANTED, HUNTED = 20, 30, 50
 SCHEMES = frozenset({"poisoner", "spymaster", "framer", "forger", "puppet_master", "murdered",
-                     "poisoned_for_hire"})  # 4h: 100 silver; 5c: a hired poisoning traced
+                     "poisoned_for_hire", "enslaved"})  # 4h: 100 silver; 5c: a hired poisoning, a control pill
 SCHEME_WEIGHT = 5.0
 ARREST_CHANCE, HUNTER_CHANCE = 0.4, 0.2
 ALLIANCE_RANGE = 3

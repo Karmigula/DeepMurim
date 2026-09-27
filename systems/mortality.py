@@ -16,7 +16,8 @@ DEATH_WEIGHT = 3.0
 CAUSES = {"age": "of old age", "illness": "of illness", "deviation": "of qi deviation",
           "killed": "at the hands of {killer}", "executed": "under the executioner's blade",
           "beasts": "to the beasts", "sealed": "sealed in a secret realm", "realm": "in a secret realm",
-          "founder_test": "in the founder's test", "poisoned": "of poison"}
+          "founder_test": "in the founder's test", "poisoned": "of poison",
+          "control_pill": "to the worms of a control pill"}
 
 
 def player_lived_to(world, player: int) -> int:

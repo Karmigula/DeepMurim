@@ -154,7 +154,7 @@ def check_alchemy(world) -> list[str]:
     """Herbs of the table, pills of a known effect, grade and purity, recipes learnt within 0-1 (phase 5b)."""
     from systems.herbs import HERBS
     from systems.pills import SWALLOWED
-    effects = SWALLOWED | {"venom", "tempering"}
+    effects = SWALLOWED | {"venom", "tempering", "control"}
     out = []
     for herb in world.entities("herb"):
         if herb.data.get("herb") not in HERBS or not 0 <= herb.data.get("grade", -1) <= 3:
@@ -187,6 +187,15 @@ def check_alchemy_world(world) -> list[str]:
     for person in world.entities_after("person", "pills", 0):
         if any(int(k) not in range(1, 6) or v < 0 for k, v in person.data["pills"].items()):
             out.append(f"{person.name} (#{person.id}) carries pills of no grade or fewer than none")
+    for person in world.get_meta("bound") or []:
+        entity = world.entity(person)
+        b = entity.data.get("bound_to") if entity is not None else None
+        if not b or entity.data.get("is_player"):
+            out.append(f"the bound index lists #{person}, bound to no one")
+        elif world.entity(b["master"]) is None or world.entity(b["master"]).kind != "person":
+            out.append(f"{entity.name} (#{person}) is bound to #{b['master']}, no person")
+        elif world.entity(b["master"]).data.get("dead") or entity.data.get("dead"):
+            out.append(f"{entity.name} (#{person}) is still bound, though one of them is dead")
     for scroll in world.entities("scroll"):
         owners = world.sources(scroll.id, "owns")
         if len(owners) > 1:
