@@ -63,6 +63,8 @@ def _taken(world, event) -> None:
     body = load_body(world, person)
     potency = d["grade"] * toxins.dulling(body)
     kind = d["effect"]
+    if kind in ("healing", "mending") and body.constitution == "Myriad Poison Body":
+        potency *= 0.5  # a poison body takes healing hard (spec 4.4)
     if kind == "qi":  # a treasure pill keeps its own years, dulled like any other
         add_energy(body, d["qi_years"] * toxins.dulling(body) if d["qi_years"] is not None else 0.5 * potency)
     elif kind == "bottleneck":

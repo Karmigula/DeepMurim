@@ -9,6 +9,7 @@ looked at for a poison's death.
 
 # The registry first: modules that fill it (pills, the poison path) may load while this one is still loading.
 WOUND_HOOKS: list = []  # (world, hitter, target, form, hitter_body, target_body): a wound that poisons (5b)
+ABSORB_HOOKS: list = []  # (world, person, body, grade, strength) -> (grade, strength): what a body lets in (5b)
 
 import systems.lives as lives  # noqa: E402
 import systems.world_clock as world_clock
@@ -61,6 +62,10 @@ def add_poison(world, person: int, body, grade: int, strength: int, source: str)
     """The same, into a body already loaded (a duel's wound): the caller saves it."""
     if grade <= body.resist:
         return "resisted"
+    for hook in ABSORB_HOOKS:  # the Myriad Poison Body's immunity, the poison path's conversion
+        grade, strength = hook(world, person, body, grade, strength)
+    if strength <= 0:
+        return "absorbed"
     body.poisons = body.poisons + [{"grade": int(grade), "strength": int(strength), "days": 0.0,
                                     "at": world.time, "sealed_until": 0, "source": source}]
     if not world.entity(person).data.get("is_player"):
