@@ -74,7 +74,7 @@ def test_a_grandmasters_every_manual_and_lay_has_a_number(game):
     turn = game.perform(Action("craft_talk"))
     assert len(turn.choices) <= MAX_SHOWN
     manuals = game.perform(Action("craft_menu", "craft_manuals"))
-    assert len([c for c in manuals.choices if c.action.verb == "buy_manual"]) == len(CW.teaches(world, master)) == 7
+    assert len([c for c in manuals.choices if c.action.verb == "buy_manual"]) == len(CW.teaches(world, master)) == 8
     game.perform(Action("craft_talk"))
     lays = game.perform(Action("craft_menu", "craft_lay"))
     assert {c.action.target[1] for c in lays.choices if c.action.verb == "commission_lay"} \

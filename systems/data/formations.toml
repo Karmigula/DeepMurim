@@ -51,3 +51,10 @@ use = "ward"
 flags = 3
 difficulty = 1
 days = 90
+
+[tribulation]       # phase 5f: shelters its layer from heaven's waves, three at strength 1
+name = "the Tribulation-Splitting array"
+use = "ward"
+flags = 8
+difficulty = 3
+days = 7

@@ -50,7 +50,9 @@ def _tribulation(world, event):
 
 @summary("tribulation")
 def _tribulation_line(world, entry, names, place, other):
-    return f"Faced the heavenly tribulation in {place}: {entry.data.get('outcome') or 'witnessed'}."
+    if entry.data.get("outcome") is None:  # phase 5f: the waves that follow tell how it went
+        return f"Heaven's lightning gathered over {place}."
+    return f"Faced the heavenly tribulation in {place}: {entry.data['outcome']}."
 
 
 @outcome("beast_hunted", body_facts=False)

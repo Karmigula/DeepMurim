@@ -42,6 +42,7 @@ GLOBAL = {
     "clear anvil": Action("clear_anvil"),
     "heart": Action("heart"), "respects": Action("pay_respects"), "face": Action("heart_trial", "face"),
     "bury": Action("heart_trial", "bury"), "turn back": Action("heart_trial", "turn_back"),
+    "endure": Action("wave", "endure"), "shelter": Action("wave", "shelter"),
     "tournaments": Action("tournaments"), "tournament": Action("tournaments"), "bracket": Action("bracket"),
     "odds": Action("odds"), "bookmaker": Action("odds"), "register": Action("register"), "watch": Action("watch"),
     "wear mask": Action("wear_mask"), "mask": Action("wear_mask"), "put on mask": Action("wear_mask"),
