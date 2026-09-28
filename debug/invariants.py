@@ -259,6 +259,10 @@ def check_heart(world) -> list[str]:
         from systems.daos import DAOS
         if any(name not in DAOS or not 0 <= value <= 1 for name, value in (heart.get("daos") or {}).items()):
             out.append(f"{person.name} (#{person.id}) has a dao out of bounds: {heart['daos']}")
+        from systems.oaths import KINDS as OATHS, MAX_OPEN
+        oaths = heart.get("oaths") or []
+        if len(oaths) > MAX_OPEN or any(o.get("kind") not in OATHS for o in oaths):
+            out.append(f"{person.name} (#{person.id}) holds a malformed oath or too many: {oaths}")
     return out
 
 
