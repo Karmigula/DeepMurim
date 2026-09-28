@@ -331,3 +331,26 @@ agenda (`systems/heart_world.py`): a mad NPC carries `mad_until` and hunts the p
 
 **The rules:** `check_heart` in `debug/invariants.py` holds hearts, demons, daos and oaths to their bounds, and the
 mad to the living; `check_spirits` holds a spirit to a nature and a bond within 0-1.
+
+## 15. Karma and tribulations (phase 5f)
+
+**Karma** is person data `karma = {merit, sin, threads}`: heaven's ledger, apart from 5e's heart. An NPC has none until
+something writes it; `karma.karma_of` reads a seeded one from their trade and traits. Deeds count through the rows of
+`systems/data/karma_deeds.toml` (an event kind, the actor it counts for, its merit or sin), a duel's verdict, and a
+`died` listener for killing.
+
+**Threads** (`{whom, kind, weight, since}`, at most twelve) tie the player to people saved or wronged
+(`systems/threads.py`); a 2b road hook (`encounters.ROAD_HOOKS`) brings the heaviest within reach back: a repayment,
+or a `wronged` encounter that takes amends.
+
+**Tribulations:** `systems/tribulations.py` weighs one by karma (`plan`) and keeps it gathering over the player as
+person data `tribulation = {realm, minor, strength, waves, wave, failed}`; `systems/tribulation_waves.py` plays it
+wave by wave (endure, a pill, a `tribulation` array of 5d's table, the heart's demon). A great tribulation is still
+4d's `"tribulation"` event at its start, with its lightning and its news; a minor one is the player's own.
+4d's lightning over an NPC now rolls their fate by their karma.
+
+**The world** (`systems/karma_world.py`): a lives agenda strikes the wicked (`struck_down`); a season hook turns a
+heavy sinner's luck; a town with a monk has a temple that takes alms.
+
+**The rules:** `check_karma` in `debug/invariants.py` holds merit and sin to at least 0 and a gathering tribulation to
+its wave kinds and a strength of at least 1.
