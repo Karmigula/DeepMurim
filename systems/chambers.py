@@ -123,7 +123,9 @@ def trial_events(world, player: int) -> list[Event]:
     body = load_body(world, player)
     data = {"realm": realm.id, "floor": floor, "chamber": c, "trial": trial}
     if trial == "formation":
-        chance = _clamp(FORMATION_BASE + FORMATION_PER_COMPREHENSION * body.physique["comprehension"], FORMATION_BOUNDS)
+        from systems.formations import trial_bonus  # phase 5d: a formation master reads an ancient array better
+        chance = _clamp(FORMATION_BASE + FORMATION_PER_COMPREHENSION * body.physique["comprehension"]
+                        + trial_bonus(world, player), FORMATION_BOUNDS)
         passed = rng_for(world.world_seed, f"formation:{realm.id}:{floor}:{c}:{player}:{world.time}").random() < chance
         data.update(passed=passed, insight=round(0.5 + 0.2 * floor, 2) if passed else 0.0)
     elif trial == "pressure":

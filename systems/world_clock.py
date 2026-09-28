@@ -363,3 +363,4 @@ import systems.npc_alchemy  # noqa: E402,F401  phase 5c: NPCs refine and take pi
 import systems.control  # noqa: E402,F401  phase 5c: control pills, their masters and their bound
 import systems.materials  # noqa: E402,F401  phase 5d: materials and the forge
 import systems.forging  # noqa: E402,F401  phase 5d: forging, refining and masterworks
+import systems.formations  # noqa: E402,F401  phase 5d: formation patterns, flags and laying

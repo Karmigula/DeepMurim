@@ -221,6 +221,18 @@ def check_crafts(world) -> list[str]:
     for item in world.entities("gear"):
         if item.data.get("forged_by") is not None and item.data.get("famous") and item.id not in famous:
             out.append(f"{item.name} (#{item.id}) is a named masterwork missing from the famous index")
+    from systems.formations import PATTERNS
+    for person, value in world._conn.execute("select a, value from relations where kind = 'knows_formation'"):
+        if not 0 <= value <= 1:
+            out.append(f"#{person} knows a formation at mastery {value}")
+    for flags in world.entities("flags"):
+        if not flags.data.get("used") and flags.data.get("count", 0) < 1:
+            out.append(f"{flags.name} (#{flags.id}) holds no flags")
+    for place in world.entities_after("town", "formations", 0):
+        for f in place.data["formations"]:
+            owner = world.entity(f.get("owner") or 0)
+            if f.get("pattern") not in PATTERNS or owner is None or not 0 <= f.get("strength", -1) <= 1:
+                out.append(f"a formation laid in {place.name} is malformed: {f}")
     return out
 
 
