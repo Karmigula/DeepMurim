@@ -67,6 +67,8 @@ def check_world(world) -> list[str]:
     problems += check_alchemy(world)
     problems += check_alchemy_world(world)
     problems += check_crafts(world)
+    problems += check_heart(world)
+    problems += check_spirits(world)
     problems += check_knowledge(world)
     problems += check_factions(world)
     problems += check_sect(world)
@@ -239,6 +241,43 @@ def check_crafts(world) -> list[str]:
     meet = world.get_meta("meet")
     if meet is not None and (world.entity(meet.get("town") or 0) is None or not meet["start"] < meet["end"]):
         out.append(f"the Meet of Hammer and Furnace is malformed: {meet}")
+    return out
+
+
+def check_heart(world) -> list[str]:
+    """Hearts in their bounds (phase 5e)."""
+    out = []
+    for person in world.entities_after("person", "mad_until", 0):
+        if person.data.get("dead"):
+            out.append(f"{person.name} (#{person.id}) is dead and mad still")
+    for person in world.entities_after("person", "heart.steady", -1):
+        heart = person.data["heart"]
+        if not 0 <= heart["steady"] <= 100 or not -100 <= heart["lean"] <= 100:
+            out.append(f"{person.name} (#{person.id}) has a heart out of bounds: steadiness {heart['steady']}, "
+                       f"lean {heart['lean']}")
+        from systems.demons import KINDS, MAX_DEMONS, MAX_WEIGHT
+        demons = heart.get("demons") or []
+        if len(demons) > MAX_DEMONS or any(d.get("kind") not in KINDS or not 1 <= d.get("weight", 0) <= MAX_WEIGHT
+                                           for d in demons):
+            out.append(f"{person.name} (#{person.id}) carries a malformed demon or too many: {demons}")
+        from systems.daos import DAOS
+        if any(name not in DAOS or not 0 <= value <= 1 for name, value in (heart.get("daos") or {}).items()):
+            out.append(f"{person.name} (#{person.id}) has a dao out of bounds: {heart['daos']}")
+        from systems.oaths import KINDS as OATHS, MAX_OPEN
+        oaths = heart.get("oaths") or []
+        if len(oaths) > MAX_OPEN or any(o.get("kind") not in OATHS for o in oaths):
+            out.append(f"{person.name} (#{person.id}) holds a malformed oath or too many: {oaths}")
+    return out
+
+
+def check_spirits(world) -> list[str]:
+    """Weapon spirits (phase 5e)."""
+    from systems.blade_spirits import NATURES
+    out = []
+    for item in world.entities_after("gear", "kills", 0):
+        spirit = item.data.get("spirit")
+        if spirit is not None and (spirit.get("nature") not in NATURES or not 0 <= spirit.get("bond", -1) <= 1):
+            out.append(f"{item.name} (#{item.id}) holds a malformed spirit: {spirit}")
     return out
 
 

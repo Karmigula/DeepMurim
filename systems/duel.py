@@ -127,7 +127,18 @@ def _dark_boost(world, person_id: int) -> float:
 
 def fight_factor(world, person_id: int) -> float:
     from systems.arrays import fight_factor as factor  # the arrays come after the duel in the import graph
-    return factor(world, person_id)
+    from systems.heart_world import fight_factor as madness  # phase 5e: the mad fight harder
+    return factor(world, person_id) * madness(world, person_id)
+
+
+def dao_factor(world, person_id: int, form: str) -> float:
+    from systems.daos import fight_factor as factor  # the daos come after the duel in the import graph
+    return factor(world, person_id, form)
+
+
+def blade_factor(world, person_id: int, form: str) -> float:
+    from systems.blade_spirits import blade_factor as factor  # the spirits come after the duel in the import graph
+    return factor(world, person_id, form)
 
 
 def fighter_for(world, person_id: int, technique_id: int | None) -> Fighter:
@@ -146,7 +157,8 @@ def fighter_for(world, person_id: int, technique_id: int | None) -> Fighter:
     weapon_mult, weapon_grade, armour = gear.fighting(world, person_id, form if art else "bare")
     return Fighter(
         name=person.name, realm_mult=REALMS[body.realm].multiplier * _dark_boost(world, person_id)
-        * fight_factor(world, person_id),  # phase 5d: the arrays where they stand
+        * fight_factor(world, person_id)  # phase 5d: the arrays where they stand
+        * dao_factor(world, person_id, form),  # phase 5e: the dao of the form they fight with
         stage=STAGES.index(stage_of(body)),
         technique=art.name if art else None, form=form,
         grade_mult=grade_mult(art.technique.data["grade"]) if art else 1.0,
@@ -158,7 +170,8 @@ def fighter_for(world, person_id: int, technique_id: int | None) -> Fighter:
         agility=body.physique["agility"], qi=body.qi,
         traits=tuple(person.data.get("traits", ())), beast=beast,
         stance_favours=art.technique.data["stance"]["favours"] if art else None,
-        weapon_mult=weapon_mult if art else 1.0, weapon_grade=weapon_grade if art else None, armour=armour,
+        weapon_mult=weapon_mult * blade_factor(world, person_id, form) if art else 1.0,  # phase 5e: its spirit
+        weapon_grade=weapon_grade if art else None, armour=armour,
     )
 
 
@@ -381,7 +394,8 @@ def _end_event(world, d: Duel, result: str, reason: str, rng, harm: dict, exchan
         data.update(verdict="spare", by="opponent", insight=5.0 * gap if gap > 0 else 0.0)
         witnesses.append(Witness(d.opponent, "respect" if exchanges >= 4 else "contempt", 0.5))
     elif result == "lost":
-        hateful = any(m.feeling in HATEFUL for m in world.memories(d.opponent, about=d.player))
+        from systems.heart_world import mad  # phase 5e: the mad never spare
+        hateful = any(m.feeling in HATEFUL for m in world.memories(d.opponent, about=d.player)) or mad(world, d.opponent)
         chosen, amount, crippled = npc_verdict(rng, opponent, silver_of(world, d.player), hateful)
         from systems.mortality import lethal  # losing can be the end (phase 4b spec 3.2)
         cause = lethal(world, d, rng, hateful, reason)
@@ -425,6 +439,9 @@ def _end_event(world, d: Duel, result: str, reason: str, rng, harm: dict, exchan
 def verdict_events(world, d: Duel, choice: str) -> list[Event]:
     beast = bool(world.entity(d.opponent).data.get("beast"))
     if d.stage != "verdict" or choice not in (BEAST_VERDICTS if beast else VERDICTS):
+        return []
+    from systems.blade_spirits import refuses_spare  # phase 5e: a bloodthirsty blade in a troubled hand
+    if choice == "spare" and refuses_spare(world, d.player):
         return []
     if choice == "kill" and d.mode not in ("duel", "encounter", "bout"):
         return []

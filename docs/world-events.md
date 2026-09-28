@@ -309,3 +309,25 @@ the town (`formations`: `{pattern, owner, until, strength}`), read by `formation
 **The rules:** `check_crafts` in `debug/invariants.py` holds materials to the table, masteries within 0-1, flags to at
 least one, formations laid to a pattern and a person, craft skills within 1-5, a named masterwork to the famous index,
 and the Meet to a town and a span.
+
+## 14. The dao heart (phase 5e)
+
+**The heart** is person data `heart = {steady, lean, demons, daos, oaths}`: `steady` 0-100 (at rest 60), `lean` -100
+(ruthless) to 100 (righteous). An NPC has none until something writes it; `heart.heart_of` reads a seeded one from
+their traits. Deeds move it: the rows of `systems/data/heart_deeds.toml` (an event kind, the actor it moves, its way
+and weight) and a duel's verdict. Its effects pivot at 60, so a heart at rest changes no older balance.
+
+**Demons** (`{kind, whom, weight, since}`, at most five: guilt, grudge, fear, grief) are gathered and laid to rest by
+listeners in `systems/demons.py`; the heaviest rises at a breakthrough to Second-rate or beyond (`demons.rising`,
+`trial_events`), and `cultivation.breakthrough_events` takes `fail` and `shift` for what the trial left.
+
+**Daos** (`daos`: `{form or element: 0-1}`) grow by epiphanies (`systems/daos.py`); one completed sets 2a's
+`returned_to_origin`, the way to Life-and-Death. **Oaths** (`oaths`: `{kind, whom, until, sworn_at}`, at most three)
+are settled by deaths and the seasons (`systems/oaths.py`), and are facts that spread.
+
+**Blades** count `kills`; a woken `spirit` (`{nature, bond, master, known_by}`) lives on the item
+(`systems/blade_spirits.py`); a cursed famous blade's is read from its seed until written. **Madness** is a lives
+agenda (`systems/heart_world.py`): a mad NPC carries `mad_until` and hunts the player through 3b's `HUNTER_HOOKS`.
+
+**The rules:** `check_heart` in `debug/invariants.py` holds hearts, demons, daos and oaths to their bounds, and the
+mad to the living; `check_spirits` holds a spirit to a nature and a bond within 0-1.

@@ -4,21 +4,24 @@ from pathlib import Path
 
 import pytest
 
-import systems.craft_world as CW
+import systems.demons as D
 import systems.encounters as encounters
-import systems.formations as FM
+import systems.gear as gear
+import systems.heart as HT
+import systems.heart_world as HW
 import systems.lives as lives
 from engine.actions import Action
 from engine.game import Game
 from systems.creation import CreationChoice
 from systems.duel import fighter_for
+from systems.techniques import martial_arts
+from world.events import commit
 
 
 @pytest.fixture
 def game(tmp_path):
     g = Game.new(tmp_path / "g.world", "Hero", world_seed=11, creation=CreationChoice("origin", "hunter"))
     g.start()
-    g.world.update_data(g.player.id, silver=100000)
     yield g
     g.close()
 
@@ -39,10 +42,10 @@ def average(fn, n=10) -> float:
     return (time.process_time() - start) / n
 
 
-def test_the_fork_guide_covers_the_crafts():
+def test_the_fork_guide_covers_the_heart():
     guide = Path("docs/world-events.md").read_text(encoding="utf-8")
-    for word in ("materials.toml", "formations.toml", "forge_mastery", "knows_formation", "formations", "flags",
-                 "craft_skill", "commissions", "`meet`", "check_crafts"):
+    for word in ("heart_deeds.toml", "`heart = {steady", "steady", "lean", "demons", "daos", "oaths", "returned_to_origin",
+                 "kills", "spirit", "mad_until", "check_heart", "check_spirits"):
         assert word in guide, word
 
 
@@ -50,13 +53,13 @@ class _Undo(Exception):
     pass
 
 
-def test_a_season_of_two_hundred_npcs_stays_within_a_tenth_of_5cs(game, monkeypatch):
-    """The same 200 people live the same season again and again, rolled back, with and without the craft agenda."""
+def test_a_season_of_two_hundred_npcs_stays_within_a_tenth_of_5ds(game, monkeypatch):
+    """The same 200 people live the same season again and again, rolled back, with and without the heart agenda."""
     from tests.test_alchemy_world_season import crowd
     world = game.world
     everything = list(lives.AGENDAS)
-    before = [a for a in everything if a is not CW.season_events]
-    people = crowd(world, game.place.id, "crafts")
+    before = [a for a in everything if a is not HW.season_events]
+    people = crowd(world, game.place.id, "heart")
     world.set_time(world.time + lives.SEASON)
 
     def season(agendas) -> float:
@@ -72,29 +75,29 @@ def test_a_season_of_two_hundred_npcs_stays_within_a_tenth_of_5cs(game, monkeypa
         except _Undo:
             return spent
 
-    timings = {"5c": [], "5d": []}
+    timings = {"5d": [], "5e": []}
     for n in range(20):  # ten a side: one side's cost sits near the bar, and the machine is noisy (5e minors)
-        which = "5c" if n % 2 == 0 else "5d"
-        timings[which].append(season(before if which == "5c" else everything))
+        which = "5d" if n % 2 == 0 else "5e"
+        timings[which].append(season(before if which == "5d" else everything))
     total = {k: sum(sorted(v)[:5]) for k, v in timings.items()}  # the fastest five of ten: load only slows (5e minors)
-    assert total["5d"] <= 1.10 * total["5c"] + 0.016, timings
+    assert total["5e"] <= 1.10 * total["5d"] + 0.016, timings
 
 
-def test_a_fighter_inside_an_array_is_quick_to_weigh(game):
+def test_a_fighter_with_a_dao_and_a_spirit_is_quick_to_weigh(game):
+    world, me, here = game.world, game.player.id, game.place.id
+    art = martial_arts(world, me)[0].technique.id
+    plain = average(lambda: fighter_for(world, me, art), n=50)
+    HT.write(world, me, daos={"spear": 0.6})
+    blade = gear.make_item(world, "weapon", "spear", 2, me, "bought")
+    world.update_data(blade, spirit={"nature": "loyal", "bond": 0.5, "master": me, "known_by": [me]})
+    commit(world, gear.wield_events(world, me, blade, here))
+    assert average(lambda: fighter_for(world, me, art), n=50) <= 1.10 * plain + 0.0003
+
+
+def test_the_heart_page_and_the_oath_menu_are_quick(game):
     world, me = game.world, game.player.id
-    plain = average(lambda: fighter_for(world, me, None), n=50)
-    FM.place_formation(world, game.place.id, "killing", me, 1.0)
-    FM.place_formation(world, game.place.id, "confusion", me, 1.0)
-    assert average(lambda: fighter_for(world, me, None), n=50) <= 1.10 * plain + 0.0003
-
-
-def test_the_crafts_anvil_and_meet_menus_are_quick(game):
-    import systems.materials as M
-    world, me = game.world, game.player.id
-    for name in ("iron ingot", "black steel", "spirit iron"):
-        M.make_material(world, name, me)
-    for key in FM.PATTERNS:
-        FM.learn(world, me, key)
-    FM.add_flags(world, me, 50)
-    for verb in ("crafts", "anvil", "smith"):
+    for n in range(5):
+        D.add_demon(world, me, "grudge", n + 100, 2)
+    HT.write(world, me, daos={"spear": 0.5, "fire": 0.2, "yang": 0.9})
+    for verb in ("heart", "oath_menu"):
         assert average(lambda: game.perform(Action(verb))) < 0.02, verb

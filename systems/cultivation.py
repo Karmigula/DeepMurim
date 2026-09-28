@@ -114,8 +114,9 @@ def meditate_events(world, pid: int, place: int, days: int) -> list[Event]:
     gained = realms.add_energy(trial, energy_rate(body, heart_data, days, world.time) * days
                                * W.factor(world, place, "cultivation")  # a qi tide (phase 4d)
                                * cultivation_factor(world, pid, place))
-    deviation = round(_deviation_from(body, heart_data, days) * deviation_factor(world, pid, place), 3) \
-        if heart_data else 0.0
+    from systems.heart import deviation_factor as heart_factor  # phase 5e: a troubled heart deviates more
+    deviation = round(_deviation_from(body, heart_data, days) * deviation_factor(world, pid, place)
+                      * heart_factor(world, pid), 3) if heart_data else 0.0
     data = {
         "days": days, "energy_gained": round(gained, 6),
         "sensed_qi": "sensed_qi" not in body.flags and body.meditated_days + days >= SENSE_QI_DAYS,
@@ -157,10 +158,13 @@ def practise_events(world, pid: int, place: int, technique_id: int, days: int = 
     if CONSTITUTION_FORM.get(body.constitution) == art["form"]:
         gain *= 1.5
     gain *= W.factor(world, place, "practice")  # a dao resonance (phase 4d)
+    from systems.daos import practice_factor  # phase 5e: a dao of the art's form or element
+    gain *= practice_factor(world, pid, art["form"], art["element"])
     mastered = known.mastery >= 1.0 - 1e-9  # everything the art holds is learned
     at_cap = not mastered and known.mastery >= known.completeness - 1e-9  # a flawed art stops short
     after = min(known.completeness, known.mastery + gain)
-    deviation = _deviation_from(body, art, days) + (days * 1.5 if at_cap else 0.0)
+    from systems.heart import deviation_factor as heart_factor  # phase 5e: a troubled heart deviates more
+    deviation = (_deviation_from(body, art, days) + (days * 1.5 if at_cap else 0.0)) * heart_factor(world, pid)
     data = {
         "technique": known.name, "technique_id": technique_id, "days": days,
         "mastery_before": round(known.mastery, 6), "mastery_after": round(after, 6),
@@ -277,7 +281,8 @@ def _rested(world, event: Event) -> None:
 
 # --- breakthrough -----------------------------------------------------------------
 
-def breakthrough_events(world, pid: int, place: int) -> list[Event]:
+def breakthrough_events(world, pid: int, place: int, fail: bool = False, shift: float = 0.0) -> list[Event]:
+    """A breakthrough; a demon that won the heart trial fails it, a buried one weighs on it (phase 5e)."""
     body = load_body(world, pid)
     if not body.bottleneck or body.realm >= realms.MAX_REALM:
         return []
@@ -287,7 +292,11 @@ def breakthrough_events(world, pid: int, place: int) -> list[Event]:
     chance = min(max(chance, 0.95), chance * W.factor(world, place, "breakthrough"))  # a qi tide (phase 4d)
     if body.breakthrough_aid:  # a breakthrough pill's help (phase 5b)
         chance = min(0.95, round(chance + body.breakthrough_aid, 3))
-    success = rng.random() < chance
+    from systems.heart import breakthrough_shift  # phase 5e: a steady heart cuts through doubt (a tenth, unmet)
+    shift += breakthrough_shift(world, pid) * (1.0 if met else 0.1)
+    if shift:
+        chance = max(0.0, min(max(chance, 0.95), round(chance + shift, 3)))
+    success = rng.random() < chance and not fail
     damaged = []
     if not success:
         heart = heart_method(world, pid)
