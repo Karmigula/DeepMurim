@@ -170,7 +170,9 @@ def season_events(world, player: int, sect: int) -> list[Event] | None:
 
     # the gate
     hostile = _hostile(world, sect, people)
-    gate_chance = (GATE_BASE + (GATE_HOSTILE if hostile else 0.0)) * (0.5 if "walls" in has else 1.0)
+    from systems.arrays import gate_factor  # phase 5d: a Heavenly Gate array keeps challengers off
+    gate_chance = (GATE_BASE + (GATE_HOSTILE if hostile else 0.0)) * (0.5 if "walls" in has else 1.0) \
+        * gate_factor(world, seat)
     gate = None
     power = data["power"] + 2 * len(won)
     if rng.random() < gate_chance:

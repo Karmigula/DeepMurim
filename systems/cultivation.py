@@ -110,9 +110,12 @@ def meditate_events(world, pid: int, place: int, days: int) -> list[Event]:
     heart = heart_method(world, pid)
     heart_data = heart.technique.data if heart else None
     trial = clone(body)
+    from systems.arrays import cultivation_factor, deviation_factor  # phase 5d: a Seclusion ward
     gained = realms.add_energy(trial, energy_rate(body, heart_data, days, world.time) * days
-                               * W.factor(world, place, "cultivation"))  # a qi tide (phase 4d)
-    deviation = _deviation_from(body, heart_data, days) if heart_data else 0.0
+                               * W.factor(world, place, "cultivation")  # a qi tide (phase 4d)
+                               * cultivation_factor(world, pid, place))
+    deviation = round(_deviation_from(body, heart_data, days) * deviation_factor(world, pid, place), 3) \
+        if heart_data else 0.0
     data = {
         "days": days, "energy_gained": round(gained, 6),
         "sensed_qi": "sensed_qi" not in body.flags and body.meditated_days + days >= SENSE_QI_DAYS,

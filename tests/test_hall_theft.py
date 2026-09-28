@@ -115,7 +115,8 @@ def test_theft_is_by_night_at_the_seat(game):
     assert T.steal_block(world, me, sect, "hall", game.place.id + 100000) is not None
 
 
-def test_the_chance_weighs_the_thiefs_realm_against_the_guards(game):
+def test_the_chance_weighs_the_thiefs_realm_against_the_guards(game, monkeypatch):
+    monkeypatch.setattr("systems.arrays.npc_ward", lambda world, faction: 0.0)  # phase 5d: the realms alone
     world, me = game.world, game.player.id
     sect, _ = the_sect(world)
     guard, realm = T.guard_of(world, sect)
