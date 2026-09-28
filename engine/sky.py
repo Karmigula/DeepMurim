@@ -18,6 +18,9 @@ from narrate.sky_text import race_line
 from world.events import Event, commit
 
 
+import systems.tribulations as tribulations  # noqa: E402  phase 5f
+
+
 class SkyMixin:
     def _commit_sky(self, events: list) -> list:
         """Occurrences start quietly (the scene shows the sky); the rest is narrated."""
@@ -31,10 +34,14 @@ class SkyMixin:
         lines = super()._after_commit(ids, events)
         for event in events:
             if event.kind == "breakthrough" and event.actors[0] == self.player.id and event.data.get("success") \
-                    and event.data["realm_after"] >= tribulation.TRIBULATION_REALM:
-                outcome = tribulation.player_roll(self.world, self.player.id)
-                lines += self._commit_sky(tribulation.trigger_events(
-                    self.world, self.player.id, self.place.id, event.data["realm_after"], outcome=outcome))
+                    and event.data["realm_after"] >= tribulations.MINOR_REALM:
+                realm = event.data["realm_after"]  # phase 5f: heaven's waves, played; 4d's lightning seen and told
+                great = realm >= tribulation.TRIBULATION_REALM
+                if great:
+                    lines += self._commit_sky(tribulation.trigger_events(self.world, self.player.id, self.place.id,
+                                                                         realm))
+                lines += self._commit(tribulations.gather_events(self.world, self.player.id, self.place.id, realm,
+                                                                 not great, "breakthrough"))
         return lines
 
     def _after_duel(self, data: dict) -> list:

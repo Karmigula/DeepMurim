@@ -1,0 +1,16 @@
+# Tribulations played wave by wave (phase 5f).
+
+[symbols]
+storm_air = ["Thunder walks across the sky.", "The clouds turn slowly, like a millstone.", "The air smells of iron.", "Every hair on your arms stands up.", "The ground under you trembles.", "Light flickers inside the clouds."]
+
+[tribulation_gathers]
+colour = "dim"
+lines = ["#storm_air#"]
+
+[tribulation_wave]
+colour = "dim"
+lines = ["#storm_air#"]
+
+[tribulation_passed]
+colour = "dim"
+lines = ["#storm_air#"]

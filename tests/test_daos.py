@@ -9,7 +9,7 @@ import systems.world_events as W
 from debug.invariants import check_heart
 from engine.game import Game
 from systems import realms
-from systems.bodies import load_body, save_body
+from systems.bodies import load_body
 from systems.creation import CreationChoice
 from systems.cultivation import meditate_events, practise_events
 from systems.duel import fighter_for

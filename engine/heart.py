@@ -130,8 +130,10 @@ class HeartMixin:
         world, me, here = self.world, self.player.id, self.place.id
         if dead is None:
             dead = next(iter(self._graves_here()), None)
-        if dead is None or (why := D.respects_block(world, me, dead, here)) is not None:
+        if dead is None:
             return self._turn([("There is no grave of yours to kneel at here.", "system")])
+        if (why := D.respects_block(world, me, dead, here)) is not None:
+            return self._turn([(why, "system")])
         return self._turn(self._commit(D.respects_events(world, me, dead, here)))
 
     def _do_heart_talk(self, _target):

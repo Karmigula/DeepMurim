@@ -95,10 +95,13 @@ def death_events(world, person: int) -> list[Event]:
     return [Event("died", (master, person), lives.home(world, person), {"cause": "control_pill", "world": True})]
 
 
-def fed(world, master: int) -> bool:
-    """An NPC master feeds their bound always, while alive (spec 6)."""
+def fed(world, master: int, person: int | None = None) -> bool:
+    """An NPC master feeds their bound while alive and at hand: one living in another town does not (spec 6;
+    phase 5f closes 5c's ruling 19, since NPCs do move)."""
     entity = world.entity(master)
-    return entity is not None and not entity.data.get("dead") and not entity.data.get("is_player")
+    if entity is None or entity.data.get("dead") or entity.data.get("is_player"):
+        return False
+    return person is None or lives.home(world, master) == lives.home(world, person)
 
 
 def season_hook(world, n: int) -> list[Event]:
@@ -115,7 +118,7 @@ def season_hook(world, n: int) -> list[Event]:
         if master is None or master.data.get("dead"):
             events.append(Event("control_freed", (person,), lives.home(world, person), {"how": "master_dead"}))
             continue
-        if fed(world, b["master"]):
+        if fed(world, b["master"], person):
             world.update_data(person, bound_to={**b, "fed_until": world.time + MONTH, "hurt_to": world.time + MONTH})
             continue
         if rng_for(world.world_seed, f"cure_seek:{person}:{n}").random() < CURE_SEEK:

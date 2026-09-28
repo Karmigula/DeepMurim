@@ -13,6 +13,10 @@ def _name(world, event) -> str:
     return world.entity(event.actors[1]).name
 
 
+WRONGS = {"robbed": "You took my silver, and you owe me.", "crippled": "You left me like this.",
+          "bereaved": "You killed my kin.", "accused": "You named me a traitor, and they believed you."}
+
+
 @outcome("encounter")
 def _encounter(world, event):
     d, name = event.data, _name(world, event)
@@ -23,6 +27,7 @@ def _encounter(world, event):
         "avenger": f'{cap(name)} steps into the road. "You killed my {d.get("role") or "kin"}."',
         "sect_hunter": f"{cap(name)}, sent by the {d.get('faction_name', 'sect')}, steps into the road.",
         "bounty_hunter": f"{cap(name)}, a bounty hunter, blocks the road. There is a price on your head.",
+        "wronged": f'{cap(name)} stands in the road. "{WRONGS.get(d.get("thread"), "You owe me.")}"',  # phase 5f
     }[d["kind"]]
     return [line], {"grammar_key": f"encounter.{d['kind']}"}
 
