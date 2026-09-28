@@ -32,4 +32,6 @@ def on_stage(world, occurrence, stage: str) -> list:
                            realm=master.data.get("realm", "mortal"))
     variant["age"] = int(master.data.get("age", 30))
     record_fact(world, master.id, "enlightened", None, place=town, weight=1.5, variant=variant)
+    from systems.heart_world import enlighten  # phase 5e: the enlightened open the dao of their art
+    enlighten(world, master.id)
     return []

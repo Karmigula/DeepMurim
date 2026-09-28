@@ -127,7 +127,8 @@ def _dark_boost(world, person_id: int) -> float:
 
 def fight_factor(world, person_id: int) -> float:
     from systems.arrays import fight_factor as factor  # the arrays come after the duel in the import graph
-    return factor(world, person_id)
+    from systems.heart_world import fight_factor as madness  # phase 5e: the mad fight harder
+    return factor(world, person_id) * madness(world, person_id)
 
 
 def dao_factor(world, person_id: int, form: str) -> float:
@@ -393,7 +394,8 @@ def _end_event(world, d: Duel, result: str, reason: str, rng, harm: dict, exchan
         data.update(verdict="spare", by="opponent", insight=5.0 * gap if gap > 0 else 0.0)
         witnesses.append(Witness(d.opponent, "respect" if exchanges >= 4 else "contempt", 0.5))
     elif result == "lost":
-        hateful = any(m.feeling in HATEFUL for m in world.memories(d.opponent, about=d.player))
+        from systems.heart_world import mad  # phase 5e: the mad never spare
+        hateful = any(m.feeling in HATEFUL for m in world.memories(d.opponent, about=d.player)) or mad(world, d.opponent)
         chosen, amount, crippled = npc_verdict(rng, opponent, silver_of(world, d.player), hateful)
         from systems.mortality import lethal  # losing can be the end (phase 4b spec 3.2)
         cause = lethal(world, d, rng, hateful, reason)

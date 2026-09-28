@@ -372,3 +372,4 @@ import systems.demons  # noqa: E402,F401  phase 5e: heart demons, gathered, laid
 import systems.daos  # noqa: E402,F401  phase 5e: epiphanies and the daos of forms and elements
 import systems.oaths  # noqa: E402,F401  phase 5e: oaths sworn on the heart, kept and broken
 import systems.blade_spirits  # noqa: E402,F401  phase 5e: weapon spirits and cursed blades
+import systems.heart_world  # noqa: E402,F401  phase 5e: masters driven mad by their demons, and the enlightened

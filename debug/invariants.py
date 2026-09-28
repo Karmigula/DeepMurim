@@ -247,6 +247,9 @@ def check_crafts(world) -> list[str]:
 def check_heart(world) -> list[str]:
     """Hearts in their bounds (phase 5e)."""
     out = []
+    for person in world.entities_after("person", "mad_until", 0):
+        if person.data.get("dead"):
+            out.append(f"{person.name} (#{person.id}) is dead and mad still")
     for person in world.entities_after("person", "heart.steady", -1):
         heart = person.data["heart"]
         if not 0 <= heart["steady"] <= 100 or not -100 <= heart["lean"] <= 100:
