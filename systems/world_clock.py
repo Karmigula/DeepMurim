@@ -362,3 +362,4 @@ import systems.physic  # noqa: E402,F401  phase 5c: physicians, famous doctors, 
 import systems.npc_alchemy  # noqa: E402,F401  phase 5c: NPCs refine and take pills in their seasons
 import systems.control  # noqa: E402,F401  phase 5c: control pills, their masters and their bound
 import systems.materials  # noqa: E402,F401  phase 5d: materials and the forge
+import systems.forging  # noqa: E402,F401  phase 5d: forging, refining and masterworks

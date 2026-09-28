@@ -214,6 +214,13 @@ def check_crafts(world) -> list[str]:
     for item in world.entities("material"):
         if item.data.get("material") not in MATERIALS or not 0 <= item.data.get("grade", -1) <= 4:
             out.append(f"{item.name} (#{item.id}) is no material of the table")
+    for person in world.entities_after("person", "forge_mastery", 0):
+        if any(not 0 <= m <= 1 for m in person.data["forge_mastery"].values()):
+            out.append(f"{person.name} (#{person.id}) has a forging mastery out of 0-1")
+    famous = set(world.get_meta("famous_weapons") or [])
+    for item in world.entities("gear"):
+        if item.data.get("forged_by") is not None and item.data.get("famous") and item.id not in famous:
+            out.append(f"{item.name} (#{item.id}) is a named masterwork missing from the famous index")
     return out
 
 
