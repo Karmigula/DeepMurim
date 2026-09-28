@@ -278,6 +278,11 @@ def check_karma(world) -> list[str]:
         k = person.data["karma"]
         if k["merit"] < 0 or k["sin"] < 0:
             out.append(f"{person.name} (#{person.id}) has a karma out of bounds: merit {k['merit']}, sin {k['sin']}")
+    from systems.tribulations import WAVE_KINDS
+    for person in world.entities_after("person", "tribulation.strength", -1):
+        t = person.data["tribulation"]
+        if t["strength"] < 1 or any(w not in WAVE_KINDS for w in t["waves"]) or not 0 <= t["wave"] <= len(t["waves"]):
+            out.append(f"{person.name} (#{person.id}) awaits a malformed tribulation: {t}")
     return out
 
 

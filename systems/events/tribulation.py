@@ -79,4 +79,6 @@ def _news(world, event, event_id: int) -> None:
 def _npc_tribulation(world, event, event_id: int) -> None:
     realm = event.data["realm"]
     if realm >= TRIBULATION_REALM and event.place is not None:
-        commit(world, trigger_events(world, event.actors[0], event.place, realm, season=event.data.get("season")))
+        from systems.tribulations import npc_fate_events  # phase 5f: karma weighs the lightning
+        commit(world, trigger_events(world, event.actors[0], event.place, realm, season=event.data.get("season"))
+               + npc_fate_events(world, event.actors[0], event.place, event.data.get("season")))

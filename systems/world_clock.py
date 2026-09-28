@@ -375,3 +375,4 @@ import systems.blade_spirits  # noqa: E402,F401  phase 5e: weapon spirits and cu
 import systems.heart_world  # noqa: E402,F401  phase 5e: masters driven mad by their demons, and the enlightened
 import systems.karma  # noqa: E402,F401  phase 5f: heaven's ledger of merit and sin
 import systems.threads  # noqa: E402,F401  phase 5f: karmic threads, and fated meetings on the road
+import systems.tribulations  # noqa: E402,F401  phase 5f: tribulations weighed by karma, minor ones, NPC fates
