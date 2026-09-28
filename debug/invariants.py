@@ -66,6 +66,7 @@ def check_world(world) -> list[str]:
     problems += check_toxins(world)
     problems += check_alchemy(world)
     problems += check_alchemy_world(world)
+    problems += check_crafts(world)
     problems += check_knowledge(world)
     problems += check_factions(world)
     problems += check_sect(world)
@@ -203,6 +204,16 @@ def check_alchemy_world(world) -> list[str]:
         recipe = world.entity(scroll.data.get("recipe") or 0)
         if recipe is None or recipe.kind != "recipe":
             out.append(f"{scroll.name} (#{scroll.id}) names no recipe")
+    return out
+
+
+def check_crafts(world) -> list[str]:
+    """Materials of the table (phase 5d)."""
+    from systems.materials import MATERIALS
+    out = []
+    for item in world.entities("material"):
+        if item.data.get("material") not in MATERIALS or not 0 <= item.data.get("grade", -1) <= 4:
+            out.append(f"{item.name} (#{item.id}) is no material of the table")
     return out
 
 
