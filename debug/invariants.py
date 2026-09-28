@@ -251,6 +251,11 @@ def check_heart(world) -> list[str]:
         if not 0 <= heart["steady"] <= 100 or not -100 <= heart["lean"] <= 100:
             out.append(f"{person.name} (#{person.id}) has a heart out of bounds: steadiness {heart['steady']}, "
                        f"lean {heart['lean']}")
+        from systems.demons import KINDS, MAX_DEMONS, MAX_WEIGHT
+        demons = heart.get("demons") or []
+        if len(demons) > MAX_DEMONS or any(d.get("kind") not in KINDS or not 1 <= d.get("weight", 0) <= MAX_WEIGHT
+                                           for d in demons):
+            out.append(f"{person.name} (#{person.id}) carries a malformed demon or too many: {demons}")
     return out
 
 

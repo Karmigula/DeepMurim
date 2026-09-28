@@ -279,7 +279,8 @@ def _rested(world, event: Event) -> None:
 
 # --- breakthrough -----------------------------------------------------------------
 
-def breakthrough_events(world, pid: int, place: int) -> list[Event]:
+def breakthrough_events(world, pid: int, place: int, fail: bool = False, shift: float = 0.0) -> list[Event]:
+    """A breakthrough; a demon that won the heart trial fails it, a buried one weighs on it (phase 5e)."""
     body = load_body(world, pid)
     if not body.bottleneck or body.realm >= realms.MAX_REALM:
         return []
@@ -290,10 +291,10 @@ def breakthrough_events(world, pid: int, place: int) -> list[Event]:
     if body.breakthrough_aid:  # a breakthrough pill's help (phase 5b)
         chance = min(0.95, round(chance + body.breakthrough_aid, 3))
     from systems.heart import breakthrough_shift  # phase 5e: a steady heart cuts through doubt (a tenth, unmet)
-    shift = breakthrough_shift(world, pid) * (1.0 if met else 0.1)
+    shift += breakthrough_shift(world, pid) * (1.0 if met else 0.1)
     if shift:
         chance = max(0.0, min(max(chance, 0.95), round(chance + shift, 3)))
-    success = rng.random() < chance
+    success = rng.random() < chance and not fail
     damaged = []
     if not success:
         heart = heart_method(world, pid)
