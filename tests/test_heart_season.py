@@ -76,10 +76,10 @@ def test_a_season_of_two_hundred_npcs_stays_within_a_tenth_of_5ds(game, monkeypa
             return spent
 
     timings = {"5d": [], "5e": []}
-    for n in range(12):
+    for n in range(20):  # ten a side: one side's cost sits near the bar, and the machine is noisy (5e minors)
         which = "5d" if n % 2 == 0 else "5e"
         timings[which].append(season(before if which == "5d" else everything))
-    total = {k: sum(sorted(v)[:-1]) for k, v in timings.items()}
+    total = {k: sum(sorted(v)[:5]) for k, v in timings.items()}  # the fastest five of ten: load only slows (5e minors)
     assert total["5e"] <= 1.10 * total["5d"] + 0.016, timings
 
 
