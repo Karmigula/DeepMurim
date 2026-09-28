@@ -365,3 +365,4 @@ import systems.materials  # noqa: E402,F401  phase 5d: materials and the forge
 import systems.forging  # noqa: E402,F401  phase 5d: forging, refining and masterworks
 import systems.formations  # noqa: E402,F401  phase 5d: formation patterns, flags and laying
 import systems.arrays  # noqa: E402,F401  phase 5d: what formations do
+import systems.craft_world  # noqa: E402,F401  phase 5d: smiths and formation masters, and their commissions

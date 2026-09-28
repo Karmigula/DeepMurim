@@ -233,6 +233,9 @@ def check_crafts(world) -> list[str]:
             owner = world.entity(f.get("owner") or 0)
             if f.get("pattern") not in PATTERNS or owner is None or not 0 <= f.get("strength", -1) <= 1:
                 out.append(f"a formation laid in {place.name} is malformed: {f}")
+    for person in world.entities_after("person", "craft_skill", 0):
+        if not 1 <= person.data["craft_skill"] <= 5:
+            out.append(f"{person.name} (#{person.id}) has a craft skill of {person.data['craft_skill']}")
     return out
 
 
@@ -718,7 +721,7 @@ def check_people(game, turn) -> list[str]:
     text = raw.lower()
     known = {player.name.lower()}
     known |= {world.entity(p).name.lower() for p in known_people(world, player_id)}
-    here = world.targets(player_id, "located_in")
+    here = world.targets(player_id, "located_in") or world.targets(player_id, "buried_at")  # the dead saw them (5d)
     if here:
         known |= {p.name.lower() for p in people_at(world, here[0])}
     known |= {p.name.lower() for p in world.entities("persona") if p.data.get("of") == player_id}
