@@ -1,0 +1,25 @@
+# Karma (phase 5f): fated meetings, the temple, a fortune read.
+
+[symbols]
+temple_air = ["A bell sounds once.", "Incense smoke curls under the eaves.", "Old prayers flutter on strings.", "The courtyard is swept clean.", "A monk murmurs a sutra.", "Pigeons settle on the roof ridge."]
+fate_air = ["Some meetings are not chance.", "The road narrows.", "You know the face before the name.", "The wind drops.", "A crow watches from a post.", "The dust settles slowly."]
+
+[alms_given]
+colour = "dim"
+lines = ["#temple_air#"]
+
+[incense_burned]
+colour = "dim"
+lines = ["#temple_air#"]
+
+[fortune_read]
+colour = "dim"
+lines = ["#fate_air#"]
+
+[fated_repaid]
+colour = "dim"
+lines = ["#fate_air#"]
+
+["encounter.wronged"]
+colour = "default"
+lines = ["#fate_air#"]
