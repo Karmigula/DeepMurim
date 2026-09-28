@@ -13,7 +13,6 @@ from narrate.outcomes import SUMMARIES
 from systems.creation import CreationChoice
 from systems.facts import make_variant
 from systems.purse import silver_of
-from world.events import commit
 
 
 @pytest.fixture
