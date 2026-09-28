@@ -43,6 +43,11 @@ def crafts_lines(world, player: int, place) -> list:
     if manuals:
         lines.append(("Manuals:", "heading"))
         lines += [(f"  {m.name}", "dim") for m in manuals]
+    if MT.is_open(world):  # the Meet is news: where it is held, and for how long
+        m = MT.current(world)
+        days = -(-(m["end"] - world.time) // 4)
+        lines.append((f"The Meet of Hammer and Furnace is held in {world.entity(m['town']).name} "
+                      f"for {days} more day(s).", "dim"))
     here = laid_lines(world, player, place)
     if here:
         lines.append(("Laid here:", "heading"))

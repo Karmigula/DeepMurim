@@ -102,7 +102,8 @@ def test_a_formation_master_sells_and_lays_in_conversation(game):
     assert any("grandmaster formation master" in t for t, _ in turn.lines)
     game.perform(pick(turn, "buy_flags"))
     assert FM.flags_of(world, me) == 5
-    turn = game.perform(Action("craft_talk"))
+    game.perform(Action("craft_talk"))
+    turn = game.perform(Action("craft_menu", "craft_lay"))
     game.perform(pick(turn, "commission_lay"))
     assert FM.laid(world, game.place.id)
 

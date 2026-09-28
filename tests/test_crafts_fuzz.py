@@ -10,7 +10,8 @@ from config import Config
 from tests.test_fuzz import FIGHTING, keep_playing
 
 WORDS = ["crafts", "anvil", "forge", "clear anvil", "meet", "study", "smith", "look", "rest", "journal", "challenge",
-         "lay confusion", "lay killing", "lay binding", "lay seclusion", "lay concealment"]
+         "lay confusion", "lay killing", "lay binding", "lay seclusion", "lay concealment", "forge sword",
+         "forge padded robe"]
 
 
 @pytest.mark.parametrize("seed", [9, 31])

@@ -12,6 +12,12 @@ def _name(world, entity_id) -> str:
     return entity.name if entity else "someone"
 
 
+def _piece(data) -> str:
+    """A commissioned piece as it is spoken of: 'divine sword', 'iron silk inner vest'."""
+    what = gear.ARMOUR_WORDS.get(data["form"], data["form"])
+    return f"{gear.GRADE_WORDS[data['grade']]} {what}" if "grade" in data else what
+
+
 def _legend(world, v, viewer) -> str:
     """A smith's own legend is told whole; 5a's tell of sects the hearer may not know, so they are not quoted."""
     legend = v.get("legend") or ""
@@ -161,17 +167,17 @@ def _forge_commissioned(world, event):
 
 @summary("forge_commissioned")
 def _forge_commissioned_line(world, entry, names, place, other):
-    return f"Commissioned {other} to forge a {entry.data['form']}."
+    return f"Commissioned {other} to forge a {_piece(entry.data)}."
 
 
 @outcome("commission_collected", body_facts=False)
 def _collected(world, event):
-    return [f"{cap(_name(world, event.actors[1]))} hands over the {event.data['form']}, still warm."], {}
+    return [f"{cap(_name(world, event.actors[1]))} hands over the {_piece(event.data)}, still warm."], {}
 
 
 @summary("commission_collected")
 def _collected_line(world, entry, names, place, other):
-    return f"Collected a {entry.data['form']} from {other}."
+    return f"Collected a {_piece(entry.data)} from {other}."
 
 
 @outcome("meet_entered", body_facts=False)

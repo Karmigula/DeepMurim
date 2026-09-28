@@ -12,8 +12,10 @@ import systems.pills as P
 from engine.actions import Action, Choice
 from engine.crafts_page import crafts_lines, meet_lines
 
-CRAFT_MENUS = ("crafts", "anvil", "masterwork", "meet")
+CRAFT_MENUS = ("crafts", "anvil", "forge_menu", "refine_menu", "lay_menu", "masterwork", "meet")
+BACK = {"forge_menu": "anvil", "refine_menu": "anvil", "lay_menu": "crafts"}
 TALK_MENU = "craft_talk"
+TALK_MENUS = {TALK_MENU: "talk_menu", "craft_manuals": TALK_MENU, "craft_lay": TALK_MENU}  # and where Back goes
 
 
 def _distinct(items) -> list:
@@ -63,20 +65,29 @@ class CraftsMixin:
             extras.append(Choice("Their craft...", Action("craft_talk")))
         return extras
 
+    def _manuals(self, npc) -> list:
+        world, me = self.world, self.player.id
+        return [Choice(f"Buy a manual of {FM.PATTERNS[key]['name']} ({FM.manual_price(key)} silver)",
+                       Action("buy_manual", (npc.id, key)))
+                for key in CW.teaches(world, npc.id) if FM.mastery(world, me, key) is None]
+
+    def _lays(self, npc) -> list:
+        world, me, here = self.world, self.player.id, self.place.id
+        return [Choice(f"Have them lay {FM.PATTERNS[key]['name']} here ({CW.lay_price(key)} silver)",
+                       Action("commission_lay", (npc.id, key)))
+                for key in CW.teaches(world, npc.id) if CW.commission_lay_block(world, me, npc.id, key, here) is None]
+
     def _craft_talk(self, npc) -> list:
+        """A master's wares, a menu each: seven patterns of manuals and lays would not fit on one screen."""
         world, me, here = self.world, self.player.id, self.place.id
         out = []
         if CW.crafter(world, npc.id) == "formation master":
             out.append(Choice(f"Buy {CW.FLAG_LOT} formation flags ({CW.FLAG_LOT * FM.FLAG_PRICE} silver)",
                               Action("buy_flags", npc.id)))
-            for key in CW.teaches(world, npc.id):
-                name = FM.PATTERNS[key]["name"]
-                if FM.mastery(world, me, key) is None:
-                    out.append(Choice(f"Buy a manual of {name} ({FM.manual_price(key)} silver)",
-                                      Action("buy_manual", (npc.id, key))))
-                if CW.commission_lay_block(world, me, npc.id, key, here) is None:
-                    out.append(Choice(f"Have them lay {name} here ({CW.lay_price(key)} silver)",
-                                      Action("commission_lay", (npc.id, key))))
+            if self._manuals(npc):
+                out.append(Choice("Their manuals...", Action("craft_menu", "craft_manuals")))
+            if self._lays(npc):
+                out.append(Choice("Have them lay a formation...", Action("craft_menu", "craft_lay")))
         else:
             if CW.ready(world, me, npc.id) is not None:
                 out.append(Choice("Collect what they forged for you", Action("collect_commission", npc.id)))
@@ -94,8 +105,10 @@ class CraftsMixin:
         options = super()._submenu_options()
         world, me, here = self.world, self.player.id, self.place.id
         if self.focus is not None:
-            if self.submenu == TALK_MENU:
-                options[TALK_MENU] = (self._craft_talk(world.entity(self.focus)), Action("talk_menu"))
+            if self.submenu in TALK_MENUS:
+                npc = world.entity(self.focus)
+                build = {TALK_MENU: self._craft_talk, "craft_manuals": self._manuals, "craft_lay": self._lays}
+                options[self.submenu] = (build[self.submenu](npc), Action(TALK_MENUS[self.submenu]))
             return options
         if self.submenu == "smith" and "smith" in options:  # iron and a forge of one's own, at the smith's
             choices, back = options["smith"]
@@ -107,34 +120,32 @@ class CraftsMixin:
         if self.submenu not in CRAFT_MENUS:
             return options
         choices = []
+        inner = {name: build() for name, build in (("forge_menu", self._forge_choices),
+                                                   ("refine_menu", self._refine_choices),
+                                                   ("lay_menu", self._lay_choices))
+                 if self.submenu in (name, BACK[name])}  # only the menus this screen shows or opens
         if self.submenu == "crafts":
-            for manual in _distinct(FM.manuals_of(world, me)):
-                if FM.study_block(world, me, manual.id) is None:
-                    choices.append(Choice(f"Study {manual.name}", Action("study_formation", manual.id)))
-            for key in sorted(FM.known(world, me)):
-                if FM.lay_block(world, me, key, here) is None:
-                    choices.append(Choice(f"Lay {FM.PATTERNS[key]['name']} here ({FM.PATTERNS[key]['flags']} flags)",
-                                          Action("lay_formation", key)))
+            if inner["lay_menu"]:
+                choices.append(Choice("Lay a formation here...", Action("craft_menu", "lay_menu")))
             for item in gear.gear_items(world, me):
                 if FG.masterwork_block(world, me, item.id) is None:
                     choices.append(Choice(f"Name {item.name}", Action("name_menu", item.id)))
-        elif self.submenu == "anvil":
-            anvil = [m for m in self._anvil if m in world.targets(me, "owns")]
-            if anvil and M.forge_block(world, me, here) is None:
-                for slot, forms in FG.FORMS.items():
-                    for form in forms:
-                        what = form if slot == "weapon" else gear.ARMOUR_WORDS[form]
-                        grade = gear.GRADE_WORDS[FG.grade_of(world, me, form, anvil)]
-                        choices.append(Choice(f"Forge a {grade} {what}", Action("forge", (slot, form))))
-            if anvil:
-                choices.append(Choice("Clear the anvil", Action("clear_anvil")))
+            for manual in _distinct(FM.manuals_of(world, me)):
+                if FM.study_block(world, me, manual.id) is None:
+                    choices.append(Choice(f"Study {manual.name}", Action("study_formation", manual.id)))
+        elif self.submenu == "anvil":  # the forms and the refining each on a menu of their own (seven forms)
+            anvil = self._on_anvil()
+            if inner["forge_menu"]:
+                choices.append(Choice("Forge...", Action("craft_menu", "forge_menu")))
+            if inner["refine_menu"]:
+                choices.append(Choice("Refine a piece...", Action("craft_menu", "refine_menu")))
             if len(anvil) < FG.MAX_MATERIALS:
                 choices += [Choice(f"Put {m.name} on the anvil", Action("add_material", m.id))
                             for m in _distinct(m for m in M.materials_of(world, me) if m.id not in anvil)]
-            for item in gear.gear_items(world, me):
-                for m in _distinct(M.materials_of(world, me)):
-                    if FG.refine_block(world, me, here, item.id, m.id) is None:
-                        choices.append(Choice(f"Refine {item.name} with {m.name}", Action("refine_gear", (item.id, m.id))))
+            if anvil:
+                choices.append(Choice("Clear the anvil", Action("clear_anvil")))
+        elif self.submenu in inner:
+            choices = inner[self.submenu]
         elif self.submenu == "masterwork" and self._naming is not None:
             choices = [Choice(f"Name it {name}", Action("name_masterwork", name))
                        for name in FG.names_for(world, self._naming)]
@@ -145,8 +156,38 @@ class CraftsMixin:
                     if MT.enter_block(world, me, craft, piece.id, here) is None:
                         choices.append(Choice(f"Show {piece.name} ({MT.score(world, me, craft, piece.id)})",
                                               Action("enter_meet", (craft, piece.id))))
-        options[self.submenu] = (choices, Action("back"))
+        for name, found in inner.items():  # an inner menu's choices stay reachable by typing from its outer menu
+            options[name] = (found, Action(BACK[name]))
+        options[self.submenu] = (choices, Action(BACK.get(self.submenu, "back")))
         return options
+
+    def _on_anvil(self) -> list:
+        return [m for m in self._anvil if m in self.world.targets(self.player.id, "owns")]
+
+    def _forge_choices(self) -> list:
+        world, me, here = self.world, self.player.id, self.place.id
+        anvil = self._on_anvil()
+        if not anvil or M.forge_block(world, me, here) is not None:
+            return []
+        out = []
+        for slot, forms in FG.FORMS.items():
+            for form in forms:
+                what = form if slot == "weapon" else gear.ARMOUR_WORDS[form]
+                grade = gear.GRADE_WORDS[FG.grade_of(world, me, form, anvil)]
+                out.append(Choice(f"Forge a {grade} {what}", Action("forge", (slot, form))))
+        return out
+
+    def _refine_choices(self) -> list:
+        world, me, here = self.world, self.player.id, self.place.id
+        return [Choice(f"Refine {item.name} with {m.name}", Action("refine_gear", (item.id, m.id)))
+                for item in gear.gear_items(world, me) for m in _distinct(M.materials_of(world, me))
+                if FG.refine_block(world, me, here, item.id, m.id) is None]
+
+    def _lay_choices(self) -> list:
+        world, me, here = self.world, self.player.id, self.place.id
+        return [Choice(f"Lay {FM.PATTERNS[key]['name']} here ({FM.PATTERNS[key]['flags']} flags)",
+                       Action("lay_formation", key))
+                for key in sorted(FM.known(world, me)) if FM.lay_block(world, me, key, here) is None]
 
     # --- the world around ---------------------------------------------------------------------------------------
     def _after_arrival(self) -> list:
@@ -161,13 +202,24 @@ class CraftsMixin:
         return lines
 
     # --- handlers ---------------------------------------------------------------------------------------------------
+    def _do_craft_menu(self, menu):
+        """One of the crafts' inner menus: the forms, the refining, the lays; a master's manuals and lays."""
+        if menu in TALK_MENUS and menu != TALK_MENU and self.focus is not None \
+                and CW.crafter(self.world, self.focus) == "formation master":
+            self.submenu = menu
+            return self._turn([])
+        if menu in BACK and self.focus is None:
+            self.submenu = menu
+            return self._turn([])
+        return self._turn([("There is no such menu.", "system")])
+
     def _do_crafts(self, _target):
         self.submenu = "crafts"
         return self._turn(crafts_lines(self.world, self.player.id, self.place.id))
 
     def _do_anvil(self, _target):
         self.submenu = "anvil"
-        anvil = [self.world.entity(m).name for m in self._anvil if m in self.world.targets(self.player.id, "owns")]
+        anvil = [self.world.entity(m).name for m in self._on_anvil()]
         lines = [("The anvil", "heading"), (f"  On it: {', '.join(anvil) if anvil else 'nothing'}", "dim")]
         if (why := M.forge_block(self.world, self.player.id, self.place.id)) is not None:
             lines.append((f"  {why}", "dim"))
@@ -189,7 +241,7 @@ class CraftsMixin:
     def _do_forge(self, target):
         world, me, here = self.world, self.player.id, self.place.id
         slot, form = target if isinstance(target, tuple) and len(target) == 2 else (None, None)
-        anvil = [m for m in self._anvil if m in world.targets(me, "owns")]
+        anvil = self._on_anvil()
         if slot is None or (why := FG.forge_block(world, me, here, slot, form, anvil)) is not None:
             return self._turn([(why if slot is not None else "Forge what?", "system")])
         self._anvil, self.submenu = (), "anvil"
@@ -273,8 +325,14 @@ class CraftsMixin:
         if self.focus is None or CW.crafter(self.world, self.focus) is None:
             return self._turn([("They have no craft to speak of.", "system")])
         self.submenu = TALK_MENU
-        told = f"{self.world.entity(self.focus).name} is {CW.title(self.world, self.focus)}."
-        return self._turn([(told, "dim"), ("What will you ask of them?", "system")])
+        world, npc = self.world, self.focus
+        lines = [(f"{world.entity(npc).name} is {CW.title(world, npc)}.", "dim")]
+        for c in CW.pending(world, self.player.id):  # what they are forging for you, and when it is ready
+            if c["smith"] == npc and c["ready_at"] > world.time:
+                days = -(-(c["ready_at"] - world.time) // 4)
+                lines.append((f"Your {gear.GRADE_WORDS[c['grade']]} {gear.ARMOUR_WORDS.get(c['form'], c['form'])} "
+                              f"will be ready in {days} day(s).", "dim"))
+        return self._turn(lines + [("What will you ask of them?", "system")])
 
     def _craft_deed(self, npc, why, events):
         if self.focus != npc:
