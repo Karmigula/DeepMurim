@@ -236,6 +236,9 @@ def check_crafts(world) -> list[str]:
     for person in world.entities_after("person", "craft_skill", 0):
         if not 1 <= person.data["craft_skill"] <= 5:
             out.append(f"{person.name} (#{person.id}) has a craft skill of {person.data['craft_skill']}")
+    meet = world.get_meta("meet")
+    if meet is not None and (world.entity(meet.get("town") or 0) is None or not meet["start"] < meet["end"]):
+        out.append(f"the Meet of Hammer and Furnace is malformed: {meet}")
     return out
 
 
