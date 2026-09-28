@@ -1,0 +1,66 @@
+# Forging and formations (phase 5d): the forge, the arrays, and the Meet.
+
+[symbols]
+forge_air = ["Sparks jump from the anvil.", "The bellows breathe in and out.", "Hot iron ticks as it cools.", "Soot hangs under the rafters.", "Water hisses in the quench barrel.", "The hammer rings twice."]
+array_air = ["The wind turns where it should not.", "A flag stirs with no wind to stir it.", "Shadows sit a little off their marks.", "The ground hums under your feet.", "Birds will not land here.", "The light bends at the edge of the array."]
+meet_air = ["Crowds press along the judges' tables.", "Blades glitter on red cloth.", "Pill smoke and forge smoke mingle.", "A herald calls the next name.", "Merchants haggle over the losers' work.", "The judges confer behind a screen."]
+
+[material_bought]
+colour = "dim"
+lines = ["#forge_air#"]
+
+[beast_parts_taken]
+colour = "dim"
+lines = ["#forge_air#"]
+
+[forge_bought]
+colour = "dim"
+lines = ["#forge_air#"]
+
+[forged]
+colour = "dim"
+lines = ["#forge_air#"]
+
+[gear_refined]
+colour = "dim"
+lines = ["#forge_air#"]
+
+[masterwork_named]
+colour = "dim"
+lines = ["#forge_air#"]
+
+[forge_commissioned]
+colour = "dim"
+lines = ["#forge_air#"]
+
+[commission_collected]
+colour = "dim"
+lines = ["#forge_air#"]
+
+[formation_studied]
+colour = "dim"
+lines = ["#array_air#"]
+
+[formation_laid]
+colour = "dim"
+lines = ["#array_air#"]
+
+[manual_bought]
+colour = "dim"
+lines = ["#array_air#"]
+
+[flags_bought]
+colour = "dim"
+lines = ["#array_air#"]
+
+[formation_commissioned]
+colour = "dim"
+lines = ["#array_air#"]
+
+[meet_entered]
+colour = "dim"
+lines = ["#meet_air#"]
+
+[meet_decided]
+colour = "dim"
+lines = ["#meet_air#"]
