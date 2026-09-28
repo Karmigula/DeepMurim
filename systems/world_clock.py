@@ -377,3 +377,4 @@ import systems.karma  # noqa: E402,F401  phase 5f: heaven's ledger of merit and 
 import systems.threads  # noqa: E402,F401  phase 5f: karmic threads, and fated meetings on the road
 import systems.tribulations  # noqa: E402,F401  phase 5f: tribulations weighed by karma, minor ones, NPC fates
 import systems.tribulation_waves  # noqa: E402,F401  phase 5f: a tribulation played wave by wave
+import systems.karma_world  # noqa: E402,F401  phase 5f: heaven's retribution, a sinner's luck, temples
