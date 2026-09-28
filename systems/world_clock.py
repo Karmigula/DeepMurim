@@ -369,3 +369,4 @@ import systems.craft_world  # noqa: E402,F401  phase 5d: smiths and formation ma
 import systems.meet  # noqa: E402,F401  phase 5d: the Meet of Hammer and Furnace
 import systems.heart  # noqa: E402,F401  phase 5e: the dao heart, and the deeds that move it
 import systems.demons  # noqa: E402,F401  phase 5e: heart demons, gathered, laid to rest, faced at a breakthrough
+import systems.daos  # noqa: E402,F401  phase 5e: epiphanies and the daos of forms and elements

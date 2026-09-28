@@ -130,6 +130,11 @@ def fight_factor(world, person_id: int) -> float:
     return factor(world, person_id)
 
 
+def dao_factor(world, person_id: int, form: str) -> float:
+    from systems.daos import fight_factor as factor  # the daos come after the duel in the import graph
+    return factor(world, person_id, form)
+
+
 def fighter_for(world, person_id: int, technique_id: int | None) -> Fighter:
     person = world.entity(person_id)
     body = load_body(world, person_id)
@@ -146,7 +151,8 @@ def fighter_for(world, person_id: int, technique_id: int | None) -> Fighter:
     weapon_mult, weapon_grade, armour = gear.fighting(world, person_id, form if art else "bare")
     return Fighter(
         name=person.name, realm_mult=REALMS[body.realm].multiplier * _dark_boost(world, person_id)
-        * fight_factor(world, person_id),  # phase 5d: the arrays where they stand
+        * fight_factor(world, person_id)  # phase 5d: the arrays where they stand
+        * dao_factor(world, person_id, form),  # phase 5e: the dao of the form they fight with
         stage=STAGES.index(stage_of(body)),
         technique=art.name if art else None, form=form,
         grade_mult=grade_mult(art.technique.data["grade"]) if art else 1.0,

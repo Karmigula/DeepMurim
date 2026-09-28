@@ -256,6 +256,9 @@ def check_heart(world) -> list[str]:
         if len(demons) > MAX_DEMONS or any(d.get("kind") not in KINDS or not 1 <= d.get("weight", 0) <= MAX_WEIGHT
                                            for d in demons):
             out.append(f"{person.name} (#{person.id}) carries a malformed demon or too many: {demons}")
+        from systems.daos import DAOS
+        if any(name not in DAOS or not 0 <= value <= 1 for name, value in (heart.get("daos") or {}).items()):
+            out.append(f"{person.name} (#{person.id}) has a dao out of bounds: {heart['daos']}")
     return out
 
 

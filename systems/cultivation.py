@@ -158,6 +158,8 @@ def practise_events(world, pid: int, place: int, technique_id: int, days: int = 
     if CONSTITUTION_FORM.get(body.constitution) == art["form"]:
         gain *= 1.5
     gain *= W.factor(world, place, "practice")  # a dao resonance (phase 4d)
+    from systems.daos import practice_factor  # phase 5e: a dao of the art's form or element
+    gain *= practice_factor(world, pid, art["form"], art["element"])
     mastered = known.mastery >= 1.0 - 1e-9  # everything the art holds is learned
     at_cap = not mastered and known.mastery >= known.completeness - 1e-9  # a flawed art stops short
     after = min(known.completeness, known.mastery + gain)
