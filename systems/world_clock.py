@@ -374,3 +374,4 @@ import systems.oaths  # noqa: E402,F401  phase 5e: oaths sworn on the heart, kep
 import systems.blade_spirits  # noqa: E402,F401  phase 5e: weapon spirits and cursed blades
 import systems.heart_world  # noqa: E402,F401  phase 5e: masters driven mad by their demons, and the enlightened
 import systems.karma  # noqa: E402,F401  phase 5f: heaven's ledger of merit and sin
+import systems.threads  # noqa: E402,F401  phase 5f: karmic threads, and fated meetings on the road

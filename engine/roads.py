@@ -37,6 +37,8 @@ class RoadsMixin:
     def _road_choices(self) -> list[Choice]:
         e = self.encounter
         choices = [Choice("Fight", Action("road", "fight")), Choice("Try to flee", Action("road", "flee"))]
+        if e["kind"] == "wronged":  # phase 5f: one you wronged, owed amends
+            choices.append(Choice(f"Make amends ({e['toll']} silver)", Action("road", "pay")))
         if e["kind"] == "bandit":
             choices.append(Choice(f"Pay the toll ({e['toll']} silver)", Action("road", "pay")))
             if silver_of(self.world, self.player.id) < e["toll"] \
@@ -92,11 +94,12 @@ class RoadsMixin:
         e, me, place = self.encounter, self.player.id, self.place.id
         person = e["person"]
         if how == "pay":
-            if e["kind"] != "bandit":
+            if e["kind"] not in ("bandit", "wronged"):
                 return self._turn([("There is no toll to pay.", "system")])
             if silver_of(self.world, me) < e["toll"]:
                 return self._turn([(f"You don't have {e['toll']} silver.", "system")])
-            lines = self._commit(payment_events(me, person, place, e["toll"], "toll"))
+            reason = "amends" if e["kind"] == "wronged" else "toll"
+            lines = self._commit(payment_events(me, person, place, e["toll"], reason))
             return self._turn(lines + self._resolve("paid"))
         if how == "pay_goods":
             if silver_of(self.world, me) >= e["toll"]:
