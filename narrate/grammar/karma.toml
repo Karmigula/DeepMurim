@@ -23,3 +23,11 @@ lines = ["#fate_air#"]
 ["encounter.wronged"]
 colour = "default"
 lines = ["#fate_air#"]
+
+[misfortune]
+colour = "dim"
+lines = ["#fate_air#"]
+
+[commission_refunded]
+colour = "dim"
+lines = ["#fate_air#"]

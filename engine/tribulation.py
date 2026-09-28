@@ -11,15 +11,19 @@ NTH = ("first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eight
 
 
 class TribulationMixin:
+    def _holding(self) -> bool:
+        """Heaven's waves hold the player, but a duel already joined is fought out first (5f review)."""
+        return TR.pending(self.world, self.player.id) is not None and self.combat is None
+
     def _gate(self, action):
-        if TR.pending(self.world, self.player.id) is not None and action.verb not in WAVE_VERBS:
+        if self._holding() and action.verb not in WAVE_VERBS:
             return self._turn([("Heaven's tribulation is upon you. There is nothing else now.", "system")]
                               + self._wave_lines())
         return super()._gate(action)
 
     def _special_choices(self):
         now = TW.current(self.world, self.player.id)
-        if now is None:
+        if now is None or not self._holding():
             return super()._special_choices()
         world, me, here = self.world, self.player.id, self.place.id
         kind, strength = now
@@ -48,13 +52,15 @@ class TribulationMixin:
 
     def _do_wave(self, target):
         world, me, here = self.world, self.player.id, self.place.id
+        if self.combat is not None:
+            return self._turn([("Finish the fight first.", "system")])
         choice, item = target if isinstance(target, tuple) and len(target) == 2 else (target, None)
         if (why := TW.wave_block(world, me, here, choice, item)) is not None:
             return self._turn([(why, "system")] + self._wave_lines())
         return self._turn(self._commit(TW.wave_events(world, me, here, choice, item)) + self._wave_lines())
 
     def _do_heart_trial(self, choice):
-        if TR.pending(self.world, self.player.id) is not None:  # a demon wave is faced as the heart's trial is
+        if self._holding():  # a demon wave is faced as the heart's trial is
             return self._do_wave(choice)
         return super()._do_heart_trial(choice)
 
