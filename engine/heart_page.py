@@ -81,7 +81,7 @@ def heart_lines(world, player: int) -> list:
     item = BS.wielded(world, player)
     told = spirit_words(world, player, item) if item is not None else None
     if told:
-        lines += [("Your blade:", "heading"), (f"  {told}", "dim")]
+        lines += [("Your blade:", "heading"), (f"  {_cap(told)}", "dim")]
     return lines
 
 

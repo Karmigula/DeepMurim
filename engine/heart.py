@@ -6,9 +6,12 @@ import systems.demons as D
 import systems.oaths as O
 from engine.actions import Action, Choice
 from engine.heart_page import heart_lines, oath_choices, rising_lines
+from narrate.brief import event_brief
 
 HEART_MENUS = ("heart", "oath_menu", "heart_trial")
 TALK_MENU = "heart_talk"
+REACTIONS = frozenset({"epiphany", "oath_kept", "oath_broken", "oath_released", "spirit_woke", "spirit_felt", "blade_whispered",
+                       "demon_stirred"})  # made by listeners and the seasons, not by the player's own deed
 
 
 class HeartMixin:
@@ -62,6 +65,33 @@ class HeartMixin:
                                        Choice("Bury it and break through", Action("heart_trial", "bury")),
                                        Choice("Turn back", Action("heart_trial", "turn_back"))], Action("cultivate"))
         return options
+
+    # --- a hungry blade at the verdict ------------------------------------------------------------------------------
+    def _verdict_choices(self) -> list:
+        """A bloodthirsty blade in a troubled hand offers no mercy (spec 6)."""
+        choices = super()._verdict_choices()
+        if BS.refuses_spare(self.world, self.player.id):
+            choices = [c for c in choices if c.action != Action("verdict", "spare")]
+        return choices
+
+    def _do_verdict(self, choice):
+        if choice == "spare" and self.combat is not None and self.combat.stage == "verdict" \
+                and BS.refuses_spare(self.world, self.player.id):
+            item = BS.wielded(self.world, self.player.id)
+            return self._turn([(f"{item.name[:1].upper() + item.name[1:]} will not be sheathed dry.", "system")])
+        return super()._do_verdict(choice)
+
+    # --- what the heart does after the fact ---------------------------------------------------------------------
+    def _after_commit(self, ids: list, events: list) -> list:
+        """The heart's own reactions (an epiphany, an oath kept at a death, a spirit felt) are told as they come."""
+        lines = super()._after_commit(ids, events)
+        if not ids:
+            return lines
+        me, done = self.player.id, set(ids)
+        for entry in reversed(self.world.chronicle_about(me, limit=12)):
+            if entry.id > min(ids) and entry.id not in done and entry.kind in REACTIONS and entry.actors[0] == me:
+                lines += self.narrator.narrate(event_brief(self.world, entry.id, entry))
+        return lines
 
     # --- the breakthrough -----------------------------------------------------------------------------------------
     def _heart_trial(self):

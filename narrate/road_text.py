@@ -36,6 +36,9 @@ def _resolved(world, event):
 def _challenge(world, event):
     if event.data.get("gate"):  # a stranger calling out a sect's founder (phase 3c)
         return [f"{cap(_name(world, event))} stands at the gate of your sect and calls you out."], {}
+    from systems.heart_world import mad  # phase 5e review: a stranger gone mad has nothing to remember
+    if mad(world, event.actors[1]):
+        return [f"{cap(_name(world, event))} comes at you with wild eyes: their demons have them."], {}
     return [f"{cap(_name(world, event))} blocks your way: they have not forgotten you."], {}
 
 

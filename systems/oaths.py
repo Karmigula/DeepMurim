@@ -80,6 +80,11 @@ def _kept(world, event) -> None:
         HT.write(world, person, lean=min(HT.LEAN_BOUND, HT.lean(world, person) + KEPT_LEAN[event.data["kind"]]))
 
 
+@effect("oath_released")
+def _released(world, event) -> None:
+    _close(world, event)
+
+
 @effect("oath_broken")
 def _broken(world, event) -> None:
     person = event.actors[0]
@@ -99,9 +104,13 @@ def _decided_by_death(world, event, event_id: int) -> None:
     for oath in oaths(world, player):
         if oath["kind"] == "vengeance" and oath["whom"] == victim:
             ends.append(_end(world, player, oath, True, event.place))
-        elif oath["kind"] == "protection" and oath["whom"] == victim and killer != victim:
-            ends.append(_end(world, player, oath, False, event.place))
-        elif oath["kind"] == "abstinence" and killer == player:
+        elif oath["kind"] == "protection" and oath["whom"] == victim:
+            if killer != victim:
+                ends.append(_end(world, player, oath, False, event.place))
+            else:  # age or illness took them: no hand to guard against, and the oath is released
+                ends.append(Event("oath_released", (player, victim), event.place,
+                                  {"kind": oath["kind"], "whom": victim, "sworn_at": oath["sworn_at"]}))
+        elif oath["kind"] == "abstinence" and killer == player and not world.entity(victim).data.get("beast"):
             ends.append(_end(world, player, oath, False, event.place))
     commit(world, ends)
 

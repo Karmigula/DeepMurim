@@ -111,6 +111,16 @@ def _kept_line(world, entry, names, place, other):
     return f"Kept an oath: {_oath(world, entry.data)}."
 
 
+@outcome("oath_released", body_facts=False)
+def _released(world, event):
+    return [f"{cap(_name(world, event.actors[1]))} is gone, and no hand did it: your oath is released."], {}
+
+
+@summary("oath_released")
+def _released_line(world, entry, names, place, other):
+    return f"Released from an oath: {_oath(world, entry.data)}."
+
+
 @outcome("oath_broken", body_facts=False)
 def _broken(world, event):
     return [f"An oath is broken: {_oath(world, event.data)}. Something in your heart cracks."], {}
