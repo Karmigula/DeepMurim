@@ -13,7 +13,7 @@ import systems.formations as FM
 import systems.gear as gear
 import systems.lives as lives
 from systems.purse import silver_of
-from world.events import Event, effect
+from world.events import Event, effect, listen
 from world.gen.materialize import people_at
 from world.seed import rng_for, seed_for
 
@@ -202,7 +202,29 @@ def _commissioned(world, event) -> None:
     d = event.data
     _pay(world, person, smith, d["price"])
     world.update_data(person, commissions=pending(world, person) + [
-        {"smith": smith, "slot": d["slot"], "form": d["form"], "grade": d["grade"], "ready_at": d["ready_at"]}])
+        {"smith": smith, "slot": d["slot"], "form": d["form"], "grade": d["grade"], "ready_at": d["ready_at"],
+         "price": d["price"]}])
+
+
+@listen("died")
+def _smith_dies(world, event, event_id: int) -> None:
+    """A smith who dies with a commission unforged: their estate returns the silver (phase 5f closes 5d's)."""
+    smith, player = event.actors[-1], world.get_meta("player_id")
+    if player is None or world.entity(player) is None:
+        return
+    from systems.smithy import price  # the smith's stall comes after the crafts in the import graph
+    from world.events import commit
+    for c in [c for c in pending(world, player) if c["smith"] == smith]:
+        paid = c.get("price") or FORGE_SHARE * price(world, event.place, c["slot"], c["grade"])  # older saves
+        commit(world, [Event("commission_refunded", (player, smith), event.place,
+                             {"slot": c["slot"], "form": c["form"], "grade": c["grade"], "silver": paid})])
+
+
+@effect("commission_refunded")
+def _refunded(world, event) -> None:
+    person, smith = event.actors
+    world.update_data(person, silver=silver_of(world, person) + event.data["silver"],
+                      commissions=[c for c in pending(world, person) if c["smith"] != smith])
 
 
 def ready(world, person: int, smith: int) -> dict | None:
