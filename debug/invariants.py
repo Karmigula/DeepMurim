@@ -67,6 +67,7 @@ def check_world(world) -> list[str]:
     problems += check_alchemy(world)
     problems += check_alchemy_world(world)
     problems += check_crafts(world)
+    problems += check_heart(world)
     problems += check_knowledge(world)
     problems += check_factions(world)
     problems += check_sect(world)
@@ -239,6 +240,17 @@ def check_crafts(world) -> list[str]:
     meet = world.get_meta("meet")
     if meet is not None and (world.entity(meet.get("town") or 0) is None or not meet["start"] < meet["end"]):
         out.append(f"the Meet of Hammer and Furnace is malformed: {meet}")
+    return out
+
+
+def check_heart(world) -> list[str]:
+    """Hearts in their bounds (phase 5e)."""
+    out = []
+    for person in world.entities_after("person", "heart.steady", -1):
+        heart = person.data["heart"]
+        if not 0 <= heart["steady"] <= 100 or not -100 <= heart["lean"] <= 100:
+            out.append(f"{person.name} (#{person.id}) has a heart out of bounds: steadiness {heart['steady']}, "
+                       f"lean {heart['lean']}")
     return out
 
 

@@ -1,0 +1,58 @@
+# Deeds that move the dao heart (phase 5e spec 2). Each row is a kind of event: the actor whose heart it moves
+# (an index into the event's actors), the way it leans (1 righteous, -1 ruthless) and how much it weighs (1-3).
+# Duels are read in systems/heart.py: sparing, robbing, crippling and killing the yielded depend on the verdict.
+
+[healed]            # treating the sick and hurt (5b)
+actor = 0
+lean = 1
+weight = 1
+
+[worms_killed]      # freeing one bound by a control pill (5c)
+actor = 0
+lean = 1
+weight = 2
+
+[debt_paid]         # a debt paid off for a debtor (3b)
+actor = 0
+lean = 1
+weight = 1
+
+[heirloom_returned] # a clan's heirloom handed home (5a)
+actor = 0
+lean = 1
+weight = 2
+
+[bounty_paid]       # a town kept from the beasts (4d)
+actor = 0
+lean = 1
+weight = 1
+
+[contract_poisoned] # poisoning for pay (5b)
+actor = 0
+lean = -1
+weight = 3
+
+[poison_slipped]    # poison slipped into a leader's cup (4h)
+actor = 0
+lean = -1
+weight = 3
+
+[hall_theft]        # a sect's pill hall robbed (5c)
+actor = 0
+lean = -1
+weight = 2
+
+[false_accusation]  # an innocent accused (4h)
+actor = 0
+lean = -1
+weight = 2
+
+[control_forced]    # a control pill forced down another's throat (5c)
+actor = 0
+lean = -1
+weight = 3
+
+[secret_sold]       # a sect's secret sold to its rival (5c)
+actor = 0
+lean = -1
+weight = 1

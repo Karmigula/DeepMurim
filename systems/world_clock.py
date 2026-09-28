@@ -367,3 +367,4 @@ import systems.formations  # noqa: E402,F401  phase 5d: formation patterns, flag
 import systems.arrays  # noqa: E402,F401  phase 5d: what formations do
 import systems.craft_world  # noqa: E402,F401  phase 5d: smiths and formation masters, and their commissions
 import systems.meet  # noqa: E402,F401  phase 5d: the Meet of Hammer and Furnace
+import systems.heart  # noqa: E402,F401  phase 5e: the dao heart, and the deeds that move it
