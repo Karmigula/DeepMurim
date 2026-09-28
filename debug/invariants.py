@@ -69,6 +69,7 @@ def check_world(world) -> list[str]:
     problems += check_crafts(world)
     problems += check_heart(world)
     problems += check_spirits(world)
+    problems += check_karma(world)
     problems += check_knowledge(world)
     problems += check_factions(world)
     problems += check_sect(world)
@@ -267,6 +268,16 @@ def check_heart(world) -> list[str]:
         oaths = heart.get("oaths") or []
         if len(oaths) > MAX_OPEN or any(o.get("kind") not in OATHS for o in oaths):
             out.append(f"{person.name} (#{person.id}) holds a malformed oath or too many: {oaths}")
+    return out
+
+
+def check_karma(world) -> list[str]:
+    """Heaven's ledger (phase 5f)."""
+    out = []
+    for person in world.entities_after("person", "karma.merit", -1e9):
+        k = person.data["karma"]
+        if k["merit"] < 0 or k["sin"] < 0:
+            out.append(f"{person.name} (#{person.id}) has a karma out of bounds: merit {k['merit']}, sin {k['sin']}")
     return out
 
 

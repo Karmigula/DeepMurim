@@ -1,0 +1,46 @@
+# Deeds heaven counts (phase 5f spec 2). Each row is a kind of event: the actor it counts for (an index into the
+# event's actors) and the merit or sin it weighs. Duels and killings are read in systems/karma.py.
+
+[healed]            # treating the sick and hurt (5b)
+actor = 0
+merit = 5
+
+[worms_killed]      # freeing one bound by a control pill (5c)
+actor = 0
+merit = 25
+
+[debt_paid]         # a debt paid off for a debtor (3b)
+actor = 0
+merit = 5
+
+[heirloom_returned] # a clan's heirloom handed home (5a)
+actor = 0
+merit = 15
+
+[bounty_paid]       # a town kept from the beasts (4d)
+actor = 0
+merit = 15
+
+[contract_poisoned] # poisoning for pay (5b)
+actor = 0
+sin = 30
+
+[poison_slipped]    # poison slipped into a leader's cup (4h)
+actor = 0
+sin = 30
+
+[control_forced]    # a control pill forced down another's throat (5c)
+actor = 0
+sin = 30
+
+[hall_theft]        # a sect's pill hall robbed (5c)
+actor = 0
+sin = 15
+
+[false_accusation]  # an innocent accused (4h)
+actor = 0
+sin = 20
+
+[secret_sold]       # a sect's secret sold to its rival (5c)
+actor = 0
+sin = 10
