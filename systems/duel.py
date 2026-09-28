@@ -135,6 +135,11 @@ def dao_factor(world, person_id: int, form: str) -> float:
     return factor(world, person_id, form)
 
 
+def blade_factor(world, person_id: int, form: str) -> float:
+    from systems.blade_spirits import blade_factor as factor  # the spirits come after the duel in the import graph
+    return factor(world, person_id, form)
+
+
 def fighter_for(world, person_id: int, technique_id: int | None) -> Fighter:
     person = world.entity(person_id)
     body = load_body(world, person_id)
@@ -164,7 +169,8 @@ def fighter_for(world, person_id: int, technique_id: int | None) -> Fighter:
         agility=body.physique["agility"], qi=body.qi,
         traits=tuple(person.data.get("traits", ())), beast=beast,
         stance_favours=art.technique.data["stance"]["favours"] if art else None,
-        weapon_mult=weapon_mult if art else 1.0, weapon_grade=weapon_grade if art else None, armour=armour,
+        weapon_mult=weapon_mult * blade_factor(world, person_id, form) if art else 1.0,  # phase 5e: its spirit
+        weapon_grade=weapon_grade if art else None, armour=armour,
     )
 
 
@@ -431,6 +437,9 @@ def _end_event(world, d: Duel, result: str, reason: str, rng, harm: dict, exchan
 def verdict_events(world, d: Duel, choice: str) -> list[Event]:
     beast = bool(world.entity(d.opponent).data.get("beast"))
     if d.stage != "verdict" or choice not in (BEAST_VERDICTS if beast else VERDICTS):
+        return []
+    from systems.blade_spirits import refuses_spare  # phase 5e: a bloodthirsty blade in a troubled hand
+    if choice == "spare" and refuses_spare(world, d.player):
         return []
     if choice == "kill" and d.mode not in ("duel", "encounter", "bout"):
         return []

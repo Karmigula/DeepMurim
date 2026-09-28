@@ -68,6 +68,7 @@ def check_world(world) -> list[str]:
     problems += check_alchemy_world(world)
     problems += check_crafts(world)
     problems += check_heart(world)
+    problems += check_spirits(world)
     problems += check_knowledge(world)
     problems += check_factions(world)
     problems += check_sect(world)
@@ -263,6 +264,17 @@ def check_heart(world) -> list[str]:
         oaths = heart.get("oaths") or []
         if len(oaths) > MAX_OPEN or any(o.get("kind") not in OATHS for o in oaths):
             out.append(f"{person.name} (#{person.id}) holds a malformed oath or too many: {oaths}")
+    return out
+
+
+def check_spirits(world) -> list[str]:
+    """Weapon spirits (phase 5e)."""
+    from systems.blade_spirits import NATURES
+    out = []
+    for item in world.entities_after("gear", "kills", 0):
+        spirit = item.data.get("spirit")
+        if spirit is not None and (spirit.get("nature") not in NATURES or not 0 <= spirit.get("bond", -1) <= 1):
+            out.append(f"{item.name} (#{item.id}) holds a malformed spirit: {spirit}")
     return out
 
 

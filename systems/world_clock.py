@@ -371,3 +371,4 @@ import systems.heart  # noqa: E402,F401  phase 5e: the dao heart, and the deeds 
 import systems.demons  # noqa: E402,F401  phase 5e: heart demons, gathered, laid to rest, faced at a breakthrough
 import systems.daos  # noqa: E402,F401  phase 5e: epiphanies and the daos of forms and elements
 import systems.oaths  # noqa: E402,F401  phase 5e: oaths sworn on the heart, kept and broken
+import systems.blade_spirits  # noqa: E402,F401  phase 5e: weapon spirits and cursed blades
