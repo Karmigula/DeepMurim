@@ -78,6 +78,8 @@ def sheet_lines(world: World, player_id: int) -> list[Line]:
     lines += sheet_alchemy_world_lines(world, player_id)
     from engine.crafts_page import sheet_crafts_lines  # phase 5d
     lines += sheet_crafts_lines(world, player_id)
+    from engine.heart_page import sheet_heart_lines  # phase 5e
+    lines += sheet_heart_lines(world, player_id)
     return lines
 
 

@@ -1,0 +1,53 @@
+# The dao heart (phase 5e): trials, epiphanies, oaths, graves, and blades with spirits.
+
+[symbols]
+heart_air = ["Your breath slows.", "The world goes very quiet.", "Your pulse is loud in your ears.", "Something old moves in your chest.", "The light seems to hold still.", "A cold clarity settles on you."]
+blade_air = ["The steel is warm to the touch.", "The edge catches the light and keeps it.", "The hilt settles into your palm.", "A faint ring hangs in the air.", "The blade seems to lean toward the living.", "Rust-red glints along the fuller."]
+
+[heart_trial]
+colour = "dim"
+lines = ["#heart_air#"]
+
+[demon_stirred]
+colour = "dim"
+lines = ["#heart_air#"]
+
+[epiphany]
+colour = "dim"
+lines = ["#heart_air#"]
+
+[oath_sworn]
+colour = "dim"
+lines = ["#heart_air#"]
+
+[oath_kept]
+colour = "dim"
+lines = ["#heart_air#"]
+
+[oath_broken]
+colour = "dim"
+lines = ["#heart_air#"]
+
+[paid_respects]
+colour = "dim"
+lines = ["#heart_air#"]
+
+[amends_made]
+colour = "dim"
+lines = ["#heart_air#"]
+
+[spirit_woke]
+colour = "dim"
+lines = ["#blade_air#"]
+
+[spirit_felt]
+colour = "dim"
+lines = ["#blade_air#"]
+
+[blade_whispered]
+colour = "dim"
+lines = ["#blade_air#"]
+
+[blade_read]
+colour = "dim"
+lines = ["#blade_air#"]

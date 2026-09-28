@@ -15,6 +15,7 @@ from engine.crisis import CrisisMixin
 from engine.alchemy import AlchemyMixin
 from engine.alchemy_world import AlchemyWorldMixin
 from engine.crafts import CraftsMixin
+from engine.heart import HeartMixin
 from engine.gear import GearMixin
 from engine.intrigue import IntrigueMixin
 from engine.delve import ChamberMixin, DelveMixin, RivalMixin, SealedMixin
@@ -91,11 +92,12 @@ HELP = [
     ("  guild | clinic | doctors | pill hall | night | bound | read <scroll> | treat <name>: the alchemy world",
      "system"),
     ("  crafts | anvil | meet | lay <pattern> | forge <form>: forging and formations", "system"),
+    ("  heart | swear <oath> | respects | face | bury | turn back: the dao heart", "system"),
     ("  F2 swap art side | F3 hide art | F4 character sheet | F9 report a bug | F12 debug | Esc menu", "system"),
 ]
 
 
-class Game(CraftsMixin, AlchemyWorldMixin, AlchemyMixin, GearMixin, IntrigueMixin, CrisisMixin, SealedMixin, RivalMixin, ChamberMixin, DelveMixin, LineageMixin, MarketMixin, SkyMixin, TournamentMixin, WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, LeavingMixin, LawMixin, LandMixin, FoundingMixin, SectMixin, SeasonsMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
+class Game(HeartMixin, CraftsMixin, AlchemyWorldMixin, AlchemyMixin, GearMixin, IntrigueMixin, CrisisMixin, SealedMixin, RivalMixin, ChamberMixin, DelveMixin, LineageMixin, MarketMixin, SkyMixin, TournamentMixin, WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, LeavingMixin, LawMixin, LandMixin, FoundingMixin, SectMixin, SeasonsMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
     def __init__(self, world: World, narrator: Narrator | None = None) -> None:
         self.world = world
         self.narrator = narrator or ProceduralNarrator()
@@ -395,6 +397,9 @@ class Game(CraftsMixin, AlchemyWorldMixin, AlchemyMixin, GearMixin, IntrigueMixi
     def _do_breakthrough(self, _target) -> Turn:
         if busy := self._busy():
             return busy
+        trial = self._heart_trial()  # phase 5e: a demon rises at the gate first
+        if trial is not None:
+            return trial
         events = cultivation.breakthrough_events(self.world, self.player.id, self.place.id)
         return self._cultivated(events, "Your qi has not yet reached a bottleneck.")
 

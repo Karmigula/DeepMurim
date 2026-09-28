@@ -29,7 +29,8 @@ def test_talk_focuses_and_farewell_returns(game):
     turn = game.perform(talk.action)
     assert turn.art["type"] == "portrait"
     assert {"ask", "farewell", "challenge"} <= set(verbs(turn)) <= {"ask", "farewell", "challenge", "spar", "learn_menu", "browse", "news", "tell_menu",
-                                                                "craft_talk"}  # phase 5d: a smith or a formation master
+                                                                "craft_talk",  # phase 5d: a smith or a formation master
+                                                                "heart_talk"}  # phase 5e: amends, a blade read
     turn = game.perform(Action("ask", "work"))
     assert turn.lines
     turn = game.perform(Action("farewell"))
