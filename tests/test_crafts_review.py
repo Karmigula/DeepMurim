@@ -103,3 +103,17 @@ def test_the_crafts_page_tells_where_the_meet_is_held(game):
     page = [t for t, _ in game.perform(Action("crafts")).lines]
     town = world.entity(MT.current(world)["town"]).name
     assert f"The Meet of Hammer and Furnace is held in {town} for 30 more day(s)." in page
+
+
+def test_the_meet_shows_the_best_pieces_first(game):
+    world, me = game.world, game.player.id
+    commit(world, MT.open_events(world, 0))
+    world.unrelate(me, "located_in")
+    world.relate(me, MT.current(world)["town"], "located_in")
+    gear.make_item(world, "weapon", "sword", 1, me, "forged", forged_by=me)
+    gear.make_item(world, "weapon", "spear", 3, me, "forged", forged_by=me)
+    pill = world.add_entity("pill", "a clear pill", {"effect": "qi", "grade": 2, "purity": 0.5, "maker": me})
+    world.relate(me, pill, "owns")
+    turn = game.perform(Action("meet"))
+    scores = [float(c.label.rsplit("(", 1)[1][:-1]) for c in turn.choices if c.action.verb == "enter_meet"]
+    assert scores == [30.0, 25.0, 10.0]

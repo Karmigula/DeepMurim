@@ -205,7 +205,7 @@ def test_one_faction_season_is_quick(game):
             for i in range(region_spec(game.world.world_seed, x, y).town_count):
                 halls.settle_town(game.world, ensure_town(game.world, x, y, i))
     seasons_pass(game, 1)
-    start = time.perf_counter()
+    start = time.process_time()  # CPU time: a loaded machine's wall clock failed it once (5d minors)
     clock.run_due(game.world)
-    elapsed = time.perf_counter() - start
+    elapsed = time.process_time() - start
     assert elapsed < 0.03, f"a faction season took {elapsed * 1000:.0f} ms"

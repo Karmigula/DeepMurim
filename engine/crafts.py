@@ -149,13 +149,16 @@ class CraftsMixin:
         elif self.submenu == "masterwork" and self._naming is not None:
             choices = [Choice(f"Name it {name}", Action("name_masterwork", name))
                        for name in FG.names_for(world, self._naming)]
-        elif self.submenu == "meet":
+        elif self.submenu == "meet":  # the best pieces first: many pills would run off the menu
+            shows = []
             for craft in MT.CRAFTS:
                 pieces = gear.gear_items(world, me) if craft == "forging" else P.pills_of(world, me)
                 for piece in _distinct(pieces):
                     if MT.enter_block(world, me, craft, piece.id, here) is None:
-                        choices.append(Choice(f"Show {piece.name} ({MT.score(world, me, craft, piece.id)})",
-                                              Action("enter_meet", (craft, piece.id))))
+                        shows.append((MT.score(world, me, craft, piece.id), craft, piece))
+            shows.sort(key=lambda s: (-s[0], s[1], s[2].id))
+            choices = [Choice(f"Show {piece.name} ({score})", Action("enter_meet", (craft, piece.id)))
+                       for score, craft, piece in shows]
         for name, found in inner.items():  # an inner menu's choices stay reachable by typing from its outer menu
             options[name] = (found, Action(BACK[name]))
         options[self.submenu] = (choices, Action(BACK.get(self.submenu, "back")))

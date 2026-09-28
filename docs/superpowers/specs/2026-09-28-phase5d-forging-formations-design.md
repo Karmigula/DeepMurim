@@ -138,6 +138,7 @@ The player forges and lays formations, and the world does too.
 ## 12. Out of scope
 
 - **5c's absent masters:** an NPC master away from their bound for a season lets them starve. Deferred to the end of phase 5, by decision (2026-09-28).
+- **A smith who dies with a commission unforged:** the silver paid is lost with them (found in review). Taken up with the absent masters at the end of phase 5.
 - Weapon spirits and cursed blades: 5e.
 - Tribulation arrays and heavenly lightning: 5f.
 - Formations on the roads and sieges between sects: later.

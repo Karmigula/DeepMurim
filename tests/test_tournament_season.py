@@ -66,13 +66,17 @@ def test_an_old_world_holds_its_first_assembly_at_the_next_cycle_point(game):
 
 
 def test_an_assembly_round_resolves_quickly(game):
+    """The median of three rounds, so one slow moment on a loaded machine does not fail it (5d minors)."""
     world = game.world
-    occurrence = drawn_assembly(game)  # the player is at the venue: sixteen full duel simulations
-    world.set_time(T.day_start(world.entity(occurrence), 2))
-    start = time.process_time()
-    T.resolve(world, occurrence)
-    elapsed = time.process_time() - start
-    assert all(m["how"] is not None for m in world.entity(occurrence).data["data"]["rounds"][0])
+    times = []
+    for _ in range(3):
+        occurrence = drawn_assembly(game)  # the player is at the venue: sixteen full duel simulations
+        world.set_time(T.day_start(world.entity(occurrence), 2))
+        start = time.process_time()
+        T.resolve(world, occurrence)
+        times.append(time.process_time() - start)
+        assert all(m["how"] is not None for m in world.entity(occurrence).data["data"]["rounds"][0])
+    elapsed = sorted(times)[1]
     assert elapsed < 0.06, f"a round took {elapsed * 1000:.0f} ms"
 
 
