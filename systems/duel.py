@@ -125,6 +125,11 @@ def _dark_boost(world, person_id: int) -> float:
     return W.factor(world, here[0] if here else None, "demonic")
 
 
+def fight_factor(world, person_id: int) -> float:
+    from systems.arrays import fight_factor as factor  # the arrays come after the duel in the import graph
+    return factor(world, person_id)
+
+
 def fighter_for(world, person_id: int, technique_id: int | None) -> Fighter:
     person = world.entity(person_id)
     body = load_body(world, person_id)
@@ -140,7 +145,8 @@ def fighter_for(world, person_id: int, technique_id: int | None) -> Fighter:
     limbs = limbs_for(form)
     weapon_mult, weapon_grade, armour = gear.fighting(world, person_id, form if art else "bare")
     return Fighter(
-        name=person.name, realm_mult=REALMS[body.realm].multiplier * _dark_boost(world, person_id),
+        name=person.name, realm_mult=REALMS[body.realm].multiplier * _dark_boost(world, person_id)
+        * fight_factor(world, person_id),  # phase 5d: the arrays where they stand
         stage=STAGES.index(stage_of(body)),
         technique=art.name if art else None, form=form,
         grade_mult=grade_mult(art.technique.data["grade"]) if art else 1.0,
@@ -226,7 +232,8 @@ def exchange_events(world, d: Duel, intent: str) -> list[Event]:
     }
     harm = dict(d.harm)
     if intent == "flee":
-        data["fled"] = rng.random() < flee_chance(me, them, harm["player"])
+        from systems.arrays import held  # phase 5d: a Binding array holds the runner fast
+        data["fled"] = not held(world, d.player) and rng.random() < flee_chance(me, them, harm["player"])
         if not data["fled"]:
             chaser = power(them, "strike", "steady", harm["opponent"], False)
             runner = power(me, "guard", "steady", harm["player"], False)

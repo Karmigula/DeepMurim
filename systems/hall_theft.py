@@ -54,8 +54,10 @@ def guard_of(world, faction: int) -> tuple[int | None, int]:
 
 
 def chance(world, thief: int, faction: int) -> float:
+    from systems.arrays import theft_cut  # phase 5d: a sect's ward over its garden and hall
     realm = realm_index(world.entity(thief).data.get("realm", "mortal"))
-    return max(BOUNDS[0], min(BOUNDS[1], BASE + PER_REALM * (realm - guard_of(world, faction)[1])))
+    return max(BOUNDS[0], min(BOUNDS[1], BASE + PER_REALM * (realm - guard_of(world, faction)[1])
+                              - theft_cut(world, faction)))
 
 
 def at_seat(world, faction: int, place) -> bool:

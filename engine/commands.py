@@ -38,6 +38,8 @@ GLOBAL = {
     "ask after doctors": Action("ask_doctor"), "pill hall": Action("pill_hall"), "garden": Action("pill_hall"),
     "night": Action("night"), "nightfall": Action("nightfall"), "wait for night": Action("nightfall"),
     "bound": Action("bound_menu"), "read": Action("read_scroll"), "remedies": Action("remedies"),
+    "crafts": Action("crafts"), "anvil": Action("anvil"), "forge": Action("anvil"), "meet": Action("meet"),
+    "clear anvil": Action("clear_anvil"),
     "tournaments": Action("tournaments"), "tournament": Action("tournaments"), "bracket": Action("bracket"),
     "odds": Action("odds"), "bookmaker": Action("odds"), "register": Action("register"), "watch": Action("watch"),
     "wear mask": Action("wear_mask"), "mask": Action("wear_mask"), "put on mask": Action("wear_mask"),
@@ -50,7 +52,7 @@ PREFIX_VERBS = {
     "wield": "wield", "wear": "wield", "inspect": "inspect", "buy": ("buy_gear", "buy_herb"), "sell": "sell_gear",
     "taste": "taste", "refine": "refine", "add": "add_herb", "temper": "bathe",
     "read": "read_scroll", "draw": "draw_pill", "harvest": "harvest", "steal": "steal", "treat": ("heal", "physician_treat"),
-    "feed": "feed_servant",
+    "feed": "feed_servant", "lay": "lay_formation", "forge": "forge",
 }
 FILLER = {"to", "about", "with", "the"}
 WORD = re.compile(r"[a-z0-9']+")

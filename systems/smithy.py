@@ -23,7 +23,8 @@ SMITH_NAMES = ("Iron-Arm", "Old", "Red-Faced", "One-Eyed", "Quiet", "Hammer")
 
 
 def cap(world, town: int) -> int:
-    return CAPS.get(world.entity(town).data.get("kind"), 0)
+    from systems.craft_world import stall_lift  # phase 5d: a master smith lifts the stall a grade
+    return min(4, CAPS.get(world.entity(town).data.get("kind"), 0) + stall_lift(world, town))
 
 
 def _forms(world, town: int) -> list[str]:

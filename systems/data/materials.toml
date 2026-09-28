@@ -1,0 +1,36 @@
+# The materials of the forge (phase 5d spec 2): the same in every world.
+# grade 0-4 (iron to divine, as 5a's gear); price in silver at a smith's, where it is sold at all;
+# sold: the kinds of town whose smith keeps it; source: how else it is had.
+
+["iron ingot"]
+grade = 0
+price = 10
+sold = ["village", "town", "city"]
+
+["black steel"]
+grade = 1
+price = 60
+sold = ["town", "city"]
+
+["spirit iron"]
+grade = 2
+price = 300
+sold = ["city"]
+
+["star iron"]
+grade = 3
+price = 0
+sold = []
+source = "a star fall (4d)"
+
+["beast bone"]
+grade = 1
+price = 0
+sold = []
+source = "a slain beast"
+
+["beast core"]
+grade = 2
+price = 0
+sold = []
+source = "a slain beast of realm 2 or more"

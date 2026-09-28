@@ -420,6 +420,14 @@ class World:
         self._conn.execute("update entities set data = ? where id = ?", (json.dumps(merged), entity_id))
         self._remember(replace(current, data=merged))  # a new snapshot: whoever holds the old one keeps it
 
+    def rename(self, entity_id: int, name: str) -> None:
+        """A new name for an entity (phase 5d: a refined piece, a named masterwork)."""
+        current = self.entity(entity_id)
+        if current is None:
+            raise KeyError(entity_id)
+        self._conn.execute("update entities set name = ? where id = ?", (name, entity_id))
+        self._remember(replace(current, name=name))
+
     # --- relations --------------------------------------------------------
     def relate(self, a: int, b: int, kind: str, value: float = 0.0, data: dict | None = None) -> None:
         self._conn.execute(

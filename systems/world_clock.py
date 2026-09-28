@@ -361,3 +361,9 @@ import systems.hall_theft  # noqa: E402,F401  phase 5c: gardens and halls robbed
 import systems.physic  # noqa: E402,F401  phase 5c: physicians, famous doctors, healers and poisoners for hire
 import systems.npc_alchemy  # noqa: E402,F401  phase 5c: NPCs refine and take pills in their seasons
 import systems.control  # noqa: E402,F401  phase 5c: control pills, their masters and their bound
+import systems.materials  # noqa: E402,F401  phase 5d: materials and the forge
+import systems.forging  # noqa: E402,F401  phase 5d: forging, refining and masterworks
+import systems.formations  # noqa: E402,F401  phase 5d: formation patterns, flags and laying
+import systems.arrays  # noqa: E402,F401  phase 5d: what formations do
+import systems.craft_world  # noqa: E402,F401  phase 5d: smiths and formation masters, and their commissions
+import systems.meet  # noqa: E402,F401  phase 5d: the Meet of Hammer and Furnace

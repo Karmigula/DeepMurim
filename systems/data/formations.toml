@@ -1,0 +1,53 @@
+# Formation patterns (phase 5d spec 4-5): the same in every world.
+# use: defence (laid at a sect's seat), battle (a town, until the next dawn), ward (a town, for `days`);
+# flags: the flags spent to lay it; difficulty 1-3 (it weighs the roll and the manual's price);
+# days: how long it holds (0: until the next dawn).
+
+[heavenly_gate]
+name = "the Heavenly Gate array"
+use = "defence"
+flags = 8
+difficulty = 3
+days = 360
+
+[veiled_garden]
+name = "the Veiled Garden ward"
+use = "defence"
+flags = 6
+difficulty = 2
+days = 360
+
+[confusion]
+name = "the Confusion array"
+use = "battle"
+flags = 3
+difficulty = 1
+days = 0
+
+[binding]
+name = "the Binding array"
+use = "battle"
+flags = 4
+difficulty = 2
+days = 0
+
+[killing]
+name = "the Killing array"
+use = "battle"
+flags = 5
+difficulty = 3
+days = 0
+
+[concealment]
+name = "the Concealment array"
+use = "ward"
+flags = 4
+difficulty = 2
+days = 30
+
+[seclusion]
+name = "the Seclusion ward"
+use = "ward"
+flags = 3
+difficulty = 1
+days = 90

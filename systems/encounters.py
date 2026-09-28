@@ -177,12 +177,18 @@ def talk_succeeds(world, person: int, player: int, kind: str | None = None) -> b
 
 
 def flee_succeeds(world, player: int, person: int) -> bool:
+    from systems.arrays import held  # phase 5d: a Binding array holds the runner fast
+    if held(world, player):
+        return False
     rng = rng_for(world.world_seed, f"roadflee:{person}:{world.time}")
     return rng.random() < flee_chance(fighter_for(world, player, None), fighter_for(world, person, None), 0.0)
 
 
 def challenge_from(world, player: int, place: int) -> int | None:
     """Someone here who calls the player out: an avenger, a grudge-holder, or a proud rival."""
+    from systems.arrays import concealed  # phase 5d: hidden by one's own Concealment array, no one finds you
+    if concealed(world, player, place):
+        return None
     rng = rng_for(world.world_seed, f"challenge:{player}:{place}:{world.time}")
     settled = {e.actors[1] for e in world.chronicle_about(player, limit=20)
                if e.kind in ("challenge_issued", "declined_challenge") and e.time == world.time}

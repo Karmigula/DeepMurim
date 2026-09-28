@@ -66,6 +66,7 @@ def check_world(world) -> list[str]:
     problems += check_toxins(world)
     problems += check_alchemy(world)
     problems += check_alchemy_world(world)
+    problems += check_crafts(world)
     problems += check_knowledge(world)
     problems += check_factions(world)
     problems += check_sect(world)
@@ -203,6 +204,41 @@ def check_alchemy_world(world) -> list[str]:
         recipe = world.entity(scroll.data.get("recipe") or 0)
         if recipe is None or recipe.kind != "recipe":
             out.append(f"{scroll.name} (#{scroll.id}) names no recipe")
+    return out
+
+
+def check_crafts(world) -> list[str]:
+    """Materials of the table (phase 5d)."""
+    from systems.materials import MATERIALS
+    out = []
+    for item in world.entities("material"):
+        if item.data.get("material") not in MATERIALS or not 0 <= item.data.get("grade", -1) <= 4:
+            out.append(f"{item.name} (#{item.id}) is no material of the table")
+    for person in world.entities_after("person", "forge_mastery", 0):
+        if any(not 0 <= m <= 1 for m in person.data["forge_mastery"].values()):
+            out.append(f"{person.name} (#{person.id}) has a forging mastery out of 0-1")
+    famous = set(world.get_meta("famous_weapons") or [])
+    for item in world.entities("gear"):
+        if item.data.get("forged_by") is not None and item.data.get("famous") and item.id not in famous:
+            out.append(f"{item.name} (#{item.id}) is a named masterwork missing from the famous index")
+    from systems.formations import PATTERNS
+    for person, value in world._conn.execute("select a, value from relations where kind = 'knows_formation'"):
+        if not 0 <= value <= 1:
+            out.append(f"#{person} knows a formation at mastery {value}")
+    for flags in world.entities("flags"):
+        if not flags.data.get("used") and flags.data.get("count", 0) < 1:
+            out.append(f"{flags.name} (#{flags.id}) holds no flags")
+    for place in world.entities_after("town", "formations", 0):
+        for f in place.data["formations"]:
+            owner = world.entity(f.get("owner") or 0)
+            if f.get("pattern") not in PATTERNS or owner is None or not 0 <= f.get("strength", -1) <= 1:
+                out.append(f"a formation laid in {place.name} is malformed: {f}")
+    for person in world.entities_after("person", "craft_skill", 0):
+        if not 1 <= person.data["craft_skill"] <= 5:
+            out.append(f"{person.name} (#{person.id}) has a craft skill of {person.data['craft_skill']}")
+    meet = world.get_meta("meet")
+    if meet is not None and (world.entity(meet.get("town") or 0) is None or not meet["start"] < meet["end"]):
+        out.append(f"the Meet of Hammer and Furnace is malformed: {meet}")
     return out
 
 
@@ -688,7 +724,7 @@ def check_people(game, turn) -> list[str]:
     text = raw.lower()
     known = {player.name.lower()}
     known |= {world.entity(p).name.lower() for p in known_people(world, player_id)}
-    here = world.targets(player_id, "located_in")
+    here = world.targets(player_id, "located_in") or world.targets(player_id, "buried_at")  # the dead saw them (5d)
     if here:
         known |= {p.name.lower() for p in people_at(world, here[0])}
     known |= {p.name.lower() for p in world.entities("persona") if p.data.get("of") == player_id}

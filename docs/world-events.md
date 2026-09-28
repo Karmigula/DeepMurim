@@ -280,3 +280,32 @@ in `engine/alchemy_world.py` and `engine/alchemy_world_page.py`.
 **The rules:** `check_alchemy_world` in `debug/invariants.py` holds gardens to herbs of the table within 0-12, halls
 to no less than nothing, Guild ranks within 0-9, NPCs' pills to real grades, every scroll to one owner and a
 recipe, and the bound index to the living bound of living people.
+
+## 13. Forging and formations (phase 5d)
+
+**Materials** are entities (`kind = "material"`: a `material` name and its `grade`, 0-4) of the table in
+`systems/data/materials.toml` (grade, price, the towns whose smith sells it, or how else it is had). 4d's star iron
+counts as a material of grade 3 (`materials.material_info`). A smith's ore is a seeded stock by the season (town data
+`ore_sold`). A forge is an entity the player owns, a smith's rented for the day, or the own sect's `forge` building.
+
+**Forging** keeps a person's `forge_mastery` (`{form: mastery}`) and `forge_xp`; a forged item is 5a's gear with
+`forged_by`. A named masterwork joins 5a's `famous_weapons` with a `blade_legend` fact. `World.rename` renames an
+entity.
+
+**Formations** are the patterns of `systems/data/formations.toml` (use, flags, difficulty, days). A person knows one
+through a `knows_formation` relation to the pattern entity (`formation:{key}`), whose value is its mastery, and keeps
+`formation_xp`. Flags are one `flags` item with a `count`; manuals are `formation_manual` items. What is laid lives on
+the town (`formations`: `{pattern, owner, until, strength}`), read by `formations.laid` and `strength`.
+
+**Where the rules live:**
+- `systems/materials.py`, `systems/forging.py`: materials, the forge, forging, refining, masterworks.
+- `systems/formations.py`: patterns, manuals, flags, laying, and 4f's formation trials (`trial_bonus`).
+- `systems/arrays.py`: what formations do, read where each rule lives (3c's gate, 5c's theft, 2b's fighters and
+  fleeing, 2b's challengers, 2a's meditation).
+- `systems/craft_world.py`: smiths' and formation masters' `craft_skill` (a lives agenda), their wares, and
+  `commissions` (a person's list of forgings awaited).
+- `systems/meet.py`: the Meet of Hammer and Furnace, one meta row (`meet`), opened each spring and decided after.
+
+**The rules:** `check_crafts` in `debug/invariants.py` holds materials to the table, masteries within 0-1, flags to at
+least one, formations laid to a pattern and a person, craft skills within 1-5, a named masterwork to the famous index,
+and the Meet to a town and a span.
