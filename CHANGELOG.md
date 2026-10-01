@@ -2,6 +2,29 @@
 
 DeepMurim is built in phases. Each one has a design spec in `docs/superpowers/specs/` and a verified implementation plan in `docs/superpowers/plans/`. Each phase lands on `master` after a review round and a minors round. Newest first.
 
+## Phase 6b: Two backends, the AI menu, one MCP server (2026-10-01)
+
+Merged from `phase-6b`. Spec: `2026-10-01-phase6-claude-layer-design.md`, section 13. Plan: `2026-10-01-phase6b-backends-menu.md`.
+
+### Added
+- **Two backends.**
+  - **Claude Code**, through the Claude Agent SDK, on your own Pro/Max login. `ANTHROPIC_API_KEY` is overridden to empty, so it never bills the API. About 3.5 s a paragraph.
+  - **OpenCode**, with its own free models only. A hidden `opencode serve` is kept warm while the AI is on: about 8 s a paragraph.
+- **The AI menu (F1).** It sets the mode, the backend, the prose model, and the model for typed actions and talk (used from 6c).
+  - Claude Code offers Haiku 4.5, Sonnet 5 and Opus 5.5.
+  - OpenCode offers only its own provider's models at a cost of 0. The list is read once a session, never on the game's thread.
+  - The menu says why a backend cannot be used.
+- **The Connect page.** It shows what is installed and how to sign in, plus copy-paste MCP setup for your own Claude Code or OpenCode.
+- **One long-lived MCP server** over HTTP on 127.0.0.1. It runs while the AI is on, reads the save anew on every request, and never writes.
+- **Prose a paragraph long**, of about 3–6 sentences.
+- **Prefetch:** the lookups a model would ask for, made in advance, for 6c's talk.
+
+### Fixed (review)
+- A reply that came too late is never shown as the next turn's prose.
+- Turning the AI off closes the backend, so no warm server or open session is left running.
+- A hand-edited settings file can't choose a model the menu wouldn't offer.
+- Stopping the server, or closing an old backend, never holds the game.
+
 ## Phase 6a: The Claude layer's foundation, and Claude's prose (2026-10-01)
 
 Merged from `phase-6a`. Spec: `2026-10-01-phase6-claude-layer-design.md`. Plan: `2026-10-01-phase6a-claude-foundation.md`.
