@@ -1,6 +1,6 @@
 """Every size and colour in one place."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 Color = tuple[int, int, int]
 
@@ -39,6 +39,8 @@ class Config:
     art_side: str = "left"
     show_art: bool = True
     ai_mode: str = "off"  # phase 6: off | assist | ai_only (F1)
+    ai_backend: str = "claude_code"  # phase 6b: claude_code | opencode
+    ai_models: dict = field(default_factory=dict)  # phase 6b: {backend: {"narrate": model, "talk": model}}
 
 
 def config_from(values: dict) -> Config:
@@ -50,4 +52,10 @@ def config_from(values: dict) -> Config:
         config.show_art = values["show_art"]
     if values.get("ai_mode") in ("off", "assist", "ai_only"):
         config.ai_mode = values["ai_mode"]
+    if values.get("ai_backend") in ("claude_code", "opencode"):
+        config.ai_backend = values["ai_backend"]
+    models = values.get("ai_models")
+    if isinstance(models, dict):
+        config.ai_models = {b: {r: m for r, m in v.items() if isinstance(m, str)} for b, v in models.items()
+                            if b in ("claude_code", "opencode") and isinstance(v, dict)}
     return config

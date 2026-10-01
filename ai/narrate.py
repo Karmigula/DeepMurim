@@ -21,12 +21,13 @@ MODE_WORDS = {"off": "AI prose off", "assist": "AI prose: procedural first, then
 MODEL, TIMEOUT = "claude-haiku-4-5", 10.0  # a prose call takes about 4 s without thinking (plan ruling 2)
 WAITING = ("…", "dim")
 RECENT = 3
-PROSE_SCHEMA = {"type": "object", "properties": {"prose": {"type": "string", "maxLength": 900}},
+PROSE_SCHEMA = {"type": "object", "properties": {"prose": {"type": "string", "maxLength": 1500}},
                 "required": ["prose"], "additionalProperties": False}
 SYSTEM = (
-    "You are the narrator of DeepMurim, a wuxia text game. Rewrite the turn below as 1-4 sentences of vivid "
-    "second-person prose in the register of a wuxia novel. Use only what the EVENT blocks and the STATE say: add no "
-    "person, item, place, number or outcome they do not carry, and never contradict an OUTCOME line. Keep names "
+    "You are the narrator of DeepMurim, a wuxia text game. Rewrite the turn below as one paragraph of about 3-6 "
+    "sentences of vivid second-person prose in the register of a wuxia novel. Use only what the EVENT blocks and "
+    "the STATE say: add no person, item, place, number or outcome they do not carry, and never contradict an "
+    "OUTCOME line. Keep names "
     "exactly as given, and keep every number an OUTCOME line states, written as digits. Do not address the "
     "player as 'the player'. "
     "Reply with JSON: {\"prose\": \"...\"}."
@@ -69,8 +70,9 @@ class Pending:
 
 
 class Narration:
-    def __init__(self, bridge: Bridge | None = None, mode: str = "off") -> None:
+    def __init__(self, bridge: Bridge | None = None, mode: str = "off", factory=None) -> None:
         self._bridge = bridge
+        self._factory = factory  # makes the backend the settings name (phase 6b); a plain Bridge without one
         self.mode = mode if mode in MODES else "off"
         self.job = narrate_job()
         self.cache: dict[tuple, str] = {}
@@ -79,12 +81,27 @@ class Narration:
         self.last: dict = {}  # the last exchange as the session log keeps it: asked, answered, shown
         self.recent: list[str] = []
         self.worker: threading.Thread | None = None  # a daemon: it never holds the game open (6a minors)
+        self._closing: list[threading.Thread] = []  # old backends closing on their own threads (6b review)
 
     @property
     def bridge(self) -> Bridge:
         if self._bridge is None:
-            self._bridge = Bridge()
+            self._bridge = self._factory() if self._factory is not None else Bridge()
         return self._bridge
+
+    def set_backend(self, backend) -> None:
+        """Another backend (phase 6b's menu): the old one is closed, on its own thread (closing can take seconds and
+        the game never waits for it); None makes the next use build anew."""
+        old, self._bridge = self._bridge, backend
+        if old is not None and old is not backend and hasattr(old, "close"):
+            closing = threading.Thread(target=old.close, name="close-backend", daemon=True)
+            closing.start()
+            self._closing = [t for t in self._closing if t.is_alive()] + [closing]
+
+    @property
+    def who(self) -> str:
+        """The backend's name for the notices: Claude Code, OpenCode, or 6a's Claude (6b minors)."""
+        return getattr(self.bridge, "name", None) or "Claude"
 
     def cycle(self) -> str:
         self.mode = MODES[(MODES.index(self.mode) + 1) % len(MODES)]
@@ -98,6 +115,10 @@ class Narration:
     def close(self) -> None:
         """Nothing to wait for: a request still out runs on a daemon thread and dies with the game."""
         self.pending = None
+        if self._bridge is not None and hasattr(self._bridge, "close"):
+            self._bridge.close()  # a warm OpenCode server, an open Claude Code session
+        for closing in self._closing:  # an old backend still closing: its server would outlive the game
+            closing.join(15)
 
     def reset(self) -> None:
         """A game is closed: its prose is no one else's (6a minors)."""
@@ -147,7 +168,7 @@ class Narration:
         notices = []
         if getattr(self.bridge, "just_paused", False):
             self.bridge.just_paused = False
-            notices.append(("Claude has failed three times; its prose rests for five minutes.", "dim"))
+            notices.append((f"{self.who} has failed three times; its prose rests for five minutes.", "dim"))
         pending = self.pending
         if pending is None or not pending.future.done():
             return notices

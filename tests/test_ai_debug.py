@@ -54,7 +54,7 @@ def test_the_session_log_keeps_each_exchange_for_bug_reports(tmp_path):
 def test_help_names_f1(tmp_path):
     app = make_app(tmp_path, mode="off")
     app.submit("help")
-    assert any("F1 Claude's prose" in t for t, _ in app.log)
+    assert any("F1 the AI" in t for t, _ in app.log)
     app.shutdown()
 
 

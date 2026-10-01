@@ -72,7 +72,7 @@ def test_turning_claude_off_takes_back_the_waiting_turn(tmp_path):
     app = make_app(tmp_path, slow, mode="ai_only")
     turn = app.last_turn
     assert WAITING in app.log
-    app.handle_key("f1", "")  # ai_only -> off
+    cycle_mode(app)  # ai_only -> off
     assert app.narration.mode == "off" and WAITING not in app.log
     assert all(turn.lines[i] in app.log for i in turn.narrated)
     time.sleep(0.4)
@@ -131,3 +131,10 @@ def test_a_saved_mode_claude_cannot_serve_is_told_at_the_start(tmp_path):
     assert app.narration.mode == "off" and app.config.ai_mode == "off"
     assert any("Claude's prose cannot be used" in text for text, _ in app.log)
     app.shutdown()
+
+
+def cycle_mode(app):
+    """F1 opens the AI menu (phase 6b); its first line cycles the mode; Esc closes it."""
+    app.handle_key("f1", "")
+    app.handle_key("1", "1")
+    app.handle_key("escape", "\x1b")

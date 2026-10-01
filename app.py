@@ -12,6 +12,10 @@ import time
 from collections import deque
 from pathlib import Path
 
+from ai.backends import opencode_exe
+from ai.menu import AiMenu, make_backend
+from ai.models import OpenCodeModels
+from mcp_server.live import LiveServer
 from ai.narrate import MODE_WORDS, Narration
 from config import PALETTE, Config
 from debug.invariants import NARRATIVE, check_turn, check_world
@@ -84,7 +88,11 @@ class App:
         self.sheet_visible = False
         self.report_note = ""
         self._recent_narration: deque[str] = deque(maxlen=4)
-        self.narration = Narration(bridge, config.ai_mode)  # phase 6: Claude's prose, F1
+        self.narration = Narration(bridge, config.ai_mode, factory=self._backend)  # phase 6: the model's prose
+        self._given_bridge = bridge  # one handed in (the tests' FakeClaude) is the backend, built anew or not
+        self.ai_menu: AiMenu | None = None  # phase 6b: F1
+        self._opencode_models: OpenCodeModels | None = None  # OpenCode's free models, read once a session
+        self.mcp: LiveServer | None = None  # phase 6b: the long-lived MCP server, while the AI is on
 
     # --- saves --------------------------------------------------------------
     def latest_save(self) -> Path | None:
@@ -196,8 +204,12 @@ class App:
             self.form_index = (self.form_index + delta) % len(FORMS)
 
     def _game_key(self, key: str, text: str) -> None:
-        if key == "f1":
-            self._cycle_ai()
+        if self.ai_menu is not None:
+            self._menu_key(key, text)
+        elif key == "f1":
+            self.sheet_visible = False  # the menu is shown, not drawn under the sheet (6b minors)
+            self.ai_menu = AiMenu(self.config, self._opencode(), mcp_url=lambda: self.mcp.url if self.mcp else None,
+                                  why=self.narration.unavailable)
         elif key == "f2":
             self.config.art_side = "right" if self.config.art_side == "left" else "left"
             self._save_settings()
@@ -287,6 +299,55 @@ class App:
             self._close_game()
             self.state, self.name, self.message = "name", "", ""
 
+    def _backend(self):
+        """The backend the settings name (phase 6b): Claude Code or OpenCode, with the chosen models."""
+        if self._given_bridge is not None:
+            door = self._given_bridge
+        else:
+            door = make_backend(self.config, self.logs_dir / "opencode", self._opencode())
+        door.mcp_url = self.mcp.url if self.mcp is not None else None
+        return door
+
+    def _opencode(self) -> OpenCodeModels:
+        if self._opencode_models is None:
+            self._opencode_models = OpenCodeModels(opencode_exe())
+        return self._opencode_models
+
+    def _ai_server(self) -> None:
+        """The MCP server runs while the AI is on and a game is open (spec 13.4)."""
+        wanted = self.game is not None and self.config.ai_mode != "off"
+        if wanted and self.mcp is None:
+            self.mcp = LiveServer(self.game.world.path)
+            try:
+                self.mcp.start()
+            except Exception as exc:  # the models answer without the tools: their prose needs none
+                self._record("ai_error", error=f"the MCP server did not start ({exc!r})")
+                self.mcp = None
+            door = self.narration._bridge
+            if door is not None and hasattr(door, "mcp_url"):
+                door.mcp_url = self.mcp.url if self.mcp else None
+        elif not wanted and self.mcp is not None:
+            self.mcp.stop()
+            self.mcp = None
+        if not wanted:
+            self.narration.set_backend(None)  # off costs nothing: no warm server, no open session (6b review)
+
+    def _menu_key(self, key: str, text: str) -> None:
+        if key in ("escape", "f1"):
+            self.ai_menu = None
+            return
+        if len(text) == 1 and text.isdigit():
+            done = self.ai_menu.pick(int(text))
+            if done == "mode":
+                self._cycle_ai()
+            elif done in ("backend", "model"):
+                self.narration.settle(self.log)
+                self.narration.set_backend(None)  # built anew from the settings when next asked
+                self._save_settings()
+                self._ai_at_start()  # one that cannot answer is told, and the AI turned off (6b review)
+            elif done == "close":
+                self.ai_menu = None
+
     def _cycle_ai(self) -> None:
         mode = self.narration.cycle()
         if mode == "off":
@@ -294,11 +355,12 @@ class App:
         why = self.narration.unavailable() if mode != "off" else None
         if why is not None:
             self.narration.mode = mode = "off"
-            self.log.append((f"Claude's prose cannot be used: {why}.", "system"))
+            self.log.append((f"{self.narration.who}'s prose cannot be used: {why}.", "system"))
         else:
             self.log.append((MODE_WORDS[mode] + ".", "system"))
         self.config.ai_mode = mode
         self._save_settings()
+        self._ai_server()
 
     def poll(self) -> None:
         """Every frame: Claude's prose for the last turn, if it has come (phase 6)."""
@@ -420,14 +482,20 @@ class App:
         """A saved mode Claude cannot serve is told, and turned off, as the game opens (6a minors)."""
         if self.narration.mode == "off":
             return
+        self._ai_server()
         why = self.narration.unavailable()
         if why is not None:
             self.narration.mode = self.config.ai_mode = "off"
-            self.log.append((f"Claude's prose cannot be used: {why}.", "system"))
+            self.log.append((f"{self.narration.who}'s prose cannot be used: {why}.", "system"))
             self._save_settings()
+            self._ai_server()
 
     def _close_game(self) -> None:
         self.narration.reset()
+        if self.mcp is not None:
+            self.mcp.stop()
+            self.mcp = None
+        self.narration.set_backend(None)
         if self.game is not None:
             self.game.close()
             self.game = None
@@ -436,7 +504,8 @@ class App:
 
     def _save_settings(self) -> None:
         save_values({"art_side": self.config.art_side, "show_art": self.config.show_art,
-                     "ai_mode": self.config.ai_mode}, self.settings_path)
+                     "ai_mode": self.config.ai_mode, "ai_backend": self.config.ai_backend,
+                     "ai_models": self.config.ai_models}, self.settings_path)
 
     def shutdown(self) -> None:
         self._close_game()
@@ -553,13 +622,16 @@ class App:
             seed = self.game.world.world_seed if self.game else "?"
             status = f"DEBUG (F12 closes) | seed {seed} | F9 reports a bug"
             log = self.debug_lines()
+        choices = [c.label for c in self.choices]
+        if self.ai_menu is not None:
+            status, log, choices = "THE AI (F1 closes)", self.ai_menu.lines(), self.ai_menu.choices()
         if self.sheet_visible and self.game is not None:
             status = "CHARACTER SHEET (F4 closes)"
             log = sheet_lines(self.game.world, self.game.player.id)
             art = body_chart(self.game.body(), self.game.world.time, self.config.art_width, self.config.art_height)
         view = View(
             status=status, log=log, art=art,
-            choices=[c.label for c in self.choices], command=command,
+            choices=choices, command=command,
             art_side=self.config.art_side, show_art=self.config.show_art,
             scroll=0 if self.debug_visible or self.sheet_visible else self.scroll,
         )
