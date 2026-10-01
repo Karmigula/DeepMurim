@@ -18,28 +18,35 @@ ROLES = (("narrate", "Prose model"), ("talk", "Typed actions and talk (6c)"))
 
 
 def chosen(config, backend: str | None = None) -> dict:
-    """The models chosen for a backend: {'narrate': ..., 'talk': ...}, defaults filled in."""
+    """The models chosen for a backend: {'narrate': ..., 'talk': ...}, defaults filled in. Only what the menu would
+    offer is chosen (a hand-edited settings file names no other): Claude Code's three, OpenCode's own provider (and
+    of that, `OpenCode` itself runs only the free ones)."""
     backend = backend or config.ai_backend
     picked = dict((config.ai_models or {}).get(backend, {}))
     if backend == "opencode":
-        return {"narrate": picked.get("narrate", OPENCODE_DEFAULT), "talk": picked.get("talk", OPENCODE_DEFAULT)}
-    return {"narrate": picked.get("narrate", CLAUDE_DEFAULTS["narrate"]),
-            "talk": picked.get("talk", CLAUDE_DEFAULTS["talk"])}
+        return {role: m if isinstance(m := picked.get(role), str) and m.startswith("opencode/") else OPENCODE_DEFAULT
+                for role in ("narrate", "talk")}
+    offered = dict(CLAUDE_MODELS)
+    return {role: picked[role] if picked.get(role) in offered else CLAUDE_DEFAULTS[role] for role in ("narrate", "talk")}
 
 
-def make_backend(config, workdir=None):
+def make_backend(config, workdir=None, opencode_models: OpenCodeModels | None = None):
     """The backend the settings name, with its models per job."""
     models = chosen(config)
     per_job = {"narrate": models["narrate"], "intent": models["talk"], "dialogue": models["talk"]}
     if config.ai_backend == "opencode":
-        return OpenCode(models=per_job, workdir=workdir)
+        return OpenCode(models=per_job, workdir=workdir,
+                        free_models=opencode_models.free if opencode_models is not None else None)
     return ClaudeCode(models=per_job)
 
 
-def connect_lines(mcp_url: str | None) -> list:
+def connect_lines(mcp_url: str | None, why: str | None = None) -> list:
     """How to reach the models, and how to reach DeepMurim from them (spec 13.3)."""
     claude, exe = shutil.which("claude"), opencode_exe()
-    lines = [("Connect", "heading"),
+    lines = [("Connect", "heading")]
+    if why:
+        lines.append((f"  The chosen backend cannot be used: {why}.", "red"))
+    lines += [
              (f"  Claude Code: {'installed' if claude else 'not installed (claude.com/claude-code)'}", "default")]
     if claude:
         lines.append(("    Uses your own Claude login (your Pro/Max plan). Sign in once by running `claude` and "
@@ -64,16 +71,20 @@ def connect_lines(mcp_url: str | None) -> list:
 
 
 class AiMenu:
-    def __init__(self, config, opencode_models: OpenCodeModels | None = None, mcp_url=None) -> None:
+    def __init__(self, config, opencode_models: OpenCodeModels | None = None, mcp_url=None, why=None) -> None:
         self.config = config
         self.page = "main"
         self.opencode = opencode_models or OpenCodeModels(opencode_exe())
         self.mcp_url = mcp_url  # a callable: the server's address now, or None
+        self.why = why  # a callable: why the chosen backend cannot be used now, or None
 
     def models(self, backend: str) -> list[str]:
         if backend == "opencode":
-            return self.opencode.free() or [OPENCODE_DEFAULT]
+            return self.opencode.known() or [OPENCODE_DEFAULT]  # never waits: the list is read on its own thread
         return [m for m, _ in CLAUDE_MODELS]
+
+    def _why(self) -> str | None:
+        return self.why() if callable(self.why) else self.why
 
     def choices(self) -> list[str]:
         if self.page == "connect":
@@ -85,7 +96,7 @@ class AiMenu:
 
     def lines(self) -> list:
         if self.page == "connect":
-            return connect_lines(self.mcp_url() if callable(self.mcp_url) else self.mcp_url)
+            return connect_lines(self.mcp_url() if callable(self.mcp_url) else self.mcp_url, self._why())
         c = self.config
         lines = [("The AI (F1 closes)", "heading"),
                  (f"  Mode: {MODE_NAMES[c.ai_mode]}", "default"),
@@ -93,7 +104,11 @@ class AiMenu:
         models = chosen(c)
         lines += [(f"  {name}: {label(c.ai_backend, models[role])}", "default") for role, name in ROLES]
         if c.ai_backend == "opencode":
-            lines.append(("  Only OpenCode's free models are offered.", "dim"))
+            lines.append(("  Only OpenCode's free models are offered." +
+                          (" (Reading them from OpenCode...)" if self.opencode.known() is None else ""), "dim"))
+        why = self._why()
+        if why:
+            lines.append((f"  Cannot be used: {why}.", "red"))
         lines += [("", "default"), ("Pick a line to change it.", "dim")]
         return lines
 

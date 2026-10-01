@@ -12,7 +12,9 @@ import time
 from collections import deque
 from pathlib import Path
 
+from ai.backends import opencode_exe
 from ai.menu import AiMenu, make_backend
+from ai.models import OpenCodeModels
 from mcp_server.live import LiveServer
 from ai.narrate import MODE_WORDS, Narration
 from config import PALETTE, Config
@@ -87,7 +89,9 @@ class App:
         self.report_note = ""
         self._recent_narration: deque[str] = deque(maxlen=4)
         self.narration = Narration(bridge, config.ai_mode, factory=self._backend)  # phase 6: the model's prose
+        self._given_bridge = bridge  # one handed in (the tests' FakeClaude) is the backend, built anew or not
         self.ai_menu: AiMenu | None = None  # phase 6b: F1
+        self._opencode_models: OpenCodeModels | None = None  # OpenCode's free models, read once a session
         self.mcp: LiveServer | None = None  # phase 6b: the long-lived MCP server, while the AI is on
 
     # --- saves --------------------------------------------------------------
@@ -203,7 +207,8 @@ class App:
         if self.ai_menu is not None:
             self._menu_key(key, text)
         elif key == "f1":
-            self.ai_menu = AiMenu(self.config, mcp_url=lambda: self.mcp.url if self.mcp else None)
+            self.ai_menu = AiMenu(self.config, self._opencode(), mcp_url=lambda: self.mcp.url if self.mcp else None,
+                                  why=self.narration.unavailable)
         elif key == "f2":
             self.config.art_side = "right" if self.config.art_side == "left" else "left"
             self._save_settings()
@@ -295,9 +300,17 @@ class App:
 
     def _backend(self):
         """The backend the settings name (phase 6b): Claude Code or OpenCode, with the chosen models."""
-        door = make_backend(self.config, self.logs_dir / "opencode")
+        if self._given_bridge is not None:
+            door = self._given_bridge
+        else:
+            door = make_backend(self.config, self.logs_dir / "opencode", self._opencode())
         door.mcp_url = self.mcp.url if self.mcp is not None else None
         return door
+
+    def _opencode(self) -> OpenCodeModels:
+        if self._opencode_models is None:
+            self._opencode_models = OpenCodeModels(opencode_exe())
+        return self._opencode_models
 
     def _ai_server(self) -> None:
         """The MCP server runs while the AI is on and a game is open (spec 13.4)."""
@@ -315,6 +328,8 @@ class App:
         elif not wanted and self.mcp is not None:
             self.mcp.stop()
             self.mcp = None
+        if not wanted:
+            self.narration.set_backend(None)  # off costs nothing: no warm server, no open session (6b review)
 
     def _menu_key(self, key: str, text: str) -> None:
         if key in ("escape", "f1"):
@@ -328,6 +343,7 @@ class App:
                 self.narration.settle(self.log)
                 self.narration.set_backend(None)  # built anew from the settings when next asked
                 self._save_settings()
+                self._ai_at_start()  # one that cannot answer is told, and the AI turned off (6b review)
             elif done == "close":
                 self.ai_menu = None
 
@@ -478,6 +494,7 @@ class App:
         if self.mcp is not None:
             self.mcp.stop()
             self.mcp = None
+        self.narration.set_backend(None)
         if self.game is not None:
             self.game.close()
             self.game = None

@@ -81,6 +81,7 @@ class Narration:
         self.last: dict = {}  # the last exchange as the session log keeps it: asked, answered, shown
         self.recent: list[str] = []
         self.worker: threading.Thread | None = None  # a daemon: it never holds the game open (6a minors)
+        self._closing: list[threading.Thread] = []  # old backends closing on their own threads (6b review)
 
     @property
     def bridge(self) -> Bridge:
@@ -89,10 +90,13 @@ class Narration:
         return self._bridge
 
     def set_backend(self, backend) -> None:
-        """Another backend (phase 6b's menu): the old one is closed; None makes the next use build anew."""
+        """Another backend (phase 6b's menu): the old one is closed, on its own thread (closing can take seconds and
+        the game never waits for it); None makes the next use build anew."""
         old, self._bridge = self._bridge, backend
         if old is not None and old is not backend and hasattr(old, "close"):
-            old.close()
+            closing = threading.Thread(target=old.close, name="close-backend", daemon=True)
+            closing.start()
+            self._closing = [t for t in self._closing if t.is_alive()] + [closing]
 
     def cycle(self) -> str:
         self.mode = MODES[(MODES.index(self.mode) + 1) % len(MODES)]
@@ -108,6 +112,8 @@ class Narration:
         self.pending = None
         if self._bridge is not None and hasattr(self._bridge, "close"):
             self._bridge.close()  # a warm OpenCode server, an open Claude Code session
+        for closing in self._closing:  # an old backend still closing: its server would outlive the game
+            closing.join(15)
 
     def reset(self) -> None:
         """A game is closed: its prose is no one else's (6a minors)."""

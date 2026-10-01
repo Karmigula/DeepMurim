@@ -58,7 +58,7 @@ def test_claude_code_runs_on_the_plan_never_an_api_key(monkeypatch):
     door = claude([ResultMessage({"prose": "x"})], models={"narrate": "claude-sonnet-5"})
     door.call(NARRATE, "p")
     options = FakeClient.made[0].options
-    assert "ANTHROPIC_API_KEY" not in options.env and options.model == "claude-sonnet-5"
+    assert options.env["ANTHROPIC_API_KEY"] == "" and options.model == "claude-sonnet-5"  # overrides the inherited
     assert options.setting_sources == [] and options.tools == [] and options.mcp_servers == {}
     assert options.output_format == {"type": "json_schema", "schema": PROSE}
     door.close()

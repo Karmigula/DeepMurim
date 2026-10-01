@@ -2,6 +2,7 @@
 
 import json
 import subprocess
+import threading
 
 CLAUDE_MODELS = (("claude-haiku-4-5", "Haiku 4.5"), ("claude-sonnet-5", "Sonnet 5"), ("claude-opus-5-5", "Opus 5.5"))
 CLAUDE_DEFAULTS = {"narrate": "claude-haiku-4-5", "talk": "claude-sonnet-5"}
@@ -38,23 +39,36 @@ def free(models: dict[str, dict]) -> list[str]:
 
 
 class OpenCodeModels:
-    """OpenCode's free models, asked of OpenCode once a session."""
+    """OpenCode's free models, asked of OpenCode once a session. `free()` waits for the answer (a worker thread may);
+    `known()` never does (the game's thread): None until it has come, the asking begun on a daemon thread."""
 
     def __init__(self, exe: str | None, runner=subprocess.run) -> None:
         self.exe, self.runner = exe, runner
         self._found: list[str] | None = None
+        self._lock = threading.Lock()
+        self._asking: threading.Thread | None = None
 
     def free(self) -> list[str]:
-        if self._found is None:
-            self._found = []
-            if self.exe:
-                try:
-                    done = self.runner([self.exe, "models", "--verbose"], capture_output=True, text=True,
-                                       encoding="utf-8", timeout=60)
-                    self._found = free(parse_verbose(done.stdout or ""))
-                except (OSError, subprocess.SubprocessError):
-                    self._found = []
-        return list(self._found)
+        with self._lock:
+            if self._found is None:
+                found = []
+                if self.exe:
+                    try:
+                        done = self.runner([self.exe, "models", "--verbose"], capture_output=True, text=True,
+                                           encoding="utf-8", timeout=60)
+                        found = free(parse_verbose(done.stdout or ""))
+                    except (OSError, subprocess.SubprocessError):
+                        found = []
+                self._found = found
+            return list(self._found)
+
+    def known(self) -> list[str] | None:
+        if self._found is not None:
+            return list(self._found)
+        if self._asking is None:
+            self._asking = threading.Thread(target=self.free, name="opencode-models", daemon=True)
+            self._asking.start()
+        return None
 
 
 def label(backend: str, model: str) -> str:

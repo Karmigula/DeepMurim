@@ -4,13 +4,15 @@ Both answer `call(job, prompt) -> dict | None` with 6a's rules: any failure retu
 engine's words), every exchange is remembered, three failures in a row pause the door for five minutes.
 
 - `ClaudeCode` runs Claude Code on the user's own login (their Pro/Max plan) through the Agent SDK, one client per
-  job kept open for the game, each call a fresh session (no history grows). `ANTHROPIC_API_KEY` is taken out of
-  its environment, which would switch Claude Code to API billing.
+  job kept open for the game, each call a fresh session (no history grows). `ANTHROPIC_API_KEY` is set empty in
+  its environment (the SDK merges the game's own under it, so leaving it out is not enough); a key would switch
+  Claude Code to API billing.
 - `OpenCode` keeps a hidden `opencode serve` warm and attaches each `opencode run` to it, with OpenCode's own agent
   (its free models answer no other). `opencode.exe` is run directly, never the npm `.cmd` shim.
 """
 
 import asyncio
+import contextlib
 import json
 import os
 import re
@@ -23,6 +25,7 @@ from collections import deque
 from pathlib import Path
 
 from ai.bridge import KEPT, LOGGED_OUT, PAUSE_AFTER, PAUSE_SECONDS, Exchange, Job, conforms, run_command
+from ai.models import OPENCODE_DEFAULT
 
 MAX_ARGUMENT = 24000  # Windows caps a command line near 32,000 characters; a prompt is far smaller
 
@@ -40,6 +43,8 @@ class Backend:
         self.exchanges: deque[Exchange] = deque(maxlen=KEPT)
         self.mcp_url: str | None = None  # the long-lived DeepMurim MCP server (phase 6b Task 3)
         self._checked: tuple[bool, str] | None = None
+        self.closed = False  # a closed door takes no more work (6b review): nothing it starts would be stopped
+        self._lock = threading.Lock()
 
     def available(self) -> tuple[bool, str]:
         if self._checked is None:
@@ -53,7 +58,7 @@ class Backend:
         return self.clock() < self.paused_until
 
     def call(self, job: Job, prompt: str) -> dict | None:
-        if self.paused() or not self.available()[0]:
+        if self.closed or self.paused() or not self.available()[0]:
             return None
         start = self.clock()
         try:
@@ -82,7 +87,7 @@ class Backend:
             self.just_paused = True
 
     def close(self) -> None:
-        pass
+        self.closed = True
 
 
 # --- Claude Code, through the Agent SDK -------------------------------------------------------------------------
@@ -95,6 +100,7 @@ class ClaudeCode(Backend):
         self.models = dict(models or {})  # job name -> model; else the job's own
         self._factory = client_factory  # tests hand in a fake; the real one is the SDK's ClaudeSDKClient
         self._clients: dict[str, object] = {}
+        self._locks: dict[str, asyncio.Lock] = {}  # one exchange at a time per client: its stream is shared
         self._loop: asyncio.AbstractEventLoop | None = None
         self._calls = 0
 
@@ -105,7 +111,7 @@ class ClaudeCode(Backend):
 
     def options(self, job: Job):
         from claude_agent_sdk import ClaudeAgentOptions, ThinkingConfigDisabled
-        env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}  # the user's plan, never the API's
+        env = {"ANTHROPIC_API_KEY": ""}  # overrides the inherited one: the user's plan, never the API's
         mcp = {"deepmurim": {"type": "http", "url": self.mcp_url}} if job.tools and self.mcp_url else {}
         return ClaudeAgentOptions(
             model=self.models.get(job.name, job.model), system_prompt=job.system, tools=[],
@@ -115,13 +121,25 @@ class ClaudeCode(Backend):
             output_format={"type": "json_schema", "schema": job.schema})
 
     def _run(self, coro, timeout: float):
-        if self._loop is None:
-            self._loop = asyncio.new_event_loop()
-            threading.Thread(target=self._loop.run_forever, name="claude-code", daemon=True).start()
-        return asyncio.run_coroutine_threadsafe(asyncio.wait_for(coro, timeout), self._loop).result(timeout + 5)
+        with self._lock:
+            if self.closed:
+                coro.close()
+                raise RuntimeError("closed")
+            if self._loop is None:
+                self._loop = loop = asyncio.new_event_loop()
 
-    async def _client(self, job: Job):
-        key = f"{job.name}:{self.models.get(job.name, job.model)}"
+                def run() -> None:
+                    loop.run_forever()
+                    loop.close()
+                threading.Thread(target=run, name="claude-code", daemon=True).start()
+            future = asyncio.run_coroutine_threadsafe(coro, self._loop)
+        try:
+            return future.result(timeout)
+        except BaseException:
+            future.cancel()  # the exchange lets its client go (below)
+            raise
+
+    async def _client(self, key: str, job: Job):
         if key not in self._clients:
             if self._factory is None:
                 from claude_agent_sdk import ClaudeSDKClient
@@ -132,7 +150,21 @@ class ClaudeCode(Backend):
         return self._clients[key]
 
     async def _exchange(self, job: Job, prompt: str) -> tuple[dict | None, str]:
-        client = await self._client(job)
+        key = f"{job.name}:{self.models.get(job.name, job.model)}"
+        async with self._locks.setdefault(key, asyncio.Lock()):
+            client = await self._client(key, job)
+            try:
+                if self.closed:
+                    raise RuntimeError("closed")
+                return await asyncio.wait_for(self._talk(client, prompt), job.timeout)
+            except BaseException:
+                # A reply still on its way would be the next call's first message: the client goes with it.
+                self._clients.pop(key, None)
+                with contextlib.suppress(Exception):
+                    await asyncio.wait_for(client.disconnect(), 5)
+                raise
+
+    async def _talk(self, client, prompt: str) -> tuple[dict | None, str]:
         self._calls += 1
         await client.query(prompt, session_id=f"dm-{self._calls}")  # a fresh session: no history grows
         async for message in client.receive_response():
@@ -151,20 +183,25 @@ class ClaudeCode(Backend):
 
     def _ask(self, job: Job, prompt: str) -> tuple[dict | None, str]:
         try:
-            return self._run(self._exchange(job, prompt), job.timeout)
+            # Room to wait behind another exchange on the same client (its own timeout bounds it).
+            return self._run(self._exchange(job, prompt), 2 * job.timeout + 10)
         except (TimeoutError, asyncio.TimeoutError):
             return None, f"no reply within {job.timeout:.0f} s"
 
+    async def _shutdown(self) -> None:
+        clients, self._clients = list(self._clients.values()), {}
+        for client in clients:
+            with contextlib.suppress(Exception):
+                await asyncio.wait_for(client.disconnect(), 5)
+
     def close(self) -> None:
-        loop, self._loop = self._loop, None
+        with self._lock:
+            self.closed = True
+            loop, self._loop = self._loop, None
         if loop is None:
             return
-        for client in self._clients.values():
-            try:
-                asyncio.run_coroutine_threadsafe(client.disconnect(), loop).result(5)
-            except Exception:
-                pass
-        self._clients = {}
+        with contextlib.suppress(Exception):
+            asyncio.run_coroutine_threadsafe(self._shutdown(), loop).result(10)
         loop.call_soon_threadsafe(loop.stop)
 
 
@@ -212,9 +249,10 @@ class OpenCode(Backend):
     STARTUP = 30.0
 
     def __init__(self, models: dict | None = None, exe: str | None = None, runner=run_command, popen=subprocess.Popen,
-                 workdir: Path | None = None, clock=time.monotonic) -> None:
+                 workdir: Path | None = None, clock=time.monotonic, free_models=None) -> None:
         super().__init__(clock)
         self.models = dict(models or {})
+        self.free_models = free_models  # () -> OpenCode's free models: no other is ever run (6b review)
         self.exe = exe if exe is not None else opencode_exe()
         self.runner, self.popen = runner, popen
         # Where opencode.json (the MCP entry) is written and the server runs: the game's own folder. Under the
@@ -227,7 +265,10 @@ class OpenCode(Backend):
         return (True, "") if self.exe else (False, "OpenCode is not installed")
 
     def model(self, job: Job) -> str:
-        return self.models.get(job.name) or "opencode/big-pickle"
+        model = self.models.get(job.name) or OPENCODE_DEFAULT
+        if model != OPENCODE_DEFAULT and (self.free_models is None or model not in self.free_models()):
+            return OPENCODE_DEFAULT
+        return model
 
     def config(self) -> dict:
         """The opencode.json beside the warm server: the DeepMurim MCP server, when it runs."""
@@ -243,12 +284,16 @@ class OpenCode(Backend):
             (self.workdir / "opencode.json").write_text(json.dumps(self.config(), indent=2), encoding="utf-8")
         port = free_port()
         flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-        self.server = self.popen([self.exe, "serve", "--port", str(port), "--hostname", "127.0.0.1"],
-                                 cwd=str(self.workdir) if self.workdir else None, stdout=subprocess.DEVNULL,
-                                 stderr=subprocess.DEVNULL, creationflags=flags)
+        with self._lock:  # a close meanwhile would never see a server started after it
+            if self.closed:
+                raise RuntimeError("closed")
+            self.server = server = self.popen(
+                [self.exe, "serve", "--port", str(port), "--hostname", "127.0.0.1"],
+                cwd=str(self.workdir) if self.workdir else None, stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL, creationflags=flags)
         self.url = f"http://127.0.0.1:{port}"
         deadline = self.clock() + self.STARTUP
-        while self.clock() < deadline:
+        while self.clock() < deadline and self.server is server:
             try:
                 with socket.create_connection(("127.0.0.1", port), timeout=0.5):
                     return self.url
@@ -282,7 +327,9 @@ class OpenCode(Backend):
         return reply, error
 
     def close(self) -> None:
-        server, self.server = self.server, None
+        with self._lock:
+            self.closed = True
+            server, self.server = self.server, None
         if server is not None and server.poll() is None:
             if os.name == "nt":
                 subprocess.run(["taskkill", "/F", "/T", "/PID", str(server.pid)], capture_output=True)

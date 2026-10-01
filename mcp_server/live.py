@@ -41,7 +41,7 @@ class LiveServer:
         port = free_port()
         app = build(self.save, fresh=True).streamable_http_app(host="127.0.0.1")
         self._server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning",
-                                                     lifespan="on"))
+                                                     lifespan="on", timeout_graceful_shutdown=1))
         self._thread = threading.Thread(target=self._server.run, name="deepmurim-mcp", daemon=True)
         self._thread.start()
         deadline = time.monotonic() + STARTUP
@@ -54,8 +54,12 @@ class LiveServer:
         return self.url
 
     def stop(self) -> None:
+        """A client still connected (a standing stream, the player's own session) is cut off after a second."""
         if self._server is not None:
             self._server.should_exit = True
         if self._thread is not None:
-            self._thread.join(5)
+            self._thread.join(1.5)
+            if self._thread.is_alive() and self._server is not None:
+                self._server.force_exit = True
+                self._thread.join(1.0)
         self._server, self._thread, self.url = None, None, None
