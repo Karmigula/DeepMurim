@@ -7,7 +7,8 @@ the worker. A reply is guarded, then replaces the turn's procedural lines in the
 """
 
 import json
-from concurrent.futures import Future, ThreadPoolExecutor
+import threading
+from concurrent.futures import Future
 from dataclasses import dataclass, field
 
 from ai.bridge import Bridge, Job
@@ -26,7 +27,8 @@ SYSTEM = (
     "You are the narrator of DeepMurim, a wuxia text game. Rewrite the turn below as 1-4 sentences of vivid "
     "second-person prose in the register of a wuxia novel. Use only what the EVENT blocks and the STATE say: add no "
     "person, item, place, number or outcome they do not carry, and never contradict an OUTCOME line. Keep names "
-    "exactly as given, and keep every number an OUTCOME line states. Do not address the player as 'the player'. "
+    "exactly as given, and keep every number an OUTCOME line states, written as digits. Do not address the "
+    "player as 'the player'. "
     "Reply with JSON: {\"prose\": \"...\"}."
 )
 
@@ -76,7 +78,7 @@ class Narration:
         self.refused: str | None = None  # why the last reply was not shown (the debug overlay)
         self.last: dict = {}  # the last exchange as the session log keeps it: asked, answered, shown
         self.recent: list[str] = []
-        self._pool: ThreadPoolExecutor | None = None
+        self.worker: threading.Thread | None = None  # a daemon: it never holds the game open (6a minors)
 
     @property
     def bridge(self) -> Bridge:
@@ -94,9 +96,27 @@ class Narration:
         return None if ok else why
 
     def close(self) -> None:
-        if self._pool is not None:
-            self._pool.shutdown(wait=False, cancel_futures=True)
-            self._pool = None
+        """Nothing to wait for: a request still out runs on a daemon thread and dies with the game."""
+        self.pending = None
+
+    def reset(self) -> None:
+        """A game is closed: its prose is no one else's (6a minors)."""
+        self.cache.clear()
+        self.recent, self.pending, self.refused, self.last = [], None, None, {}
+
+    def _ask(self, prompt: str) -> Future:
+        future: Future = Future()
+
+        def work() -> None:
+            if not future.set_running_or_notify_cancel():
+                return
+            try:
+                future.set_result(self.bridge.call(self.job, prompt))
+            except BaseException as exc:  # handed to `poll`, which puts the engine's words back
+                future.set_exception(exc)
+        self.worker = threading.Thread(target=work, name="claude", daemon=True)
+        self.worker.start()
+        return future
 
     # --- a turn ------------------------------------------------------------------------------------------------
     def start(self, log: list, start: int, turn, game) -> None:
@@ -119,9 +139,7 @@ class Narration:
             return
         if self.mode == "ai_only":
             _put(log, pending, _without(pending, WAITING))
-        if self._pool is None:
-            self._pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="claude")
-        pending.future = self._pool.submit(self.bridge.call, self.job, prompt)
+        pending.future = self._ask(prompt)
         self.pending = pending
 
     def poll(self, log: list, game) -> list:

@@ -274,8 +274,10 @@ class World:
         if not path.is_file():
             raise SaveError(f"No save at {path}")
         # The MCP server answers in a worker thread; a read-only connection is safe to hand between threads.
-        conn = sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True, isolation_level=None,
-                               check_same_thread=False)
+        # A save no game holds open has no write-ahead log: read it as immutable, so nothing is made beside it.
+        live = Path(f"{path}-wal").exists()
+        conn = sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro" + ("" if live else "&immutable=1"), uri=True,
+                               isolation_level=None, check_same_thread=False)
         row = conn.execute("select value from meta where key = 'schema_version'").fetchone()
         if row is None or json.loads(row[0]) != SCHEMA_VERSION:
             conn.close()

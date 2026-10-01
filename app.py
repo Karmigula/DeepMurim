@@ -289,6 +289,8 @@ class App:
 
     def _cycle_ai(self) -> None:
         mode = self.narration.cycle()
+        if mode == "off":
+            self.narration.settle(self.log)  # the turn still waiting keeps the engine's words (6a minors)
         why = self.narration.unavailable() if mode != "off" else None
         if why is not None:
             self.narration.mode = mode = "off"
@@ -367,6 +369,7 @@ class App:
                                creation=creation.to_dict(), snapshot=str(snapshot))
             self.log = []
             self._show(self.game.start())
+            self._ai_at_start()
             self.state = "game"
             return
         path = self.saves_dir / f"{slug(name)}-{time.time_ns()}.world"
@@ -376,6 +379,7 @@ class App:
         self._open_session(mode="new", player=name, seed=self.game.world.world_seed, creation=creation.to_dict())
         self.log = []
         self._show(self.game.start())
+        self._ai_at_start()
         self.state = "game"
 
     def open_save(self, path: Path | None) -> bool:
@@ -399,6 +403,7 @@ class App:
         self.game, self.save_path, self.log, self.message = game, Path(path), [], ""
         self._open_session(mode="continue", player=game.player.name, seed=game.world.world_seed, snapshot=str(snapshot))
         self._show(game.start())
+        self._ai_at_start()
         self.state = "game"
         return True
 
@@ -411,8 +416,18 @@ class App:
         if self.session is not None:
             self.session.record(kind, **data)
 
+    def _ai_at_start(self) -> None:
+        """A saved mode Claude cannot serve is told, and turned off, as the game opens (6a minors)."""
+        if self.narration.mode == "off":
+            return
+        why = self.narration.unavailable()
+        if why is not None:
+            self.narration.mode = self.config.ai_mode = "off"
+            self.log.append((f"Claude's prose cannot be used: {why}.", "system"))
+            self._save_settings()
+
     def _close_game(self) -> None:
-        self.narration.pending = None
+        self.narration.reset()
         if self.game is not None:
             self.game.close()
             self.game = None

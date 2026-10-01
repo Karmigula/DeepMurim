@@ -72,8 +72,28 @@ def conforms(schema: dict, value) -> bool:
     return True
 
 
+def run_command(cmd, input=None, timeout=None, capture_output=True, **kw) -> subprocess.CompletedProcess:
+    """subprocess.run, but a timeout kills the whole process tree: an npm `claude.cmd` runs node under cmd.exe,
+    and killing cmd.exe alone left node running (6a minors)."""
+    with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kw) as proc:
+        try:
+            out, err = proc.communicate(input, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            _kill_tree(proc)
+            out, err = proc.communicate()
+            raise subprocess.TimeoutExpired(cmd, timeout, output=out, stderr=err) from None
+    return subprocess.CompletedProcess(cmd, proc.returncode, out, err)
+
+
+def _kill_tree(proc) -> None:
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True)
+    else:
+        proc.kill()
+
+
 class Bridge:
-    def __init__(self, cli: str | None = FIND, runner=subprocess.run, mcp_config: Path | None = None,
+    def __init__(self, cli: str | None = FIND, runner=run_command, mcp_config: Path | None = None,
                  clock=time.monotonic) -> None:
         self.cli = shutil.which("claude") if cli == FIND else cli
         self.runner = runner

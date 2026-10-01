@@ -49,7 +49,7 @@ def _safe(fn):
     def run(*args):
         try:
             return fn(*args)
-        except sqlite3.OperationalError:
+        except (sqlite3.OperationalError, LookupError):  # a read that would write; a player with no place (6a)
             return "That is not known."
     run.__name__, run.__doc__ = fn.__name__, fn.__doc__
     return run
