@@ -1,0 +1,290 @@
+"""The two doors to a model (phase 6 spec 13.1): Claude Code through the Claude Agent SDK, and OpenCode.
+
+Both answer `call(job, prompt) -> dict | None` with 6a's rules: any failure returns None (the caller keeps the
+engine's words), every exchange is remembered, three failures in a row pause the door for five minutes.
+
+- `ClaudeCode` runs Claude Code on the user's own login (their Pro/Max plan) through the Agent SDK, one client per
+  job kept open for the game, each call a fresh session (no history grows). `ANTHROPIC_API_KEY` is taken out of
+  its environment, which would switch Claude Code to API billing.
+- `OpenCode` keeps a hidden `opencode serve` warm and attaches each `opencode run` to it, with OpenCode's own agent
+  (its free models answer no other). `opencode.exe` is run directly, never the npm `.cmd` shim.
+"""
+
+import asyncio
+import json
+import os
+import re
+import shutil
+import socket
+import subprocess
+import threading
+import time
+from collections import deque
+from pathlib import Path
+
+from ai.bridge import KEPT, LOGGED_OUT, PAUSE_AFTER, PAUSE_SECONDS, Exchange, Job, conforms, run_command
+
+MAX_ARGUMENT = 24000  # Windows caps a command line near 32,000 characters; a prompt is far smaller
+
+
+class Backend:
+    """What every door shares: the pause, the remembered exchanges, the logged-out check."""
+
+    name = "backend"
+
+    def __init__(self, clock=time.monotonic) -> None:
+        self.clock = clock
+        self.failures = 0
+        self.paused_until = 0.0
+        self.just_paused = False
+        self.exchanges: deque[Exchange] = deque(maxlen=KEPT)
+        self.mcp_url: str | None = None  # the long-lived DeepMurim MCP server (phase 6b Task 3)
+        self._checked: tuple[bool, str] | None = None
+
+    def available(self) -> tuple[bool, str]:
+        if self._checked is None:
+            self._checked = self._check()
+        return self._checked
+
+    def _check(self) -> tuple[bool, str]:
+        return True, ""
+
+    def paused(self) -> bool:
+        return self.clock() < self.paused_until
+
+    def call(self, job: Job, prompt: str) -> dict | None:
+        if self.paused() or not self.available()[0]:
+            return None
+        start = self.clock()
+        try:
+            reply, error = self._ask(job, prompt)
+        except Exception as exc:  # a door never breaks the game: the engine's words stand
+            reply, error = None, f"{self.name} failed ({exc.__class__.__name__}: {str(exc)[:120]})"
+        if reply is not None and not conforms(job.schema, reply):
+            reply, error = None, "the reply did not fit its schema"
+        self.exchanges.append(Exchange(job.name, prompt, reply, error, round(self.clock() - start, 2)))
+        self._count(reply is not None, error)
+        return reply
+
+    def _ask(self, job: Job, prompt: str) -> tuple[dict | None, str]:
+        raise NotImplementedError
+
+    def _count(self, ok: bool, error: str) -> None:
+        if any(word in error.lower() for word in LOGGED_OUT):
+            self._checked = (False, f"{self.name} is not logged in")
+        if ok:
+            self.failures = 0
+            return
+        self.failures += 1
+        if self.failures >= PAUSE_AFTER:
+            self.failures = 0
+            self.paused_until = self.clock() + PAUSE_SECONDS
+            self.just_paused = True
+
+    def close(self) -> None:
+        pass
+
+
+# --- Claude Code, through the Agent SDK -------------------------------------------------------------------------
+
+class ClaudeCode(Backend):
+    name = "Claude Code"
+
+    def __init__(self, models: dict | None = None, client_factory=None, clock=time.monotonic) -> None:
+        super().__init__(clock)
+        self.models = dict(models or {})  # job name -> model; else the job's own
+        self._factory = client_factory  # tests hand in a fake; the real one is the SDK's ClaudeSDKClient
+        self._clients: dict[str, object] = {}
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._calls = 0
+
+    def _check(self) -> tuple[bool, str]:
+        if self._factory is None and shutil.which("claude") is None:  # the SDK runs the user's Claude Code
+            return False, "Claude Code is not installed"
+        return True, ""
+
+    def options(self, job: Job):
+        from claude_agent_sdk import ClaudeAgentOptions, ThinkingConfigDisabled
+        env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}  # the user's plan, never the API's
+        mcp = {"deepmurim": {"type": "http", "url": self.mcp_url}} if job.tools and self.mcp_url else {}
+        return ClaudeAgentOptions(
+            model=self.models.get(job.name, job.model), system_prompt=job.system, tools=[],
+            allowed_tools=["mcp__deepmurim__*"] if mcp else [], mcp_servers=mcp, strict_mcp_config=True,
+            setting_sources=[], effort="low", max_turns=8 if mcp else 3, env=env,
+            thinking=None if job.thinking else ThinkingConfigDisabled(type="disabled"),
+            output_format={"type": "json_schema", "schema": job.schema})
+
+    def _run(self, coro, timeout: float):
+        if self._loop is None:
+            self._loop = asyncio.new_event_loop()
+            threading.Thread(target=self._loop.run_forever, name="claude-code", daemon=True).start()
+        return asyncio.run_coroutine_threadsafe(asyncio.wait_for(coro, timeout), self._loop).result(timeout + 5)
+
+    async def _client(self, job: Job):
+        key = f"{job.name}:{self.models.get(job.name, job.model)}"
+        if key not in self._clients:
+            if self._factory is None:
+                from claude_agent_sdk import ClaudeSDKClient
+                self._factory = ClaudeSDKClient
+            client = self._factory(self.options(job))
+            await client.connect()
+            self._clients[key] = client
+        return self._clients[key]
+
+    async def _exchange(self, job: Job, prompt: str) -> tuple[dict | None, str]:
+        client = await self._client(job)
+        self._calls += 1
+        await client.query(prompt, session_id=f"dm-{self._calls}")  # a fresh session: no history grows
+        async for message in client.receive_response():
+            if type(message).__name__ != "ResultMessage":
+                continue
+            if message.is_error:
+                return None, str(message.result or message.errors or "an error")[:200]
+            reply = message.structured_output
+            if reply is None and message.result:
+                try:
+                    reply = json.loads(message.result)
+                except ValueError:
+                    return None, "no structured reply"
+            return reply, ""
+        return None, "no result"
+
+    def _ask(self, job: Job, prompt: str) -> tuple[dict | None, str]:
+        try:
+            return self._run(self._exchange(job, prompt), job.timeout)
+        except (TimeoutError, asyncio.TimeoutError):
+            return None, f"no reply within {job.timeout:.0f} s"
+
+    def close(self) -> None:
+        loop, self._loop = self._loop, None
+        if loop is None:
+            return
+        for client in self._clients.values():
+            try:
+                asyncio.run_coroutine_threadsafe(client.disconnect(), loop).result(5)
+            except Exception:
+                pass
+        self._clients = {}
+        loop.call_soon_threadsafe(loop.stop)
+
+
+# --- OpenCode -----------------------------------------------------------------------------------------------------
+
+def opencode_exe() -> str | None:
+    """`opencode.exe` itself: beside an npm install's shim, or on PATH. Never the `.cmd` (cmd.exe would read the
+    prompt's `<` and `>` as redirections)."""
+    for found in (shutil.which("opencode.cmd"), shutil.which("opencode")):
+        if found:
+            exe = Path(found).parent / "node_modules" / "opencode-ai" / "bin" / "opencode.exe"
+            if exe.is_file():
+                return str(exe)
+    found = shutil.which("opencode.exe")
+    return found
+
+
+def free_port() -> int:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def last_json(events: list[dict]) -> tuple[dict | None, str]:
+    """The job's JSON from `opencode run --format json` events: the last text part, fences and chatter around it
+    stripped."""
+    for event in events:
+        if event.get("type") == "error":
+            data = event.get("error", {}).get("data", {})
+            return None, str(data.get("message") or event.get("error"))[:200]
+    texts = [e["part"]["text"] for e in events if e.get("type") == "text" and e.get("part", {}).get("text")]
+    if not texts:
+        return None, "no reply"
+    found = re.search(r"\{.*\}", texts[-1], re.S)
+    if found is None:
+        return None, "no JSON in the reply"
+    try:
+        return json.loads(found.group(0)), ""
+    except ValueError:
+        return None, "the reply was not JSON"
+
+
+class OpenCode(Backend):
+    name = "OpenCode"
+    STARTUP = 30.0
+
+    def __init__(self, models: dict | None = None, exe: str | None = None, runner=run_command, popen=subprocess.Popen,
+                 workdir: Path | None = None, clock=time.monotonic) -> None:
+        super().__init__(clock)
+        self.models = dict(models or {})
+        self.exe = exe if exe is not None else opencode_exe()
+        self.runner, self.popen = runner, popen
+        # Where opencode.json (the MCP entry) is written and the server runs: the game's own folder. Under the
+        # system's Temp directory OpenCode silently answers nothing (plan ruling).
+        self.workdir = Path(workdir) if workdir else None
+        self.server = None
+        self.url: str | None = None
+
+    def _check(self) -> tuple[bool, str]:
+        return (True, "") if self.exe else (False, "OpenCode is not installed")
+
+    def model(self, job: Job) -> str:
+        return self.models.get(job.name) or "opencode/big-pickle"
+
+    def config(self) -> dict:
+        """The opencode.json beside the warm server: the DeepMurim MCP server, when it runs."""
+        mcp = {"deepmurim": {"type": "remote", "url": self.mcp_url, "enabled": True}} if self.mcp_url else {}
+        return {"$schema": "https://opencode.ai/config.json", "mcp": mcp}
+
+    def warm(self) -> str:
+        """Start the hidden `opencode serve` (once) and return its address."""
+        if self.server is not None and self.server.poll() is None:
+            return self.url
+        if self.workdir is not None:
+            self.workdir.mkdir(parents=True, exist_ok=True)
+            (self.workdir / "opencode.json").write_text(json.dumps(self.config(), indent=2), encoding="utf-8")
+        port = free_port()
+        flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        self.server = self.popen([self.exe, "serve", "--port", str(port), "--hostname", "127.0.0.1"],
+                                 cwd=str(self.workdir) if self.workdir else None, stdout=subprocess.DEVNULL,
+                                 stderr=subprocess.DEVNULL, creationflags=flags)
+        self.url = f"http://127.0.0.1:{port}"
+        deadline = self.clock() + self.STARTUP
+        while self.clock() < deadline:
+            try:
+                with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+                    return self.url
+            except OSError:
+                time.sleep(0.2)
+        raise TimeoutError("opencode serve did not start")
+
+    def prompt(self, job: Job, prompt: str) -> str:
+        """OpenCode has no schema flag: the job's instructions and its JSON shape go in the message."""
+        tools = "" if job.tools else "Use no tools. "  # the warm server's config offers them to every call
+        text = (f"{job.system}\n\n{tools}Reply with only one JSON object fitting this JSON Schema, and nothing "
+                f"else:\n{json.dumps(job.schema)}\n\n{prompt}")
+        return text[:MAX_ARGUMENT]
+
+    def _ask(self, job: Job, prompt: str) -> tuple[dict | None, str]:
+        url = self.warm()
+        cmd = [self.exe, "run", "--attach", url, "--format", "json", "-m", self.model(job), self.prompt(job, prompt)]
+        try:
+            done = self.runner(cmd, capture_output=True, text=True, encoding="utf-8", timeout=job.timeout)
+        except subprocess.TimeoutExpired:
+            return None, f"no reply within {job.timeout:.0f} s"
+        events = []
+        for line in (done.stdout or "").splitlines():
+            try:
+                events.append(json.loads(line))
+            except ValueError:
+                continue
+        reply, error = last_json(events)
+        if reply is None and done.returncode and not error:
+            error = (done.stderr or f"exit {done.returncode}").strip()[:200]
+        return reply, error
+
+    def close(self) -> None:
+        server, self.server = self.server, None
+        if server is not None and server.poll() is None:
+            if os.name == "nt":
+                subprocess.run(["taskkill", "/F", "/T", "/PID", str(server.pid)], capture_output=True)
+            else:
+                server.kill()
