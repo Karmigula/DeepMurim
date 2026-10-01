@@ -1,8 +1,9 @@
 # DeepMurim Phase 6: The Claude Layer
 
-**Status:** design approved in brainstorming (2026-10-01). Phase 6 is two sub-phases, each with its own plan and merge:
-- **6a** the foundation and narration: the bridge, the state pack, the MCP server, the AI narrator and its modes;
-- **6b** free intents, free dialogue and validated proposals.
+**Status:** design approved in brainstorming (2026-10-01); amended after 6a (§13). Phase 6 is three sub-phases, each with its own plan and merge:
+- **6a** the foundation and narration: the bridge, the state pack, the MCP server, the AI narrator and its modes (done);
+- **6b** the infrastructure, per §13: two backends (Claude Code through the Agent SDK, and OpenCode), the AI menu, the Connect screen, one long-lived MCP server, prefetch, and a paragraph of prose;
+- **6c** free intents, free dialogue and validated proposals (§7, §9).
 
 Builds on master at 40776b6 (phases 1-5 done):
 - phase 1's seams: `narrate/base.py` (`Narrator`), `narrate/brief.py` (`Brief.to_prompt`), `narrate/proposals.py` (`Proposal`, `Verdict`, `Validator`, `RejectAll`);
@@ -172,3 +173,48 @@ Typed text goes, in order, to: the existing command parser (an exact command: th
 - Claude creating new item kinds, systems or factions (the "generative world" option, declined).
 - Multiplayer.
 - Streaming partial prose (`claude -p` returns whole replies; streaming would need the API).
+
+## 13. Amendment after 6a (2026-10-01): backends, the AI menu, the Connect screen, speed
+
+Measured in 6a and its probes:
+- a prose call through `claude -p` takes about 4 s;
+- a Sonnet intent with the MCP tools takes 15-30 s: most of it is the reply's length and each tool round trip; the lookups themselves take under 20 ms; each call also starts the CLI and a fresh MCP server (1-2 s);
+- OpenCode (`opencode run --pure --format json`) answers too, but sends about 100,000 tokens of its own prompt and tools a call unless given a lean agent.
+
+### 13.1 Two backends (`ai/backends.py`)
+Every job (prose; 6c's intent and dialogue) goes through one interface: `call(job, prompt) -> dict | None`, with 6a's failure rules (any failure returns None; three in a row pause the backend five minutes).
+- **Claude Code** through the **Claude Agent SDK** (`claude-agent-sdk`), which runs Claude Code on the user's own login (their Pro/Max subscription).
+  - One session is kept open for the game (no start-up per call); prose may arrive streamed, word by word.
+  - `ANTHROPIC_API_KEY` is removed from the SDK's environment (it would switch Claude Code to API billing); the Connect screen warns if it is set.
+  - DeepMurim never takes a subscription login itself, nor reuses Claude Code's stored token: the login is Claude Code's.
+- **OpenCode** through `opencode run --pure --format json -m <provider/model>`, with a lean agent of no built-in tools (an `opencode.json` DeepMurim writes beside the session). OpenCode has no schema flag: the prompt asks for the job's JSON and the game parses the last text part, then checks it with 6a's `conforms`.
+
+### 13.2 The AI menu (F1)
+F1 opens a menu (it no longer cycles):
+- the **mode**: off, assist, AI only (6a's);
+- the **backend**: Claude Code or OpenCode;
+- the **model** for prose, and the model for intents and dialogue (6c):
+  - Claude Code: Haiku 4.5, Sonnet 5, Opus 5.5;
+  - OpenCode: **only free models**, those `opencode models --verbose` reports at an input and output cost of 0 (read once, cached for the session).
+- Settings are saved (`ai_mode`, `ai_backend`, `ai_models`).
+
+### 13.3 The Connect screen (in the AI menu)
+- whether each backend is installed and logged in (Claude Code; OpenCode), and why not;
+- a warning when `ANTHROPIC_API_KEY` is set;
+- the running MCP server's address;
+- copy-paste setup for connecting it by hand: Claude Code (`claude mcp add --transport http deepmurim <url>`) and OpenCode (its `opencode.json` `mcp` entry, `{"type": "remote", "url": <url>}`).
+
+### 13.4 One long-lived MCP server
+While the AI is on, the game runs the DeepMurim MCP server once, over streamable HTTP on `127.0.0.1` at a free port, reading the save read-only; both backends (and the user's own sessions) connect to it. It answers as the player knows the world, re-reading the save on every request (the player may change at a succession). It stops when the game closes or the AI is turned off.
+
+### 13.5 Prefetch
+Before a 6c intent or dialogue call, the engine runs the likely lookups itself (each under 20 ms) and puts them in the prompt: the people here, their memories of the player, and their beliefs touching the words typed. The tools stay for anything else.
+
+### 13.6 A paragraph of prose
+Every job writes a paragraph (about 3-6 sentences), narration included. The guard (§6) is unchanged.
+
+### 13.7 Testing (6b)
+- `FakeClaude` stands in for either backend; the OpenCode backend's parsing is tested on recorded `--format json` output; the Agent SDK backend is tested with a fake client.
+- The long-lived server: started, answers over HTTP, re-reads the save, stops; never writes.
+- The menu, the Connect screen, the free-model filter (on recorded `--verbose` output), the API-key warning.
+- Live tests (marked `live`, `DEEPMURIM_LIVE=1`): one Agent SDK round trip; one OpenCode round trip on a free model.
