@@ -25,6 +25,14 @@ Merged from `phase-6b`. Spec: `2026-10-01-phase6-claude-layer-design.md`, sectio
 - A hand-edited settings file can't choose a model the menu wouldn't offer.
 - Stopping the server, or closing an old backend, never holds the game.
 
+### Fixed (minors)
+- The notices name the backend in use ("OpenCode's prose cannot be used").
+- OpenCode's commands open no console window. A server that dies at start is let go at once, and a prompt too long for the command line is refused whole rather than cut.
+- Claude Code bundled with the Agent SDK counts as installed.
+- The Connect page looks for the programs once, not every frame.
+- F1 over the character sheet shows the menu.
+- Prefetch finds a name only as a whole word.
+
 ## Phase 6a: The Claude layer's foundation, and Claude's prose (2026-10-01)
 
 Merged from `phase-6a`. Spec: `2026-10-01-phase6-claude-layer-design.md`. Plan: `2026-10-01-phase6a-claude-foundation.md`.

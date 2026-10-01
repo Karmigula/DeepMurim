@@ -5,9 +5,8 @@ the App applies it (a new backend, the mode's own rules) and saves.
 """
 
 import os
-import shutil
 
-from ai.backends import ClaudeCode, OpenCode, opencode_exe
+from ai.backends import ClaudeCode, OpenCode, claude_cli, opencode_exe
 from ai.models import CLAUDE_DEFAULTS, CLAUDE_MODELS, OPENCODE_DEFAULT, OpenCodeModels, label
 
 BACKENDS = (("claude_code", "Claude Code"), ("opencode", "OpenCode"))
@@ -40,9 +39,15 @@ def make_backend(config, workdir=None, opencode_models: OpenCodeModels | None = 
     return ClaudeCode(models=per_job)
 
 
-def connect_lines(mcp_url: str | None, why: str | None = None) -> list:
-    """How to reach the models, and how to reach DeepMurim from them (spec 13.3)."""
-    claude, exe = shutil.which("claude"), opencode_exe()
+def installed() -> tuple[str | None, str | None]:
+    """Claude Code and OpenCode, where they are (None: not installed)."""
+    return claude_cli(), opencode_exe()
+
+
+def connect_lines(mcp_url: str | None, why: str | None = None, found: tuple | None = None) -> list:
+    """How to reach the models, and how to reach DeepMurim from them (spec 13.3). `found`: `installed()`, looked
+    for once when the page opens, not every frame."""
+    claude, exe = found if found is not None else installed()
     lines = [("Connect", "heading")]
     if why:
         lines.append((f"  The chosen backend cannot be used: {why}.", "red"))
@@ -77,6 +82,7 @@ class AiMenu:
         self.opencode = opencode_models or OpenCodeModels(opencode_exe())
         self.mcp_url = mcp_url  # a callable: the server's address now, or None
         self.why = why  # a callable: why the chosen backend cannot be used now, or None
+        self.found: tuple | None = None  # `installed()`, as of the Connect page's opening
 
     def models(self, backend: str) -> list[str]:
         if backend == "opencode":
@@ -96,7 +102,8 @@ class AiMenu:
 
     def lines(self) -> list:
         if self.page == "connect":
-            return connect_lines(self.mcp_url() if callable(self.mcp_url) else self.mcp_url, self._why())
+            return connect_lines(self.mcp_url() if callable(self.mcp_url) else self.mcp_url, self._why(),
+                                 self.found)
         c = self.config
         lines = [("The AI (F1 closes)", "heading"),
                  (f"  Mode: {MODE_NAMES[c.ai_mode]}", "default"),
@@ -132,7 +139,7 @@ class AiMenu:
             c.ai_models = {**(c.ai_models or {}), c.ai_backend: {**chosen(c), role: following}}
             return "model"
         if n == 5:
-            self.page = "connect"
+            self.page, self.found = "connect", installed()
             return None
         if n == 6:
             return "close"

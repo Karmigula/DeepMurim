@@ -4,7 +4,7 @@ Last updated 2026-10-01. `master` is at the merge of `phase-6b`.
 
 ## Where things stand
 
-Phases 1 to 5, 6a and 6b are done and merged. The suite has 1670 tests, plus two slow ones (`pytest -m slow`: the 500-year soak and a 200-year speed test) and three live tests (`-m live`: `claude -p`, the Agent SDK, OpenCode on a free model); all of them pass.
+Phases 1 to 5, 6a and 6b are done and merged. The suite has 1678 tests, plus two slow ones (`pytest -m slow`: the 500-year soak and a 200-year speed test) and three live tests (`-m live`: `claude -p`, the Agent SDK, OpenCode on a free model); all of them pass.
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -37,13 +37,7 @@ See `CHANGELOG.md` for what each phase added.
 
 ## Deferred and known issues
 
-- **6b minors** (from its final review):
-  - The notices still say "Claude" when OpenCode is the backend.
-  - Prefetch matches names as substrings ("Li" in "like").
-  - F1 with the character sheet open draws the sheet over the menu.
-  - Claude Code is reported "not installed" without `claude` on PATH, though the SDK bundles its CLI.
-  - `opencode models` and `opencode run` start without `CREATE_NO_WINDOW`.
-  - A `warm()` that times out keeps its dead server; prompt truncation at 24,000 characters cuts the turn; the Connect page checks installs every frame.
+- **6b, open:**
   - Not yet confirmed live: whether the Agent SDK's per-call `session_id` keeps history from growing.
 
 - **Left for later** (from the phase 5 specs):

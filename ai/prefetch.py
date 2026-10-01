@@ -25,7 +25,8 @@ def build_prefetch(game, typed: str, focus: int | None = None) -> str:
     view = T.View(game.world)
     here = people_at(game.world, game.place.id, exclude=game.player.id)
     wanted = words_of(typed)
-    named = [p for p in here if p.id == focus or p.name.lower() in typed.lower()]
+    said = typed.lower()
+    named = [p for p in here if p.id == focus or re.search(rf"\b{re.escape(p.name.lower())}\b", said)]
     lines = ["PEOPLE HERE:"] + [f"- {p.name}, {p.data.get('occupation', 'stranger')}" for p in here[:15]]
     for person in named[:3]:
         lines += [f"{person.name.upper()} AS YOU KNOW THEM:", "- " + T.person(view, person.name).replace("\n", "\n- "),

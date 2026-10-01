@@ -25,7 +25,7 @@ from collections import deque
 from pathlib import Path
 
 from ai.bridge import KEPT, LOGGED_OUT, PAUSE_AFTER, PAUSE_SECONDS, Exchange, Job, conforms, run_command
-from ai.models import OPENCODE_DEFAULT
+from ai.models import NO_WINDOW, OPENCODE_DEFAULT
 
 MAX_ARGUMENT = 24000  # Windows caps a command line near 32,000 characters; a prompt is far smaller
 
@@ -90,6 +90,20 @@ class Backend:
         self.closed = True
 
 
+def bundled_cli() -> Path:
+    """Where the Agent SDK keeps a Claude Code of its own, when its wheel carries one."""
+    import claude_agent_sdk
+    return Path(claude_agent_sdk.__file__).parent / "_bundled" / ("claude.exe" if os.name == "nt" else "claude")
+
+
+def claude_cli() -> str | None:
+    """The Claude Code the Agent SDK would run, found where it looks: its own, on PATH, or the native installer's."""
+    for found in (bundled_cli(), shutil.which("claude"), Path.home() / ".local" / "bin" / "claude.exe"):
+        if found and Path(found).is_file():
+            return str(found)
+    return None
+
+
 # --- Claude Code, through the Agent SDK -------------------------------------------------------------------------
 
 class ClaudeCode(Backend):
@@ -105,7 +119,7 @@ class ClaudeCode(Backend):
         self._calls = 0
 
     def _check(self) -> tuple[bool, str]:
-        if self._factory is None and shutil.which("claude") is None:  # the SDK runs the user's Claude Code
+        if self._factory is None and claude_cli() is None:  # the SDK runs the user's Claude Code
             return False, "Claude Code is not installed"
         return True, ""
 
@@ -283,22 +297,25 @@ class OpenCode(Backend):
             self.workdir.mkdir(parents=True, exist_ok=True)
             (self.workdir / "opencode.json").write_text(json.dumps(self.config(), indent=2), encoding="utf-8")
         port = free_port()
-        flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         with self._lock:  # a close meanwhile would never see a server started after it
             if self.closed:
                 raise RuntimeError("closed")
             self.server = server = self.popen(
                 [self.exe, "serve", "--port", str(port), "--hostname", "127.0.0.1"],
                 cwd=str(self.workdir) if self.workdir else None, stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL, creationflags=flags)
+                stderr=subprocess.DEVNULL, creationflags=NO_WINDOW)
         self.url = f"http://127.0.0.1:{port}"
         deadline = self.clock() + self.STARTUP
-        while self.clock() < deadline and self.server is server:
+        while self.clock() < deadline and self.server is server and server.poll() is None:
             try:
                 with socket.create_connection(("127.0.0.1", port), timeout=0.5):
                     return self.url
             except OSError:
                 time.sleep(0.2)
+        with self._lock:  # one that never listened is not kept for the next call (6b minors)
+            if self.server is server:
+                self.server = None
+        _kill(server)
         raise TimeoutError("opencode serve did not start")
 
     def prompt(self, job: Job, prompt: str) -> str:
@@ -306,13 +323,17 @@ class OpenCode(Backend):
         tools = "" if job.tools else "Use no tools. "  # the warm server's config offers them to every call
         text = (f"{job.system}\n\n{tools}Reply with only one JSON object fitting this JSON Schema, and nothing "
                 f"else:\n{json.dumps(job.schema)}\n\n{prompt}")
-        return text[:MAX_ARGUMENT]
+        return text
 
     def _ask(self, job: Job, prompt: str) -> tuple[dict | None, str]:
+        text = self.prompt(job, prompt)
+        if len(text) > MAX_ARGUMENT:  # cut, it would lose the turn itself: the engine's words stand instead
+            return None, f"the prompt is too long for OpenCode's command line ({len(text)} characters)"
         url = self.warm()
-        cmd = [self.exe, "run", "--attach", url, "--format", "json", "-m", self.model(job), self.prompt(job, prompt)]
+        cmd = [self.exe, "run", "--attach", url, "--format", "json", "-m", self.model(job), text]
         try:
-            done = self.runner(cmd, capture_output=True, text=True, encoding="utf-8", timeout=job.timeout)
+            done = self.runner(cmd, capture_output=True, text=True, encoding="utf-8", timeout=job.timeout,
+                               creationflags=NO_WINDOW)
         except subprocess.TimeoutExpired:
             return None, f"no reply within {job.timeout:.0f} s"
         events = []
@@ -330,8 +351,13 @@ class OpenCode(Backend):
         with self._lock:
             self.closed = True
             server, self.server = self.server, None
-        if server is not None and server.poll() is None:
-            if os.name == "nt":
-                subprocess.run(["taskkill", "/F", "/T", "/PID", str(server.pid)], capture_output=True)
-            else:
-                server.kill()
+        _kill(server)
+
+
+def _kill(server) -> None:
+    """The warm server and all it started (taskkill /T on Windows)."""
+    if server is not None and server.poll() is None:
+        if os.name == "nt":
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(server.pid)], capture_output=True)
+        else:
+            server.kill()

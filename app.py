@@ -207,6 +207,7 @@ class App:
         if self.ai_menu is not None:
             self._menu_key(key, text)
         elif key == "f1":
+            self.sheet_visible = False  # the menu is shown, not drawn under the sheet (6b minors)
             self.ai_menu = AiMenu(self.config, self._opencode(), mcp_url=lambda: self.mcp.url if self.mcp else None,
                                   why=self.narration.unavailable)
         elif key == "f2":
@@ -354,7 +355,7 @@ class App:
         why = self.narration.unavailable() if mode != "off" else None
         if why is not None:
             self.narration.mode = mode = "off"
-            self.log.append((f"Claude's prose cannot be used: {why}.", "system"))
+            self.log.append((f"{self.narration.who}'s prose cannot be used: {why}.", "system"))
         else:
             self.log.append((MODE_WORDS[mode] + ".", "system"))
         self.config.ai_mode = mode
@@ -485,7 +486,7 @@ class App:
         why = self.narration.unavailable()
         if why is not None:
             self.narration.mode = self.config.ai_mode = "off"
-            self.log.append((f"Claude's prose cannot be used: {why}.", "system"))
+            self.log.append((f"{self.narration.who}'s prose cannot be used: {why}.", "system"))
             self._save_settings()
             self._ai_server()
 

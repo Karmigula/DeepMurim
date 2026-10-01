@@ -98,6 +98,11 @@ class Narration:
             closing.start()
             self._closing = [t for t in self._closing if t.is_alive()] + [closing]
 
+    @property
+    def who(self) -> str:
+        """The backend's name for the notices: Claude Code, OpenCode, or 6a's Claude (6b minors)."""
+        return getattr(self.bridge, "name", None) or "Claude"
+
     def cycle(self) -> str:
         self.mode = MODES[(MODES.index(self.mode) + 1) % len(MODES)]
         return self.mode
@@ -163,7 +168,7 @@ class Narration:
         notices = []
         if getattr(self.bridge, "just_paused", False):
             self.bridge.just_paused = False
-            notices.append(("Claude has failed three times; its prose rests for five minutes.", "dim"))
+            notices.append((f"{self.who} has failed three times; its prose rests for five minutes.", "dim"))
         pending = self.pending
         if pending is None or not pending.future.done():
             return notices

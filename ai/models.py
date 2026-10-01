@@ -1,12 +1,14 @@
 """Which models each backend may use (phase 6 spec 13.2): Claude Code's three, and OpenCode's free ones only."""
 
 import json
+import os
 import subprocess
 import threading
 
 CLAUDE_MODELS = (("claude-haiku-4-5", "Haiku 4.5"), ("claude-sonnet-5", "Sonnet 5"), ("claude-opus-5-5", "Opus 5.5"))
 CLAUDE_DEFAULTS = {"narrate": "claude-haiku-4-5", "talk": "claude-sonnet-5"}
 OPENCODE_DEFAULT = "opencode/big-pickle"
+NO_WINDOW = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0  # no console flashes up (6b minors)
 
 
 def parse_verbose(text: str) -> dict[str, dict]:
@@ -55,7 +57,7 @@ class OpenCodeModels:
                 if self.exe:
                     try:
                         done = self.runner([self.exe, "models", "--verbose"], capture_output=True, text=True,
-                                           encoding="utf-8", timeout=60)
+                                           encoding="utf-8", timeout=60, creationflags=NO_WINDOW)
                         found = free(parse_verbose(done.stdout or ""))
                     except (OSError, subprocess.SubprocessError):
                         found = []
