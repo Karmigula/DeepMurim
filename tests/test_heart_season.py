@@ -42,6 +42,20 @@ def average(fn, n=10) -> float:
     return (time.process_time() - start) / n
 
 
+def fine_average(fn, n=50, rounds=5) -> float:
+    """Wall time per call, the best of a few rounds: for calls far shorter than one tick of Windows' CPU clock
+    (15.6 ms), which made the averaged CPU time read 0 one round and a whole tick the next."""
+    fn()
+    gc.collect()
+    best = float("inf")
+    for _ in range(rounds):
+        start = time.perf_counter()
+        for _ in range(n):
+            fn()
+        best = min(best, (time.perf_counter() - start) / n)
+    return best
+
+
 def test_the_fork_guide_covers_the_heart():
     guide = Path("docs/world-events.md").read_text(encoding="utf-8")
     for word in ("heart_deeds.toml", "`heart = {steady", "steady", "lean", "demons", "daos", "oaths", "returned_to_origin",
@@ -86,12 +100,12 @@ def test_a_season_of_two_hundred_npcs_stays_within_a_tenth_of_5ds(game, monkeypa
 def test_a_fighter_with_a_dao_and_a_spirit_is_quick_to_weigh(game):
     world, me, here = game.world, game.player.id, game.place.id
     art = martial_arts(world, me)[0].technique.id
-    plain = average(lambda: fighter_for(world, me, art), n=50)
+    plain = fine_average(lambda: fighter_for(world, me, art))
     HT.write(world, me, daos={"spear": 0.6})
     blade = gear.make_item(world, "weapon", "spear", 2, me, "bought")
     world.update_data(blade, spirit={"nature": "loyal", "bond": 0.5, "master": me, "known_by": [me]})
     commit(world, gear.wield_events(world, me, blade, here))
-    assert average(lambda: fighter_for(world, me, art), n=50) <= 1.10 * plain + 0.0003
+    assert fine_average(lambda: fighter_for(world, me, art)) <= 1.10 * plain + 0.0003
 
 
 def test_the_heart_page_and_the_oath_menu_are_quick(game):
