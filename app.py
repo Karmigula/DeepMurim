@@ -12,6 +12,7 @@ import time
 from collections import deque
 from pathlib import Path
 
+from ai.narrate import MODE_WORDS, Narration
 from config import PALETTE, Config
 from debug.invariants import NARRATIVE, check_turn, check_world
 from debug.reports import write_bug_report, write_crash_report
@@ -47,7 +48,8 @@ def slug(name: str) -> str:
 
 
 class App:
-    def __init__(self, config: Config, saves_dir: Path, settings_path: Path, logs_dir: Path | None = None) -> None:
+    def __init__(self, config: Config, saves_dir: Path, settings_path: Path, logs_dir: Path | None = None,
+                 bridge=None) -> None:
         self.config = config
         self.saves_dir = Path(saves_dir)
         self.settings_path = Path(settings_path)
@@ -82,6 +84,7 @@ class App:
         self.sheet_visible = False
         self.report_note = ""
         self._recent_narration: deque[str] = deque(maxlen=4)
+        self.narration = Narration(bridge, config.ai_mode)  # phase 6: Claude's prose, F1
 
     # --- saves --------------------------------------------------------------
     def latest_save(self) -> Path | None:
@@ -193,7 +196,9 @@ class App:
             self.form_index = (self.form_index + delta) % len(FORMS)
 
     def _game_key(self, key: str, text: str) -> None:
-        if key == "f2":
+        if key == "f1":
+            self._cycle_ai()
+        elif key == "f2":
             self.config.art_side = "right" if self.config.art_side == "left" else "left"
             self._save_settings()
         elif key == "f3":
@@ -282,10 +287,32 @@ class App:
             self._close_game()
             self.state, self.name, self.message = "name", "", ""
 
+    def _cycle_ai(self) -> None:
+        mode = self.narration.cycle()
+        why = self.narration.unavailable() if mode != "off" else None
+        if why is not None:
+            self.narration.mode = mode = "off"
+            self.log.append((f"Claude's prose cannot be used: {why}.", "system"))
+        else:
+            self.log.append((MODE_WORDS[mode] + ".", "system"))
+        self.config.ai_mode = mode
+        self._save_settings()
+
+    def poll(self) -> None:
+        """Every frame: Claude's prose for the last turn, if it has come (phase 6)."""
+        if self.game is None or self.narration.pending is None and not getattr(self.narration.bridge, "just_paused", False):
+            return
+        waiting = self.narration.pending
+        self.log.extend(self.narration.poll(self.log, self.game))
+        if waiting is not None and self.narration.pending is None:
+            self._record("ai", job="narrate", refused=self.narration.refused)
+
     def _show(self, turn: Turn) -> None:
+        self.narration.settle(self.log)  # a turn left before its prose came keeps its own text
         if self.log:
             self.log.append(("", "default"))
         self.log.extend(turn.lines)
+        start = len(self.log) - len(turn.lines)
         self.choices = turn.choices
         self.extra = turn.extra
         self.art = render_request(turn.art, self.config.art_width, self.config.art_height)
@@ -297,7 +324,10 @@ class App:
             choices=[c.label for c in turn.choices], status=turn.status, art=turn.art,
         )
         self._check(turn)
+        before = len(self.log)
         del self.log[:-MAX_LOG]
+        if self.game is not None:
+            self.narration.start(self.log, start - (before - len(self.log)), turn, self.game)
 
     def _check(self, turn: Turn) -> None:
         try:
@@ -374,6 +404,7 @@ class App:
             self.session.record(kind, **data)
 
     def _close_game(self) -> None:
+        self.narration.pending = None
         if self.game is not None:
             self.game.close()
             self.game = None
@@ -381,10 +412,12 @@ class App:
             self.session.close()
 
     def _save_settings(self) -> None:
-        save_values({"art_side": self.config.art_side, "show_art": self.config.show_art}, self.settings_path)
+        save_values({"art_side": self.config.art_side, "show_art": self.config.show_art,
+                     "ai_mode": self.config.ai_mode}, self.settings_path)
 
     def shutdown(self) -> None:
         self._close_game()
+        self.narration.close()
 
     # --- debug kit ----------------------------------------------------------------
     def debug_context(self, where: str = "") -> dict:

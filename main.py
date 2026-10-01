@@ -81,6 +81,7 @@ def run(smoke_png: str | None = None) -> None:
                             screen.toggle_fullscreen()
                     else:
                         app.handle_key(key, event.unicode, repeat=repeat)
+            app.poll()  # Claude's prose, when it comes (phase 6)
             screen.draw(app.grid(screen.cols, screen.rows))
             screen.present()
             consecutive_crashes = 0

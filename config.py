@@ -22,6 +22,7 @@ PALETTE: dict[str, Color] = {
     "purple": (165, 115, 195),
     "rule": (70, 70, 80),
     "heading": (225, 185, 85),  # UI headings: gold, but never counted as prose
+    "prose": (215, 205, 175),  # Claude's prose (phase 6): a soft parchment, apart from the engine's own lines
 }
 
 
@@ -37,6 +38,7 @@ class Config:
     art_height: int = 18
     art_side: str = "left"
     show_art: bool = True
+    ai_mode: str = "off"  # phase 6: off | assist | ai_only (F1)
 
 
 def config_from(values: dict) -> Config:
@@ -46,4 +48,6 @@ def config_from(values: dict) -> Config:
         config.art_side = values["art_side"]
     if isinstance(values.get("show_art"), bool):
         config.show_art = values["show_art"]
+    if values.get("ai_mode") in ("off", "assist", "ai_only"):
+        config.ai_mode = values["ai_mode"]
     return config
