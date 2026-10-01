@@ -179,7 +179,7 @@ Typed text goes, in order, to: the existing command parser (an exact command: th
 Measured in 6a and its probes:
 - a prose call through `claude -p` takes about 4 s;
 - a Sonnet intent with the MCP tools takes 15-30 s: most of it is the reply's length and each tool round trip; the lookups themselves take under 20 ms; each call also starts the CLI and a fresh MCP server (1-2 s);
-- OpenCode (`opencode run --pure --format json`) answers too, but sends about 100,000 tokens of its own prompt and tools a call unless given a lean agent.
+- OpenCode (`opencode run --format json`) answers too, with about 100,000 tokens of its own prompt a call; its free models answer only to its own agent.
 
 ### 13.1 Two backends (`ai/backends.py`)
 Every job (prose; 6c's intent and dialogue) goes through one interface: `call(job, prompt) -> dict | None`, with 6a's failure rules (any failure returns None; three in a row pause the backend five minutes).
@@ -187,7 +187,11 @@ Every job (prose; 6c's intent and dialogue) goes through one interface: `call(jo
   - One session is kept open for the game (no start-up per call); prose may arrive streamed, word by word.
   - `ANTHROPIC_API_KEY` is removed from the SDK's environment (it would switch Claude Code to API billing); the Connect screen warns if it is set.
   - DeepMurim never takes a subscription login itself, nor reuses Claude Code's stored token: the login is Claude Code's.
-- **OpenCode** through `opencode run --pure --format json -m <provider/model>`, with a lean agent of no built-in tools (an `opencode.json` DeepMurim writes beside the session). OpenCode has no schema flag: the prompt asks for the job's JSON and the game parses the last text part, then checks it with 6a's `conforms`.
+- **OpenCode** through `opencode run --attach <a warm server> --format json -m <provider/model>`.
+  - While the AI is on, DeepMurim keeps a hidden `opencode serve` running on localhost and attaches every call to it: measured, a free model's paragraph takes about 8 s once warm (15 s cold, 18 s with no server).
+  - OpenCode's own agent is used: its free tier refuses any other agent ("OpenCode's free tier can only be used from within OpenCode"), so the lean agent first proposed is out, and each call carries OpenCode's own prompt.
+  - `opencode.exe` is run directly, never the npm `.cmd` shim: `cmd.exe` reads `<` and `>` in the prompt as redirections, and a timeout could not end the process tree.
+  - OpenCode has no schema flag: the prompt asks for the job's JSON and the game parses the last text part, then checks it with 6a's `conforms`.
 
 ### 13.2 The AI menu (F1)
 F1 opens a menu (it no longer cycles):
