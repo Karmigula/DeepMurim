@@ -97,7 +97,7 @@ HELP = [
     ("  heart | swear <oath> | respects | face | bury | turn back: the dao heart", "system"),
     ("  endure | shelter | face | bury: heaven's tribulation, wave by wave", "system"),
     ("  temple | alms | incense | fortune: karma, and heaven's patience", "system"),
-    ("  F1 Claude's prose | F2 swap art side | F3 hide art | F4 character sheet | F9 report a bug | F12 debug | Esc menu",
+    ("  F1 the AI | F2 swap art side | F3 hide art | F4 character sheet | F9 report a bug | F12 debug | Esc menu",
      "system"),
 ]
 

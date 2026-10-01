@@ -380,3 +380,26 @@ not, states a number it did not, or drops one it did. The modes are `off`, `assi
 `ai_mode`).
 
 **Tests that call the real CLI** are marked `live` and also need `DEEPMURIM_LIVE=1`; no ordinary run makes one.
+
+## 17. Two backends, the AI menu, one MCP server (phase 6b)
+
+**Backends** (`ai/backends.py`): every job goes through `call(job, prompt) -> dict | None`, with 6a's rules (any
+failure is None; three in a row pause it). `ClaudeCode` runs Claude Code through the Agent SDK on the player's own
+login (their plan), one client per job kept open, each call a fresh session, `ANTHROPIC_API_KEY` taken out of its
+environment. `OpenCode` keeps a hidden `opencode serve` warm and attaches each `opencode run` to it, with
+OpenCode's own agent (its free models answer no other), calling `opencode.exe` directly, never the `.cmd` shim; the
+job's JSON shape rides in the message, and the last text part is parsed. A new backend subclasses `Backend` and
+implements `_ask(job, prompt) -> (reply, error)`.
+
+**The AI menu** (`ai/menu.py`, F1): the mode, the backend, a model for prose and one for typed actions and talk
+(6c). OpenCode lists only its free models (`ai/models.py` reads `opencode models --verbose` and keeps those of cost
+0). The Connect page tells whether each backend is installed, warns of `ANTHROPIC_API_KEY`, and gives the
+copy-paste setup for reaching DeepMurim's MCP server from one's own Claude Code or OpenCode.
+
+**The MCP server** (`mcp_server/live.py`, `LiveServer`): one, over streamable HTTP on localhost, while the AI is on;
+`build(save, fresh=True)` opens the save anew on every request (the game writes meanwhile).
+
+**Prefetch** (`ai/prefetch.py`): for 6c's typed actions and talk, the people here, what those in play remember, and
+what anyone here holds touching the words typed (with the `tell` handles), put in the prompt so the model rarely
+needs a tool.
+
