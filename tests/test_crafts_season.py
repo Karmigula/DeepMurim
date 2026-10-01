@@ -39,6 +39,20 @@ def average(fn, n=10) -> float:
     return (time.process_time() - start) / n
 
 
+def fine_average(fn, n=50, rounds=5) -> float:
+    """Wall time per call, the best of a few rounds: for calls far shorter than one tick of Windows' CPU clock
+    (15.6 ms), which made the averaged CPU time read 0 one round and a whole tick the next."""
+    fn()
+    gc.collect()
+    best = float("inf")
+    for _ in range(rounds):
+        start = time.perf_counter()
+        for _ in range(n):
+            fn()
+        best = min(best, (time.perf_counter() - start) / n)
+    return best
+
+
 def test_the_fork_guide_covers_the_crafts():
     guide = Path("docs/world-events.md").read_text(encoding="utf-8")
     for word in ("materials.toml", "formations.toml", "forge_mastery", "knows_formation", "formations", "flags",
@@ -82,10 +96,10 @@ def test_a_season_of_two_hundred_npcs_stays_within_a_tenth_of_5cs(game, monkeypa
 
 def test_a_fighter_inside_an_array_is_quick_to_weigh(game):
     world, me = game.world, game.player.id
-    plain = average(lambda: fighter_for(world, me, None), n=50)
+    plain = fine_average(lambda: fighter_for(world, me, None))
     FM.place_formation(world, game.place.id, "killing", me, 1.0)
     FM.place_formation(world, game.place.id, "confusion", me, 1.0)
-    assert average(lambda: fighter_for(world, me, None), n=50) <= 1.10 * plain + 0.0003
+    assert fine_average(lambda: fighter_for(world, me, None)) <= 1.10 * plain + 0.0003
 
 
 def test_the_crafts_anvil_and_meet_menus_are_quick(game):

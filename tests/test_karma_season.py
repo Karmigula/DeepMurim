@@ -39,6 +39,20 @@ def average(fn, n=10) -> float:
     return (time.process_time() - start) / n
 
 
+def fine_average(fn, n=50, rounds=5) -> float:
+    """Wall time per call, the best of a few rounds: for calls far shorter than one tick of Windows' CPU clock
+    (15.6 ms), which made the averaged CPU time read 0 one round and a whole tick the next."""
+    fn()
+    gc.collect()
+    best = float("inf")
+    for _ in range(rounds):
+        start = time.perf_counter()
+        for _ in range(n):
+            fn()
+        best = min(best, (time.perf_counter() - start) / n)
+    return best
+
+
 def test_the_fork_guide_covers_karma():
     guide = Path("docs/world-events.md").read_text(encoding="utf-8")
     for word in ("karma_deeds.toml", "`karma = {merit", "threads", "ROAD_HOOKS", "`tribulation = {",
@@ -85,13 +99,13 @@ def test_a_journey_with_twelve_threads_is_quick(game, monkeypatch):
     from world.gen.materialize import ensure_town
     import systems.travel as travel
     town = world.entity(ensure_town(world, *travel.routes_from(world, game.place)[0].dest))
-    plain = average(lambda: encounters.road_encounter_events(world, me, town), n=50)
+    plain = fine_average(lambda: encounters.road_encounter_events(world, me, town))
     for n in range(12):
         pid = world.add_entity("person", f"Thread {n}", {"occupation": "tea seller", "realm": "mortal", "age": 30})
         world.relate(pid, game.place.id, "located_in")
         TH.add_thread(world, me, pid, "robbed")
     monkeypatch.setattr(TH, "FATE_CHANCE", 0.0)  # every thread weighed, none met
-    assert average(lambda: encounters.road_encounter_events(world, me, town), n=50) <= 1.10 * plain + 0.0003
+    assert fine_average(lambda: encounters.road_encounter_events(world, me, town)) <= 1.10 * plain + 0.0003
 
 
 def test_the_tribulation_scene_and_the_temple_are_quick(game):
