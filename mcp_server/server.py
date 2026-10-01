@@ -16,36 +16,48 @@ INSTRUCTIONS = ("Read-only views of a DeepMurim world, as the player knows it. N
                 "them. Nothing here changes the world.")
 
 
-def build(save) -> MCPServer:
-    view = T.View(World.open_readonly(save))
+def build(save, fresh: bool = False) -> MCPServer:
+    """The server over one save. `fresh`: every request opens the save anew (phase 6b's long-lived server, while
+    the game writes); else one view for a single `claude -p` call."""
+    held = None if fresh else T.View(World.open_readonly(save))
+
+    def ask(tool, *args):
+        if held is not None:
+            return tool(held, *args)
+        world = World.open_readonly(save)
+        try:
+            return tool(T.View(world), *args)
+        finally:
+            world.close()
+
     server = MCPServer("deepmurim", instructions=INSTRUCTIONS)
 
     def sheet() -> str:
-        return T.sheet(view)
+        return ask(T.sheet)
 
     def known_people() -> str:
-        return T.known_people(view)
+        return ask(T.known_people)
 
     def person(name: str) -> str:
-        return T.person(view, name)
+        return ask(T.person, name)
 
     def memories_of(name: str) -> str:
-        return T.memories_of(view, name)
+        return ask(T.memories_of, name)
 
     def beliefs_of(name: str, topic: str = "") -> str:
-        return T.beliefs_of(view, name, topic)
+        return ask(T.beliefs_of, name, topic)
 
     def rumours(topic: str = "") -> str:
-        return T.rumours(view, topic)
+        return ask(T.rumours, topic)
 
     def chronicle(query: str = "", limit: int = 10) -> str:
-        return T.chronicle(view, query, limit)
+        return ask(T.chronicle, query, limit)
 
     def factions() -> str:
-        return T.factions(view)
+        return ask(T.factions)
 
     def place() -> str:
-        return T.place(view)
+        return ask(T.place)
 
     for fn, tool in zip((sheet, known_people, person, memories_of, beliefs_of, rumours, chronicle, factions, place),
                         T.TOOLS):

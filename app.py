@@ -13,6 +13,7 @@ from collections import deque
 from pathlib import Path
 
 from ai.menu import AiMenu, make_backend
+from mcp_server.live import LiveServer
 from ai.narrate import MODE_WORDS, Narration
 from config import PALETTE, Config
 from debug.invariants import NARRATIVE, check_turn, check_world
@@ -87,6 +88,7 @@ class App:
         self._recent_narration: deque[str] = deque(maxlen=4)
         self.narration = Narration(bridge, config.ai_mode, factory=self._backend)  # phase 6: the model's prose
         self.ai_menu: AiMenu | None = None  # phase 6b: F1
+        self.mcp: LiveServer | None = None  # phase 6b: the long-lived MCP server, while the AI is on
 
     # --- saves --------------------------------------------------------------
     def latest_save(self) -> Path | None:
@@ -201,7 +203,7 @@ class App:
         if self.ai_menu is not None:
             self._menu_key(key, text)
         elif key == "f1":
-            self.ai_menu = AiMenu(self.config)
+            self.ai_menu = AiMenu(self.config, mcp_url=lambda: self.mcp.url if self.mcp else None)
         elif key == "f2":
             self.config.art_side = "right" if self.config.art_side == "left" else "left"
             self._save_settings()
@@ -293,7 +295,26 @@ class App:
 
     def _backend(self):
         """The backend the settings name (phase 6b): Claude Code or OpenCode, with the chosen models."""
-        return make_backend(self.config, self.logs_dir / "opencode")
+        door = make_backend(self.config, self.logs_dir / "opencode")
+        door.mcp_url = self.mcp.url if self.mcp is not None else None
+        return door
+
+    def _ai_server(self) -> None:
+        """The MCP server runs while the AI is on and a game is open (spec 13.4)."""
+        wanted = self.game is not None and self.config.ai_mode != "off"
+        if wanted and self.mcp is None:
+            self.mcp = LiveServer(self.game.world.path)
+            try:
+                self.mcp.start()
+            except Exception as exc:  # the models answer without the tools: their prose needs none
+                self._record("ai_error", error=f"the MCP server did not start ({exc!r})")
+                self.mcp = None
+            door = self.narration._bridge
+            if door is not None and hasattr(door, "mcp_url"):
+                door.mcp_url = self.mcp.url if self.mcp else None
+        elif not wanted and self.mcp is not None:
+            self.mcp.stop()
+            self.mcp = None
 
     def _menu_key(self, key: str, text: str) -> None:
         if key in ("escape", "f1"):
@@ -322,6 +343,7 @@ class App:
             self.log.append((MODE_WORDS[mode] + ".", "system"))
         self.config.ai_mode = mode
         self._save_settings()
+        self._ai_server()
 
     def poll(self) -> None:
         """Every frame: Claude's prose for the last turn, if it has come (phase 6)."""
@@ -443,14 +465,19 @@ class App:
         """A saved mode Claude cannot serve is told, and turned off, as the game opens (6a minors)."""
         if self.narration.mode == "off":
             return
+        self._ai_server()
         why = self.narration.unavailable()
         if why is not None:
             self.narration.mode = self.config.ai_mode = "off"
             self.log.append((f"Claude's prose cannot be used: {why}.", "system"))
             self._save_settings()
+            self._ai_server()
 
     def _close_game(self) -> None:
         self.narration.reset()
+        if self.mcp is not None:
+            self.mcp.stop()
+            self.mcp = None
         if self.game is not None:
             self.game.close()
             self.game = None
