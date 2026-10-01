@@ -265,6 +265,22 @@ class World:
                 conn.execute(statement)
         return world
 
+    @classmethod
+    def open_readonly(cls, path) -> "World":
+        """A save opened for reading only (phase 6: the MCP server). Any write raises sqlite3.OperationalError,
+        so a read that would quietly create something (a seeded body, a recipe) fails loudly instead."""
+        path = Path(path)
+        if not path.is_file():
+            raise SaveError(f"No save at {path}")
+        # The MCP server answers in a worker thread; a read-only connection is safe to hand between threads.
+        conn = sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True, isolation_level=None,
+                               check_same_thread=False)
+        row = conn.execute("select value from meta where key = 'schema_version'").fetchone()
+        if row is None or json.loads(row[0]) != SCHEMA_VERSION:
+            conn.close()
+            raise SaveError(f"{path.name} is not a save this game reads")
+        return cls(conn, path)
+
     def _migrate(self, version: int) -> None:
         """Bring an older save up to SCHEMA_VERSION, all or nothing."""
         with self.transaction():
