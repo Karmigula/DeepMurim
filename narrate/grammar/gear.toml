@@ -40,3 +40,7 @@ lines = ["A hall falls quiet as the old blade comes home.", "The clan's elders b
 [blade_demanded]
 colour = "dim"
 lines = ["#steel_air#"]
+
+[blade_known]
+colour = "dim"  # the outcome says who knows the blade; the air only frames it
+lines = ["#steel_air#"]

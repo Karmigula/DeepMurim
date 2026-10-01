@@ -1,10 +1,10 @@
 # Progress
 
-Last updated 2026-09-28. `master` is at `af32a92` (Merge phase-5f).
+Last updated 2026-10-01. `master` is at the merge of `known-issues` (after phase 5f).
 
 ## Where things stand
 
-Phases 1 to 5 are done and merged. The suite has 1572 tests plus the 500-year soak (`pytest -m slow`), and all of them pass.
+Phases 1 to 5 are done and merged. The suite has 1571 tests plus the 500-year soak (`pytest -m slow`), and all of them pass.
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -35,11 +35,6 @@ See `CHANGELOG.md` for what each phase added.
 
 ## Deferred and known issues
 
-- **Flaky speed test.** 5c's season speed test (`test_a_season_of_two_hundred_npcs_stays_within_a_tenth_of_5bs`) fails about 1 run in 20 on a noisy machine.
-  - 5c's agenda costs about 6% against a 10% limit.
-  - The test now runs twenty rounds; the limit itself was left unchanged, pending a decision.
-- **Unused 4d function.** `tribulation.player_roll` is no longer used by the engine (5f plays tribulations in waves). Only its own test calls it.
-- **Missing grammar.** `blade_known` and `spy_reported` have outcomes but no grammar entry. They predate phase 5 and haven't tripped the rules, but narrating them directly would.
 - **Left for later** (from the phase 5 specs):
   - A pill as a fated repayment.
   - Flags forged from spirit iron.

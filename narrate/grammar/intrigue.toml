@@ -105,6 +105,10 @@ lines = ["#intrigue_air#"]
 colour = "dim"
 lines = ["#intrigue_air#"]
 
+[spy_reported]
+colour = "dim"
+lines = ["#intrigue_air#"]
+
 [plot_made]
 colour = "dim"
 lines = ["#intrigue_air#"]
