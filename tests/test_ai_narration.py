@@ -128,19 +128,19 @@ def test_the_same_turn_is_not_asked_twice(tmp_path):
 
 def test_f1_cycles_the_mode_and_remembers_it(tmp_path):
     app, fake = make_app(tmp_path, mode="off")
-    app.handle_key("f1", "")
+    cycle_mode(app)
     assert app.narration.mode == "assist" and app.log[-1] == ("AI prose: procedural first, then Claude's.", "system")
-    app.handle_key("f1", "")
-    app.handle_key("f1", "")
+    cycle_mode(app)
+    cycle_mode(app)
     assert app.narration.mode == "off"
-    app.handle_key("f1", "")
+    cycle_mode(app)
     assert json.loads((tmp_path / "settings.json").read_text())["ai_mode"] == "assist"
     app.shutdown()
 
 
 def test_without_claude_the_modes_stay_off_and_say_why(tmp_path):
     app, fake = make_app(tmp_path, mode="off", available=False)
-    app.handle_key("f1", "")
+    cycle_mode(app)
     assert app.narration.mode == "off"
     assert app.log[-1] == ("Claude's prose cannot be used: the claude command is not installed.", "system")
     app.shutdown()
@@ -154,3 +154,10 @@ def test_a_pause_is_told_once(tmp_path):
     app.poll()
     assert sum("rests for five minutes" in text for text, _ in app.log) == 1
     app.shutdown()
+
+
+def cycle_mode(app):
+    """F1 opens the AI menu (phase 6b); its first line cycles the mode; Esc closes it."""
+    app.handle_key("f1", "")
+    app.handle_key("1", "1")
+    app.handle_key("escape", "\x1b")

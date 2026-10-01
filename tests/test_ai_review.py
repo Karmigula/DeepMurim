@@ -129,7 +129,7 @@ def test_a_logged_out_claude_turns_the_prose_off_and_says_why(tmp_path):
     wait(app)
     assert app.narration.mode == "off" and app.config.ai_mode == "off"
     assert any("not logged in" in text for text, _ in app.log)
-    app.handle_key("f1", "")
+    cycle_mode(app)
     assert app.narration.mode == "off"  # F1 now says why and stays off
     app.shutdown()
 
@@ -184,3 +184,10 @@ def test_the_pack_and_the_tools_stay_quick_in_a_world_of_two_centuries(tmp_path)
                  lambda: T.chronicle(view, "", 10), lambda: T.factions(view), lambda: T.place(view)):
         assert per_call(tool, 3) < 0.03
     game.close()
+
+
+def cycle_mode(app):
+    """F1 opens the AI menu (phase 6b); its first line cycles the mode; Esc closes it."""
+    app.handle_key("f1", "")
+    app.handle_key("1", "1")
+    app.handle_key("escape", "\x1b")

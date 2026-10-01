@@ -69,8 +69,9 @@ class Pending:
 
 
 class Narration:
-    def __init__(self, bridge: Bridge | None = None, mode: str = "off") -> None:
+    def __init__(self, bridge: Bridge | None = None, mode: str = "off", factory=None) -> None:
         self._bridge = bridge
+        self._factory = factory  # makes the backend the settings name (phase 6b); a plain Bridge without one
         self.mode = mode if mode in MODES else "off"
         self.job = narrate_job()
         self.cache: dict[tuple, str] = {}
@@ -83,8 +84,14 @@ class Narration:
     @property
     def bridge(self) -> Bridge:
         if self._bridge is None:
-            self._bridge = Bridge()
+            self._bridge = self._factory() if self._factory is not None else Bridge()
         return self._bridge
+
+    def set_backend(self, backend) -> None:
+        """Another backend (phase 6b's menu): the old one is closed; None makes the next use build anew."""
+        old, self._bridge = self._bridge, backend
+        if old is not None and old is not backend and hasattr(old, "close"):
+            old.close()
 
     def cycle(self) -> str:
         self.mode = MODES[(MODES.index(self.mode) + 1) % len(MODES)]
@@ -98,6 +105,8 @@ class Narration:
     def close(self) -> None:
         """Nothing to wait for: a request still out runs on a daemon thread and dies with the game."""
         self.pending = None
+        if self._bridge is not None and hasattr(self._bridge, "close"):
+            self._bridge.close()  # a warm OpenCode server, an open Claude Code session
 
     def reset(self) -> None:
         """A game is closed: its prose is no one else's (6a minors)."""
