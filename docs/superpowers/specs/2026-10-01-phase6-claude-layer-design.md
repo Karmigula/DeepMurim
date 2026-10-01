@@ -1,9 +1,9 @@
 # DeepMurim Phase 6: The Claude Layer
 
-**Status:** design approved in brainstorming (2026-10-01); amended after 6a (§13). Phase 6 is three sub-phases, each with its own plan and merge:
+**Status:** design approved in brainstorming (2026-10-01); amended after 6a (§13) and after 6b (§14). Phase 6 is three sub-phases, each with its own plan and merge:
 - **6a** the foundation and narration: the bridge, the state pack, the MCP server, the AI narrator and its modes (done);
-- **6b** the infrastructure, per §13: two backends (Claude Code through the Agent SDK, and OpenCode), the AI menu, the Connect screen, one long-lived MCP server, prefetch, and a paragraph of prose;
-- **6c** free intents, free dialogue and validated proposals (§7, §9).
+- **6b** the infrastructure, per §13: two backends (Claude Code through the Agent SDK, and OpenCode), the AI menu, the Connect screen, one long-lived MCP server, prefetch, and a paragraph of prose (done);
+- **6c** free intents, free dialogue and validated proposals (§7, §9, as amended by §14).
 
 Builds on master at 40776b6 (phases 1-5 done):
 - phase 1's seams: `narrate/base.py` (`Narrator`), `narrate/brief.py` (`Brief.to_prompt`), `narrate/proposals.py` (`Proposal`, `Verdict`, `Validator`, `RejectAll`);
@@ -222,3 +222,94 @@ Every job writes a paragraph (about 3-6 sentences), narration included. The guar
 - The long-lived server: started, answers over HTTP, re-reads the save, stops; never writes.
 - The menu, the Connect screen, the free-model filter (on recorded `--verbose` output), the API-key warning.
 - Live tests (marked `live`, `DEEPMURIM_LIVE=1`): one Agent SDK round trip; one OpenCode round trip on a free model.
+
+## 14. Amendment after 6b (2026-10-01): 6c, typed actions and free talk
+
+Where this section differs from §7-§11, this section stands. Calls go through 6b's backends (§13.1), never `claude -p`.
+
+Measured before writing it: a typed action with the pack and the prefetch, about 2,200 characters, asking for a paragraph and proposals.
+
+| Backend | Time a call | Answered |
+|---|---|---|
+| Claude Code, Sonnet 5 | 9.3 s with the connect, then 5.4 s and 6.9 s | 3 of 3 |
+| OpenCode, a free model | 61 s (timed out, with the server's cold start), 55 s, 13 s | 2 of 3 |
+
+Unasked, the model proposed too much: a `minor_npc` in every Claude Code reply, and both `pay` and `give` for one cup of tea.
+
+### 14.1 The router
+Typed text goes, in order:
+1. An exact command: the engine acts, and no AI is asked (as today).
+2. In a conversation: a line said to that person (the dialogue job, §14.4).
+3. Otherwise: a typed action (the intent job, §14.3).
+4. With the AI off, or its backend unavailable: today's "unknown command" line, and nothing is asked.
+
+### 14.2 Waiting
+A typed action changes the world, so the turn waits for its answer.
+- **Input pauses.** Under the typed line, an animated line shows "…" and the backend's name: a qi swirl, `· ∘ ○ ◎ ○ ∘`, at about 8 frames a second. It is drawn from the clock in the 30 fps redraw that already runs, so it costs no more work.
+- **Esc cancels.** Nothing happens, the typed line is struck through, and input returns. A reply that comes after is dropped.
+- **Timeouts:** 30 s on Claude Code; 90 s on OpenCode (its free tier measured 13-60 s).
+- **A timeout or any failure:** the world is unchanged, and the log says "You hesitate; nothing comes of it."
+
+### 14.3 Typed actions (the intent job)
+- **The model:** the menu's "Typed actions and talk" model (Sonnet 5 by default), on either backend.
+- **The prompt:**
+  1. the state pack (6a);
+  2. the prefetch (§13.5);
+  3. the last 3 paragraphs shown;
+  4. this turn's valid choices, as words;
+  5. the typed line.
+- **The tools:** the MCP tools are attached, and the prompt says to use one only for what the prompt lacks.
+- **The reply:** `{"prose": "...", "proposals": [...]}`.
+  - The prose is one paragraph (§13.6).
+  - At most 4 proposals.
+  - The prompt says: "propose only what the typed action itself causes; most actions cause one change or none."
+
+### 14.4 Free talk (the dialogue job)
+In a conversation, any typed line that is not a command is said to that person; there is no free-talk mode, and §7.2's "Talk freely" choice and `/back` are dropped.
+- **Ending it:** the numbered choices stay, and farewell ends the conversation as before.
+- **The prompt:** as §14.3, plus that person as known (`person`) and the last 8 lines of this conversation.
+- **The reply:** `{"reply": "...", "summary": "...", "proposals": [...]}`.
+  - The reply is the person's answer, in a paragraph.
+  - The summary is one line, checked by the guard.
+- **Memory:** each exchange is committed as a `talked` event (actors: the player and that person) carrying the summary, so they remember it. Later briefs, talk and gossip draw on it.
+- **Proposals:** every kind except `action` and `minor_npc`.
+
+### 14.5 Proposals: no retry
+The vocabulary and its limits are §7.4's, with these changes:
+- **No retry.** Accepted proposals are committed. Rejected ones are dropped, and their reasons go to the F12 overlay and the bug report.
+- **Tighter limits:**
+  - `minor_npc`: at most 1 a typed line, 2 a visit and 6 a town;
+  - `feeling`: at most 1 per person a line.
+- **An `action` proposal** runs the engine's choice as if chosen. Its own engine lines follow §14.6, and no second narration call is made for them.
+- **A `deed`** is judged by its tone through the existing rules: reputation, the dao heart (5e), karma (5f).
+- The guard (§6) checks every paragraph and summary against the accepted proposals only.
+
+### 14.6 What is shown
+- **The AI's paragraph** is the turn's text.
+- **Each accepted change** is also shown as a short engine line, such as "Tang Jin: -2 silver to you" or "Jin Yunhyun is grateful":
+  - in **assist**, they are shown;
+  - in **AI only**, they are hidden, and only the paragraph is read.
+- **A refused paragraph:** if the guard refuses it (for instance, it tells of a payment that was rejected), the engine lines of what really happened are shown instead, followed by "You try, but it does not go as you meant."
+
+### 14.7 Debug rules
+- **`check_ai`:** every `ai: true` event carries an accepted proposal of the vocabulary, within its limits.
+- **The F12 overlay** shows the last typed line, its job, each proposal's verdict, and the time taken.
+
+### 14.8 Speed
+- With the AI off, a typed line costs nothing more.
+- The prompt (the pack and the prefetch) is built in under 20 ms; the validator runs in under 5 ms.
+- The animation is drawn from the clock and adds no work.
+
+### 14.9 Testing (6c)
+- **`FakeClaude` drives all of these:**
+  - the router;
+  - the wait, Esc and the timeout;
+  - each proposal kind, accepted and rejected at its limits;
+  - the guard against the accepted proposals;
+  - assist and AI only;
+  - a `talked` event remembered in a later brief;
+  - `check_ai`.
+- **Fuzz:** random typed lines with random proposals, valid and invalid. There is no crash, no broken invariant, and no state that was not validated.
+- **Live** (marked `live`, `DEEPMURIM_LIVE=1`): one typed action and one talk line, on Claude Code and on OpenCode.
+- **The fork guide:** how to add a proposal kind.
+- **The draft** on the branch `wip-6c-deeds` (`ai/validate.py`, `ai/deeds.py`, `narrate/ai_text.py`) is the starting point of the first task.
