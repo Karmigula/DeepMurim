@@ -12,6 +12,7 @@ import time
 from collections import deque
 from pathlib import Path
 
+from ai.narrate import MODE_WORDS, Narration
 from config import PALETTE, Config
 from debug.invariants import NARRATIVE, check_turn, check_world
 from debug.reports import write_bug_report, write_crash_report
@@ -47,7 +48,8 @@ def slug(name: str) -> str:
 
 
 class App:
-    def __init__(self, config: Config, saves_dir: Path, settings_path: Path, logs_dir: Path | None = None) -> None:
+    def __init__(self, config: Config, saves_dir: Path, settings_path: Path, logs_dir: Path | None = None,
+                 bridge=None) -> None:
         self.config = config
         self.saves_dir = Path(saves_dir)
         self.settings_path = Path(settings_path)
@@ -82,6 +84,7 @@ class App:
         self.sheet_visible = False
         self.report_note = ""
         self._recent_narration: deque[str] = deque(maxlen=4)
+        self.narration = Narration(bridge, config.ai_mode)  # phase 6: Claude's prose, F1
 
     # --- saves --------------------------------------------------------------
     def latest_save(self) -> Path | None:
@@ -193,7 +196,9 @@ class App:
             self.form_index = (self.form_index + delta) % len(FORMS)
 
     def _game_key(self, key: str, text: str) -> None:
-        if key == "f2":
+        if key == "f1":
+            self._cycle_ai()
+        elif key == "f2":
             self.config.art_side = "right" if self.config.art_side == "left" else "left"
             self._save_settings()
         elif key == "f3":
@@ -282,10 +287,38 @@ class App:
             self._close_game()
             self.state, self.name, self.message = "name", "", ""
 
+    def _cycle_ai(self) -> None:
+        mode = self.narration.cycle()
+        if mode == "off":
+            self.narration.settle(self.log)  # the turn still waiting keeps the engine's words (6a minors)
+        why = self.narration.unavailable() if mode != "off" else None
+        if why is not None:
+            self.narration.mode = mode = "off"
+            self.log.append((f"Claude's prose cannot be used: {why}.", "system"))
+        else:
+            self.log.append((MODE_WORDS[mode] + ".", "system"))
+        self.config.ai_mode = mode
+        self._save_settings()
+
+    def poll(self) -> None:
+        """Every frame: Claude's prose for the last turn, if it has come (phase 6)."""
+        bridge = self.narration._bridge  # never made just to be asked: off costs nothing
+        if self.game is None or self.narration.pending is None and not getattr(bridge, "just_paused", False):
+            return
+        waiting = self.narration.pending
+        self.log.extend(self.narration.poll(self.log, self.game))
+        if waiting is not None and self.narration.pending is None:
+            self._record("ai", job="narrate", **self.narration.last)
+        if self.narration.mode != self.config.ai_mode:  # Claude turned itself off: logged out
+            self.config.ai_mode = self.narration.mode
+            self._save_settings()
+
     def _show(self, turn: Turn) -> None:
+        self.narration.settle(self.log)  # a turn left before its prose came keeps its own text
         if self.log:
             self.log.append(("", "default"))
         self.log.extend(turn.lines)
+        start = len(self.log) - len(turn.lines)
         self.choices = turn.choices
         self.extra = turn.extra
         self.art = render_request(turn.art, self.config.art_width, self.config.art_height)
@@ -297,7 +330,14 @@ class App:
             choices=[c.label for c in turn.choices], status=turn.status, art=turn.art,
         )
         self._check(turn)
+        before = len(self.log)
         del self.log[:-MAX_LOG]
+        if self.game is not None:
+            try:
+                self.narration.start(self.log, start - (before - len(self.log)), turn, self.game)
+            except Exception as exc:  # Claude's layer never breaks a turn (6a review)
+                self.narration.pending = None
+                self._record("ai_error", error=repr(exc))
 
     def _check(self, turn: Turn) -> None:
         try:
@@ -329,6 +369,7 @@ class App:
                                creation=creation.to_dict(), snapshot=str(snapshot))
             self.log = []
             self._show(self.game.start())
+            self._ai_at_start()
             self.state = "game"
             return
         path = self.saves_dir / f"{slug(name)}-{time.time_ns()}.world"
@@ -338,6 +379,7 @@ class App:
         self._open_session(mode="new", player=name, seed=self.game.world.world_seed, creation=creation.to_dict())
         self.log = []
         self._show(self.game.start())
+        self._ai_at_start()
         self.state = "game"
 
     def open_save(self, path: Path | None) -> bool:
@@ -361,6 +403,7 @@ class App:
         self.game, self.save_path, self.log, self.message = game, Path(path), [], ""
         self._open_session(mode="continue", player=game.player.name, seed=game.world.world_seed, snapshot=str(snapshot))
         self._show(game.start())
+        self._ai_at_start()
         self.state = "game"
         return True
 
@@ -373,7 +416,18 @@ class App:
         if self.session is not None:
             self.session.record(kind, **data)
 
+    def _ai_at_start(self) -> None:
+        """A saved mode Claude cannot serve is told, and turned off, as the game opens (6a minors)."""
+        if self.narration.mode == "off":
+            return
+        why = self.narration.unavailable()
+        if why is not None:
+            self.narration.mode = self.config.ai_mode = "off"
+            self.log.append((f"Claude's prose cannot be used: {why}.", "system"))
+            self._save_settings()
+
     def _close_game(self) -> None:
+        self.narration.reset()
         if self.game is not None:
             self.game.close()
             self.game = None
@@ -381,10 +435,12 @@ class App:
             self.session.close()
 
     def _save_settings(self) -> None:
-        save_values({"art_side": self.config.art_side, "show_art": self.config.show_art}, self.settings_path)
+        save_values({"art_side": self.config.art_side, "show_art": self.config.show_art,
+                     "ai_mode": self.config.ai_mode}, self.settings_path)
 
     def shutdown(self) -> None:
         self._close_game()
+        self.narration.close()
 
     # --- debug kit ----------------------------------------------------------------
     def debug_context(self, where: str = "") -> dict:
@@ -448,8 +504,26 @@ class App:
             lines.append(("", "default"))
         if not briefs:
             lines.append(("  (none this turn)", "dim"))
+        lines += self._claude_lines()
         lines.append(("Recent violations:", "gold"))
         lines += [(f"  {v}", "red") for v in self.violations[-8:]] or [("  none", "dim")]
+        return lines
+
+    def _claude_lines(self) -> list:
+        """The overlay's account of Claude this turn (phase 6): the mode, the last exchange, why prose was refused."""
+        n = self.narration
+        lines = [(f"Claude: {n.mode}" + (" (waiting for prose)" if n.pending is not None else ""), "gold")]
+        why = n.unavailable() if n.mode != "off" else None
+        if why:
+            lines.append((f"  unavailable: {why}", "red"))
+        exchanges = list(getattr(n.bridge, "exchanges", [])) if n.mode != "off" or n._bridge is not None else []
+        if exchanges:
+            last = exchanges[-1]
+            lines.append((f"  last: {last.job}, {last.seconds:.1f} s, " + (f"failed: {last.error}" if last.error
+                          else f"replied: {str(last.reply)[:120]}"), "default"))
+        if n.refused:
+            lines.append((f"  prose refused: {n.refused}", "red"))
+        lines.append(("", "default"))
         return lines
 
     # --- drawing ----------------------------------------------------------------

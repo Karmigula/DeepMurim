@@ -5,7 +5,6 @@ knower's beliefs. Ground truth (the chronicle, facts.is_true, a persona's `of`)
 stays behind this layer; `of` is read only to ask "is the reader the wearer?".
 """
 
-from dataclasses import replace
 
 from world.db import Belief, Fact, World
 
@@ -55,9 +54,9 @@ def knowledge_of(world: World, knower_id: int) -> list[tuple[Belief, Fact]]:
     if town is None:
         return own
     held = {(b.fact_id, b.variant_key) for b, _ in own}
-    pool = [
-        (replace(b, knower=knower_id, source=town, hops=b.hops + 1,
-                 confidence=round(b.confidence * CONF_DECAY, 3), channel="gossip"), f)
+    pool = [  # built directly: dataclasses.replace cost five times as much over a town's thousands (6a review)
+        (Belief(knower_id, b.fact_id, b.variant_key, b.variant, town, round(b.confidence * CONF_DECAY, 3),
+                b.learned_at, b.hops + 1, "gossip"), f)
         for b, f in world.known_facts(town) if (b.fact_id, b.variant_key) not in held
     ]
     return own + pool

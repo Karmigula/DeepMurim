@@ -1,10 +1,10 @@
 # Progress
 
-Last updated 2026-10-01. `master` is at the merge of `known-issues` (after phase 5f).
+Last updated 2026-10-01. `master` is at the merge of `phase-6a`.
 
 ## Where things stand
 
-Phases 1 to 5 are done and merged. The suite has 1571 tests plus the 500-year soak (`pytest -m slow`), and all of them pass.
+Phases 1 to 5 and 6a are done and merged. The suite has 1626 tests, plus two slow ones (`pytest -m slow`: the 500-year soak and a 200-year speed test) and one live Claude test (`-m live`); all of them pass.
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -18,7 +18,8 @@ Phases 1 to 5 are done and merged. The suite has 1571 tests plus the 500-year so
 | 5d | Forging and formations | Done |
 | 5e | The dao heart | Done |
 | 5f | Karma and tribulations, and the close of phase 5 | Done |
-| 6 | Not yet scoped | Next |
+| 6a | The Claude layer's foundation: the bridge, the state pack, the MCP server, Claude's prose | Done |
+| 6b | Free intents, free dialogue and validated proposals | Next |
 
 See `CHANGELOG.md` for what each phase added.
 
@@ -46,5 +47,6 @@ See `CHANGELOG.md` for what each phase added.
 
 - Play: `run.bat` on Windows (it makes `.venv` and installs `requirements.txt`), or `python main.py`.
 - Tests: `python -m pytest -q -p no:cacheprovider` (about 6 minutes).
+- Live Claude test: `DEEPMURIM_LIVE=1 python -m pytest -q -p no:cacheprovider -m live` (needs Claude Code installed and logged in).
 - Soak: `python -m pytest -q -p no:cacheprovider -m slow` (about 2 minutes).
 - The fork guide for adding world events, crafts and systems: `docs/world-events.md`.

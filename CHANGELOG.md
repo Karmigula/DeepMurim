@@ -2,6 +2,23 @@
 
 DeepMurim is built in phases. Each one has a design spec in `docs/superpowers/specs/` and a verified implementation plan in `docs/superpowers/plans/`. Each phase lands on `master` after a review round and a minors round. Newest first.
 
+## Phase 6a: The Claude layer's foundation, and Claude's prose (2026-10-01)
+
+Merged from `phase-6a`. Spec: `2026-10-01-phase6-claude-layer-design.md`. Plan: `2026-10-01-phase6a-claude-foundation.md`.
+
+### Added
+- **Claude's prose (F1).** Off by default. *Assist* shows the engine's text at once, then Claude's in its place; *AI only* shows "…" until Claude's prose comes. Any failure leaves the engine's text.
+  - One `claude -p` call per turn, run bare (no user settings, skills, hooks or MCP servers; thinking off): about 4 s and well under a cent a call, on the user's own Claude subscription.
+  - A guard refuses prose that names someone unheard of, makes up a name, states a number the turn did not carry, or drops one it did.
+  - Three failures in a row pause Claude for five minutes. A logged-out Claude Code turns the prose off and says to log in.
+- **The state pack.** What Claude is told of you: here, your limits, what you carry, lately, your sheet. Built only from what you could read yourself.
+- **A read-only MCP server** (`mcp_server/`), the world as its player knows it, for phase 6b's Claude jobs. It opens the save so that nothing can be written.
+- **Seeing it work.** The F12 overlay shows the mode, the last exchange and why prose was refused; bug reports keep each exchange.
+
+### Fixed
+- The 5d, 5e and 5f sub-tick speed tests are timed by the fine wall clock.
+- In a world of centuries, the chronicle of one person and the gossip of a town are read far faster (the journal and every attitude benefit).
+
 ## Phase 5f: Karma and tribulations, and the close of phase 5 (2026-09-28)
 
 Merged as `af32a92`. Spec: `2026-09-28-phase5f-karma-tribulations-design.md`.

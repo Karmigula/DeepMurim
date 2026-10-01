@@ -97,7 +97,8 @@ HELP = [
     ("  heart | swear <oath> | respects | face | bury | turn back: the dao heart", "system"),
     ("  endure | shelter | face | bury: heaven's tribulation, wave by wave", "system"),
     ("  temple | alms | incense | fortune: karma, and heaven's patience", "system"),
-    ("  F2 swap art side | F3 hide art | F4 character sheet | F9 report a bug | F12 debug | Esc menu", "system"),
+    ("  F1 Claude's prose | F2 swap art side | F3 hide art | F4 character sheet | F9 report a bug | F12 debug | Esc menu",
+     "system"),
 ]
 
 
@@ -108,6 +109,7 @@ class Game(KarmaMixin, TribulationMixin, HeartMixin, CraftsMixin, AlchemyWorldMi
         self.focus: int | None = None
         self.submenu: str | None = None
         self.last_briefs: list = []  # what the narrator was given this turn (debug overlay, invariants)
+        self._narrated: list = []  # the lines the narrator wrote this turn (phase 6)
         self.combat = None       # a systems.duel.Duel while fighting
         self.encounter = None    # a road encounter waiting for an answer (Task 7)
         self.challenger = None   # someone who just challenged the player (Task 7)
@@ -205,7 +207,7 @@ class Game(KarmaMixin, TribulationMixin, HeartMixin, CraftsMixin, AlchemyWorldMi
         return self.look()
 
     def look(self) -> Turn:
-        self.last_briefs = []
+        self.last_briefs, self._narrated = [], []
         if self.player.data.get("dying"):
             return self._turn(self._death_lines())  # the death screen, after a load (phase 4b)
         if self.combat is not None or self.encounter is not None or self.challenger is not None:
@@ -213,11 +215,12 @@ class Game(KarmaMixin, TribulationMixin, HeartMixin, CraftsMixin, AlchemyWorldMi
         return self._do_look(None)
 
     def perform(self, action: Action) -> Turn:
-        self.last_briefs = []
+        self.last_briefs, self._narrated = [], []
         gone = self._gone_meanwhile()  # someone who died since the last turn is no longer at your side
         if gone:
             turn = self.perform(action)
             turn.lines[:0] = gone
+            turn.narrated = [i + len(gone) for i in turn.narrated]  # the gone lines are the engine's own (6a review)
             return turn
         gate = self._gate(action)
         if gate is not None:
@@ -432,7 +435,9 @@ class Game(KarmaMixin, TribulationMixin, HeartMixin, CraftsMixin, AlchemyWorldMi
         for event_id, event in zip(ids, events):
             brief = event_brief(self.world, event_id, event)
             self.last_briefs.append(brief)
-            lines += self.narrator.narrate(brief)
+            told = self.narrator.narrate(brief)
+            self._narrated += told
+            lines += told
         lines += self._after_commit(ids, events)
         self._last_ids = ids  # reactions commit too; callers want their own events' ids
         return lines
@@ -440,7 +445,9 @@ class Game(KarmaMixin, TribulationMixin, HeartMixin, CraftsMixin, AlchemyWorldMi
     def _describe(self, salt: str) -> list[Line]:
         brief = scene_brief(self.world, self.place.id, self.player.id, salt)
         self.last_briefs.append(brief)
-        return self.narrator.narrate(brief)
+        told = self.narrator.narrate(brief)
+        self._narrated += told
+        return told
 
     def _presence(self) -> list[Line]:
         people = people_at(self.world, self.place.id, exclude=self.player.id)
@@ -557,4 +564,5 @@ class Game(KarmaMixin, TribulationMixin, HeartMixin, CraftsMixin, AlchemyWorldMi
     def _turn(self, lines: list[Line]) -> Turn:
         lines, self._pending = self._pending + lines, []
         shown, extra = self._choices()
-        return Turn(lines, shown, self._art(), self._status(), extra)
+        told = {id(line) for line in self._narrated}
+        return Turn(lines, shown, self._art(), self._status(), extra, [i for i, line in enumerate(lines) if id(line) in told])
