@@ -65,12 +65,12 @@ def test_a_season_of_two_hundred_npcs_stays_within_a_tenth_of_5ds(game, monkeypa
     def season(agendas) -> float:
         monkeypatch.setattr(lives, "AGENDAS", agendas)
         gc.collect()
-        start = time.process_time()
+        start = time.perf_counter()  # the fine wall clock: the CPU clock ticks in 15.6 ms steps on Windows
         try:
             with world.transaction():
                 for person in people:
                     lives.catch_up(world, person)
-                spent = time.process_time() - start
+                spent = time.perf_counter() - start
                 raise _Undo
         except _Undo:
             return spent
