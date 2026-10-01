@@ -22,7 +22,15 @@ def _names(world, kinds) -> set[str]:
 
 def allowed_people(world, player: int, place: int) -> set[str]:
     ids = set(known_people(world, player)) | {p.id for p in people_at(world, place)} | {player}
-    return {world.entity(i).name for i in ids if world.entity(i) is not None}
+    names = {world.entity(i).name for i in ids if world.entity(i) is not None}
+    own = world._conn.execute("select name from entities where kind = 'persona' and json_extract(data, '$.of') = ?",
+                              (player,))
+    return names | {row[0] for row in own}  # the player's own masks are no strangers (6a review)
+
+
+def _names_in(name: str, prose: str) -> bool:
+    """The name as a whole name, not inside a longer one ("Baek Yun" is not in "Baek Yunsu")."""
+    return name in prose and re.search(rf"(?<!\w){re.escape(name)}(?!\w)", prose) is not None
 
 
 def refusal(world, prose: str, player: int, place: int, given: str, needed: str = "") -> str | None:
@@ -30,10 +38,10 @@ def refusal(world, prose: str, player: int, place: int, given: str, needed: str 
     `needed` is the text it replaces: every number there (silver, merit, days) must be kept."""
     allowed = allowed_people(world, player, place)
     for name in _names(world, ("person", "persona")):
-        if name in prose and name not in allowed:
+        if name not in allowed and _names_in(name, prose):
             return f"it names {name}, whom you have not heard of"
     for name in _names(world, THINGS):
-        if len(name) > 3 and name in prose and name not in given:
+        if len(name) > 3 and name not in given and _names_in(name, prose):
             return f"it names {name}, which the turn did not"
     numbers = set(NUMBER.findall(given))
     stated = set(NUMBER.findall(prose))

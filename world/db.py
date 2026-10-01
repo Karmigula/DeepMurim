@@ -202,6 +202,7 @@ class World:
         self._listed: set[int] = set()  # handed out by entities(kind): checked DRIFT_WINDOW at a time, in id order
         self._drift_cursor = 0
         self._acquainted: dict[int, tuple[int, dict[int, int]]] = {}
+        self._about: dict[int, tuple[int, list[int]]] = {}  # chronicle ids per entity, scanned once (6a review)
 
     def _cached(self, key, compute):
         """Reuse a read until anything in the world changes (sqlite counts every row written)."""
@@ -492,12 +493,27 @@ class World:
         return [_entry(row) for row in rows]
 
     def chronicle_about(self, entity_id: int, limit: int = 20) -> list[ChronicleEntry]:
+        """This entity's latest chronicle entries, newest first. The chronicle only grows, so the ids of an
+        entity's entries are remembered and only newer rows scanned: in a world of centuries a newcomer's few
+        entries no longer cost a scan of every row each time (phase 6a review)."""
+        seen_to, ids = self._about.get(entity_id, (0, []))
+        top = self._conn.execute("select coalesce(max(id), 0) from chronicle").fetchone()[0]
+        if top > seen_to:
+            rows = self._conn.execute(
+                "select c.id from chronicle c where c.id > ? and c.id <= ? "
+                "and exists(select 1 from json_each(c.actors) where json_each.value = ?) order by c.id",
+                (seen_to, top, entity_id))
+            ids = ids + [row[0] for row in rows]
+            if self._depth == 0:  # never remember a scan that a rollback could undo
+                if len(self._about) >= ENTITY_CACHE:
+                    self._about.clear()
+                self._about[entity_id] = (top, ids)
+        wanted = ids[-limit:] if limit > 0 else []
+        if not wanted:
+            return []
         rows = self._conn.execute(
-            f"select {_ENTRY_COLUMNS} from chronicle c "
-            "where exists(select 1 from json_each(c.actors) where json_each.value = ?) "
-            "order by c.id desc limit ?",
-            (entity_id, limit),
-        )
+            f"select {_ENTRY_COLUMNS} from chronicle c where c.id in ({','.join('?' * len(wanted))}) "
+            "order by c.id desc", wanted)
         return [_entry(row) for row in rows]
 
     def add_memory(self, owner: int, event_id: int, feeling: str, intensity: float, indelible: bool = False,

@@ -220,6 +220,7 @@ class Game(KarmaMixin, TribulationMixin, HeartMixin, CraftsMixin, AlchemyWorldMi
         if gone:
             turn = self.perform(action)
             turn.lines[:0] = gone
+            turn.narrated = [i + len(gone) for i in turn.narrated]  # the gone lines are the engine's own (6a review)
             return turn
         gate = self._gate(action)
         if gate is not None:

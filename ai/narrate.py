@@ -63,6 +63,7 @@ class Pending:
     given: str                 # all Claude was told: the guard's measure
     future: Future | None
     shown: list = field(default_factory=list)  # what the log holds for the turn now
+    prompt: str = ""
 
 
 class Narration:
@@ -73,6 +74,7 @@ class Narration:
         self.cache: dict[tuple, str] = {}
         self.pending: Pending | None = None
         self.refused: str | None = None  # why the last reply was not shown (the debug overlay)
+        self.last: dict = {}  # the last exchange as the session log keeps it: asked, answered, shown
         self.recent: list[str] = []
         self._pool: ThreadPoolExecutor | None = None
 
@@ -103,12 +105,15 @@ class Narration:
         narrated = list(getattr(turn, "narrated", []))
         if self.mode == "off" or not narrated or not game.last_briefs or self.unavailable():
             return
+        me = game.player
+        if me.data.get("dying") or me.data.get("dead") or not game.world.targets(me.id, "located_in"):
+            return  # the death screen keeps the engine's words (6a review)
         lines = list(turn.lines)
         pack = build_pack(game)
         prompt = turn_prompt(game.last_briefs, pack, self.recent)
         given = prompt + "\n" + "\n".join(t for t, _ in lines)
         key = tuple((b.seed, b.salt, b.kind) for b in game.last_briefs)
-        pending = Pending(start, lines, narrated, key, given, None, lines)
+        pending = Pending(start, lines, narrated, key, given, None, lines, prompt)
         if key in self.cache:
             _put(log, pending, _without(pending), prose=self.cache[key])
             return
@@ -129,10 +134,14 @@ class Narration:
         if pending is None or not pending.future.done():
             return notices
         self.pending = None
-        reply = pending.future.result()
-        prose = unwrap(reply.get("prose", "")) if reply else ""
-        needed = "\n".join(pending.lines[i][0] for i in pending.narrated)
-        why = refusal(game.world, prose, game.player.id, game.place.id, pending.given, needed) if prose else "no prose"
+        try:
+            reply = pending.future.result()
+            prose = unwrap(reply.get("prose", "")) if reply else ""
+            needed = "\n".join(pending.lines[i][0] for i in pending.narrated)
+            why = refusal(game.world, prose, game.player.id, game.place.id, pending.given, needed) if prose \
+                else "no prose"
+        except Exception as exc:  # the worker broke: the engine's words stand (6a review)
+            reply, prose, why = None, "", f"the request failed ({exc.__class__.__name__})"
         if why is None:
             self.cache[pending.key] = prose
             _put(log, pending, _without(pending), prose=prose)
@@ -140,6 +149,14 @@ class Narration:
         else:
             _put(log, pending, pending.lines)  # the procedural text stands
         self.refused = why
+        exchange = self.bridge.exchanges[-1] if self.bridge.exchanges else None
+        self.last = {"prompt": pending.prompt, "reply": reply, "shown": prose if why is None else None,
+                     "refused": why, "error": exchange.error if exchange else "",
+                     "seconds": exchange.seconds if exchange else 0.0}
+        off = self.unavailable()
+        if off is not None and self.mode != "off":
+            self.mode = "off"
+            notices.append((f"Claude's prose is off: {off}.", "system"))
         return notices
 
     def settle(self, log: list) -> None:

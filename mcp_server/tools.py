@@ -63,14 +63,13 @@ def sheet(view: View) -> str:
 
 @_safe
 def known_people(view: View) -> str:
-    """Everyone you have met or heard of: name, role, whether they are here, how they feel toward you."""
+    """Everyone you have met or heard of: name, role, whether they are here (`person` tells how one feels)."""
     world, here = view.world, {p.id for p in people_at(view.world, view.game.place.id)}
     lines = []
-    for pid in view.known()[:MAX_PEOPLE]:
+    for pid in view.known()[:MAX_PEOPLE]:  # no attitude per person: forty of them took a second (6a review)
         person = world.entity(pid)
         where = "here" if pid in here else "elsewhere"
-        feeling = attitude(world, pid, view.viewer).word if person.kind == "person" else "unknown"
-        lines.append(f"{person.name}, {person.data.get('occupation', 'stranger')}, {where}, {feeling}")
+        lines.append(f"{person.name}, {person.data.get('occupation', 'stranger')}, {where}")
     return "\n".join(lines) or "You know no one yet."
 
 

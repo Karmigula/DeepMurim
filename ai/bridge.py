@@ -19,6 +19,7 @@ from pathlib import Path
 
 PAUSE_AFTER, PAUSE_SECONDS = 3, 300.0
 KEPT = 20  # exchanges remembered for the debug overlay and bug reports
+LOGGED_OUT = ("not logged in", "/login", "log in", "api key", "authenticat", "unauthorized")
 FIND = "find"  # Bridge(cli=FIND): look the claude command up on PATH; cli=None: there is none
 
 
@@ -132,6 +133,8 @@ class Bridge:
             error = f"claude did not run ({exc.__class__.__name__})"
         self.exchanges.append(Exchange(job.name, prompt, reply, error, round(self.clock() - start, 2)))
         self._count(reply is not None)
+        if any(word in error.lower() for word in LOGGED_OUT):  # `--version` answers even when logged out (6a review)
+            self._checked = (False, "Claude Code is not logged in (run claude and /login)")
         return reply
 
     @staticmethod

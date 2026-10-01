@@ -300,12 +300,16 @@ class App:
 
     def poll(self) -> None:
         """Every frame: Claude's prose for the last turn, if it has come (phase 6)."""
-        if self.game is None or self.narration.pending is None and not getattr(self.narration.bridge, "just_paused", False):
+        bridge = self.narration._bridge  # never made just to be asked: off costs nothing
+        if self.game is None or self.narration.pending is None and not getattr(bridge, "just_paused", False):
             return
         waiting = self.narration.pending
         self.log.extend(self.narration.poll(self.log, self.game))
         if waiting is not None and self.narration.pending is None:
-            self._record("ai", job="narrate", refused=self.narration.refused)
+            self._record("ai", job="narrate", **self.narration.last)
+        if self.narration.mode != self.config.ai_mode:  # Claude turned itself off: logged out
+            self.config.ai_mode = self.narration.mode
+            self._save_settings()
 
     def _show(self, turn: Turn) -> None:
         self.narration.settle(self.log)  # a turn left before its prose came keeps its own text
@@ -327,7 +331,11 @@ class App:
         before = len(self.log)
         del self.log[:-MAX_LOG]
         if self.game is not None:
-            self.narration.start(self.log, start - (before - len(self.log)), turn, self.game)
+            try:
+                self.narration.start(self.log, start - (before - len(self.log)), turn, self.game)
+            except Exception as exc:  # Claude's layer never breaks a turn (6a review)
+                self.narration.pending = None
+                self._record("ai_error", error=repr(exc))
 
     def _check(self, turn: Turn) -> None:
         try:
