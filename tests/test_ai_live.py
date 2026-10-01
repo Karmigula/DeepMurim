@@ -15,4 +15,4 @@ def test_claude_writes_a_line_of_prose():
     if not bridge.available()[0]:
         pytest.skip(bridge.available()[1])
     reply = bridge.call(narrate_job(), "STATE:\n- a misty marsh town at dawn\n\nTHIS TURN:\nEVENT: look\nOUTCOME:\n- You look around.")
-    assert reply is not None and 0 < len(reply["prose"]) <= 900, list(bridge.exchanges)[-1].error
+    assert reply is not None and 0 < len(reply["prose"]) <= 1500, list(bridge.exchanges)[-1].error

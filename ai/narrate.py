@@ -21,12 +21,13 @@ MODE_WORDS = {"off": "AI prose off", "assist": "AI prose: procedural first, then
 MODEL, TIMEOUT = "claude-haiku-4-5", 10.0  # a prose call takes about 4 s without thinking (plan ruling 2)
 WAITING = ("…", "dim")
 RECENT = 3
-PROSE_SCHEMA = {"type": "object", "properties": {"prose": {"type": "string", "maxLength": 900}},
+PROSE_SCHEMA = {"type": "object", "properties": {"prose": {"type": "string", "maxLength": 1500}},
                 "required": ["prose"], "additionalProperties": False}
 SYSTEM = (
-    "You are the narrator of DeepMurim, a wuxia text game. Rewrite the turn below as 1-4 sentences of vivid "
-    "second-person prose in the register of a wuxia novel. Use only what the EVENT blocks and the STATE say: add no "
-    "person, item, place, number or outcome they do not carry, and never contradict an OUTCOME line. Keep names "
+    "You are the narrator of DeepMurim, a wuxia text game. Rewrite the turn below as one paragraph of about 3-6 "
+    "sentences of vivid second-person prose in the register of a wuxia novel. Use only what the EVENT blocks and "
+    "the STATE say: add no person, item, place, number or outcome they do not carry, and never contradict an "
+    "OUTCOME line. Keep names "
     "exactly as given, and keep every number an OUTCOME line states, written as digits. Do not address the "
     "player as 'the player'. "
     "Reply with JSON: {\"prose\": \"...\"}."
