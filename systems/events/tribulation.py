@@ -2,40 +2,21 @@
 
 A breakthrough to First-rate or beyond, by anyone, calls it down. The townsfolk witness it,
 a `tribulation` fact names who broke through (the Pavilion's informants listen for these),
-and the player must come through it: clean, scarred, or with a meridian torn (plan ruling 10).
+and the player must come through it: clean, scarred, or with a meridian torn (played wave by wave since 5f).
 """
 
 import systems.sky as sky
 import systems.world_events as W
 from systems.bodies import load_body, save_body
-from systems.cultivation import BREAKTHROUGH_DAYS
 from systems.facts import make_variant, place_name, record_fact
 from systems.realms import REALMS
 from world.body import REGULAR, add_injury
 from world.events import Event, Witness, commit, effect, listen
 from world.gen.materialize import people_at
-from world.seed import rng_for
 
 TRIBULATION_REALM = 3  # First-rate
 OUTCOMES = ("clean", "scarred", "crippled")
-REST_DAYS = 3
 WITNESSES = 8
-
-
-def rested_before(world, pid: int) -> bool:
-    """Whether a rest ended in the few days before this breakthrough (a rest is stamped when it starts)."""
-    since = world.time - (BREAKTHROUGH_DAYS + REST_DAYS) * 4
-    return any(e.kind == "rested" and e.time + e.data.get("days", 0) * 4 >= since
-               for e in world.chronicle_about(pid, limit=30))
-
-
-def player_roll(world, pid: int) -> str:
-    """How the player comes through: purity and a rested body help; only the impure can be crippled."""
-    body = load_body(world, pid)
-    clean = 0.45 + 0.3 * body.purity + (0.1 if rested_before(world, pid) else 0.0)
-    crippled = 0.03 if body.purity < 0.5 else 0.0
-    roll = rng_for(world.world_seed, f"tribulation:{pid}:{world.time}").random()
-    return "clean" if roll < clean else "crippled" if roll >= 1 - crippled else "scarred"
 
 
 def trigger_events(world, person: int, place: int, realm: int, season: int | None = None,

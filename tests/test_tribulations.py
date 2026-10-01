@@ -4,7 +4,6 @@ import pytest
 
 import systems.encounters as encounters
 import systems.events.beast_tide as beast_tide
-import systems.events.tribulation as tribulation
 import systems.market as market
 import systems.realms as realms
 import systems.sky as sky
@@ -61,23 +60,6 @@ def test_a_lesser_breakthrough_brings_no_lightning(game, monkeypatch):
     at_the_bottleneck(game, realm=1)
     game.perform(Action("breakthrough"))
     assert game.world.facts(predicate="tribulation") == []
-
-
-def test_purity_and_rest_steady_the_roll(game):
-    world, me = game.world, game.player.id
-
-    def outcomes(purity):
-        body = load_body(world, me)
-        body.purity = purity
-        save_body(world, me, body)
-        found = []
-        for t in range(300):
-            world.set_time(20 * W.SEASON + t)
-            found.append(tribulation.player_roll(world, me))
-        return found
-    pure, rough = outcomes(0.9), outcomes(0.2)
-    assert pure.count("clean") > rough.count("clean")
-    assert "crippled" not in pure and "crippled" in rough
 
 
 def test_scars_and_crippled_meridians_are_real(game):

@@ -1,10 +1,7 @@
 """Phase 4d final review: each fix pinned by a test that failed first."""
-import json
 
 import pytest
 
-import systems.cultivation as cultivation
-import systems.events.tribulation as tribulation
 import systems.rankings as R
 import systems.sky as sky
 import systems.world_events as W
@@ -13,7 +10,6 @@ from systems.beliefs import believe
 from systems.creation import CreationChoice
 from tests.test_rankings import deed, master, publish
 from tests.test_world_events import add_type, begin
-from world.events import commit
 
 
 @pytest.fixture
@@ -23,16 +19,6 @@ def game(tmp_path):
     g.world.set_time(3 * W.SEASON + 8)
     yield g
     g.close()
-
-
-def test_a_weeks_rest_before_the_breakthrough_steadies_the_roll(game):
-    world, me, town = game.world, game.player.id, game.place.id
-    assert not tribulation.rested_before(world, me)
-    commit(world, cultivation.rest_events(world, me, town, 7))  # a rest is stamped when it starts; it lasts a week
-    world.set_time(world.time + cultivation.BREAKTHROUGH_DAYS * 4)
-    assert tribulation.rested_before(world, me)
-    world.set_time(world.time + 10 * 4)
-    assert not tribulation.rested_before(world, me)
 
 
 def test_a_master_the_pavilion_has_not_heard_of_in_forty_years_drops_off(game):
