@@ -354,3 +354,29 @@ heavy sinner's luck; a town with a monk has a temple that takes alms.
 
 **The rules:** `check_karma` in `debug/invariants.py` holds merit and sin to at least 0 and a gathering tribulation to
 its wave kinds and a strength of at least 1.
+
+## 16. The Claude layer (phase 6a)
+
+**The rule:** Claude never writes the world. In 6a it only writes prose; from 6b it proposes, and `ai/validate.py`
+turns what passes into ordinary events. Every failure leaves the procedural text standing.
+
+**The door** is `ai/bridge.py`: one `claude -p` call per request, stripped bare (no settings, skills, hooks or MCP
+servers of the user's own; no built-in tools; low effort), its reply checked against the `Job`'s schema by
+`conforms`. Three failures in a row pause it for five minutes. Tests use `ai/fake.py`'s `FakeClaude`, which answers
+from a script through the same `call(job, prompt)`.
+
+**What Claude is told** is the state pack (`ai/pack.py`: HERE, LIMITS, CARRYING, LATELY, YOU, built from the pages
+the player can read) and, for prose, the turn's briefs (`Brief.to_prompt`). A new system that wants Claude to know
+something puts it on a page or in a brief, never straight into a prompt.
+
+**Adding an MCP tool:** a function in `mcp_server/tools.py` taking the `View` (the world opened with
+`World.open_readonly`, as its player knows it) and returning plain text with no ids, wrapped in `_safe`; then a
+wrapper of the same name in `mcp_server/server.py`'s `build` and an entry in `TOOLS`. A read that would write (a
+seeded body, say) fails on the read-only world and is told as not known.
+
+**Prose** (`ai/narrate.py`): `Narration` asks once per turn, in a worker thread, over the lines the narrator wrote
+(`Turn.narrated`); `ai/guard.py`'s `refusal` turns away prose that names someone unheard of or a thing the turn did
+not, states a number it did not, or drops one it did. The modes are `off`, `assist` and `ai_only` (F1, saved as
+`ai_mode`).
+
+**Tests that call the real CLI** are marked `live` and also need `DEEPMURIM_LIVE=1`; no ordinary run makes one.

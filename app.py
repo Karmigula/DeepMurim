@@ -481,8 +481,26 @@ class App:
             lines.append(("", "default"))
         if not briefs:
             lines.append(("  (none this turn)", "dim"))
+        lines += self._claude_lines()
         lines.append(("Recent violations:", "gold"))
         lines += [(f"  {v}", "red") for v in self.violations[-8:]] or [("  none", "dim")]
+        return lines
+
+    def _claude_lines(self) -> list:
+        """The overlay's account of Claude this turn (phase 6): the mode, the last exchange, why prose was refused."""
+        n = self.narration
+        lines = [(f"Claude: {n.mode}" + (" (waiting for prose)" if n.pending is not None else ""), "gold")]
+        why = n.unavailable() if n.mode != "off" else None
+        if why:
+            lines.append((f"  unavailable: {why}", "red"))
+        exchanges = list(getattr(n.bridge, "exchanges", [])) if n.mode != "off" or n._bridge is not None else []
+        if exchanges:
+            last = exchanges[-1]
+            lines.append((f"  last: {last.job}, {last.seconds:.1f} s, " + (f"failed: {last.error}" if last.error
+                          else f"replied: {str(last.reply)[:120]}"), "default"))
+        if n.refused:
+            lines.append((f"  prose refused: {n.refused}", "red"))
+        lines.append(("", "default"))
         return lines
 
     # --- drawing ----------------------------------------------------------------
