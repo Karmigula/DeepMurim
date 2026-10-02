@@ -1,10 +1,10 @@
 # Progress
 
-Last updated 2026-10-01. `master` is at the merge of `phase-6b`.
+Last updated 2026-10-01. `master` is at the merge of `phase-6c`.
 
 ## Where things stand
 
-Phases 1 to 5, 6a and 6b are done and merged. The suite has 1678 tests, plus two slow ones (`pytest -m slow`: the 500-year soak and a 200-year speed test) and three live tests (`-m live`: `claude -p`, the Agent SDK, OpenCode on a free model); all of them pass.
+Phases 1 to 6 are done and merged. The suite has 1732 tests, plus two slow ones (`pytest -m slow`: the 500-year soak and a 200-year speed test) and five live tests (`-m live`: `claude -p`; prose, a typed action and a line of talk on the Agent SDK and on OpenCode); all of them pass.
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -20,7 +20,8 @@ Phases 1 to 5, 6a and 6b are done and merged. The suite has 1678 tests, plus two
 | 5f | Karma and tribulations, and the close of phase 5 | Done |
 | 6a | The Claude layer's foundation: the bridge, the state pack, the MCP server, Claude's prose | Done |
 | 6b | Two backends (Claude Code via the Agent SDK, OpenCode free models), the AI menu, the Connect page, one MCP server, prefetch | Done |
-| 6c | Free intents, free dialogue and validated proposals (draft on branch `wip-6c-deeds`) | Next |
+| 6c | Typed actions and free talk: the model answers, the engine validates its proposals; an animated wait | Done |
+| 7 | Not yet designed | Next |
 
 See `CHANGELOG.md` for what each phase added.
 
@@ -39,6 +40,13 @@ See `CHANGELOG.md` for what each phase added.
 
 - **6b, open:**
   - Not yet confirmed live: whether the Agent SDK's per-call `session_id` keeps history from growing.
+- **6c minors** (from its final review):
+  - Talk takes no watch and never tries patience; each line adds a memory that `attitude()` reads.
+  - Esc does not cancel the backend's exchange, so a quick retry can queue behind it and hesitate.
+  - A proposed action is checked before the changes; deed name checks match substrings; a newcomer may share a resident's name.
+  - Typed lines are not limited during duels, tribulation waves or the heart trial.
+  - `check_ai` does not check `ai_deed`, `ai_told` or `ai_gave`; the session log keeps every prompt and reply.
+  - "A innkeeper"; the log is copied every frame while waiting.
 
 - **Left for later** (from the phase 5 specs):
   - A pill as a fated repayment.
