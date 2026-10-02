@@ -99,7 +99,7 @@ HELP = [
     ("  endure | shelter | face | bury: heaven's tribulation, wave by wave", "system"),
     ("  temple | alms | incense | fortune: karma, and heaven's patience", "system"),
     ("  With the AI on (F1): type what you do; in a conversation, type what you say", "system"),
-    ("  F1 the AI | F2 swap art side | F3 hide art | F4 character sheet | F9 report a bug | F12 debug | Esc menu",
+    ("  F1 the AI | F2 swap art side | F3 hide art | F4 character sheet | F9 report a bug | F12 debug | Alt+Enter full screen | Esc menu",
      "system"),
 ]
 

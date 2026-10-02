@@ -22,11 +22,10 @@ MAX_CHOICES = 9
 EPS = 1e-6
 
 
-_BODIES_CHECKED: dict = {}  # (save path, person) -> the stored body text that last checked clean
-
-
 def check_world(world) -> list[str]:
     problems = []
+    # Each person's stored body text that last checked clean: kept on the world, so it dies with it (ultrareview).
+    checked = world.__dict__.setdefault("_bodies_checked", {})
     stored = dict(world._conn.execute(
         "select id, json_extract(data, '$.body') from entities where kind = 'person'").fetchall())
     player_id = world.get_meta("player_id")
@@ -52,14 +51,14 @@ def check_world(world) -> list[str]:
         if person.data.get("silver", 0) < 0:
             problems.append(f"{person.name} (#{person.id}) has negative silver")
         if "body" in person.data:
-            key, text = (str(world.path), person.id), stored.get(person.id)
-            if _BODIES_CHECKED.get(key) != text:  # an unchanged body that checked clean need not be rebuilt
+            key, text = person.id, stored.get(person.id)
+            if checked.get(key) != text:  # an unchanged body that checked clean need not be rebuilt
                 found = check_body(person, settle(from_dict(person.data["body"]), world.time))
                 problems += found
                 if found:
-                    _BODIES_CHECKED.pop(key, None)
+                    checked.pop(key, None)
                 else:
-                    _BODIES_CHECKED[key] = text
+                    checked[key] = text
             problems += check_arts(world, person)
     problems += check_items(world)
     problems += check_gear(world)
@@ -435,7 +434,7 @@ def check_knowledge(world) -> list[str]:
     facts: dict = {}
     # Each turn checks only what was added since the last check, so long lives stay quick.
     mark = getattr(world, "_knowledge_mark", {"beliefs": 0, "facts": 0})
-    for belief in world.all_beliefs(after=mark["beliefs"]):
+    for belief in world.all_beliefs(after=mark["beliefs"]) + world.take_touched_beliefs():  # new, or made surer
         if belief.fact_id not in facts:
             facts[belief.fact_id] = world.fact(belief.fact_id)
         fact = facts[belief.fact_id]

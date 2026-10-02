@@ -8,6 +8,7 @@ instead of a dead window.
 
 import re
 import shutil
+import threading
 import time
 from collections import deque
 from pathlib import Path
@@ -54,6 +55,15 @@ def slug(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "hero"
 
 
+def _warm_server_imports() -> None:
+    """Import what the MCP server's first start needs (about a second), off the game's thread."""
+    try:
+        import uvicorn  # noqa: F401
+        import mcp_server.server  # noqa: F401
+    except Exception:  # the start itself will say what is wrong
+        pass
+
+
 class App:
     def __init__(self, config: Config, saves_dir: Path, settings_path: Path, logs_dir: Path | None = None,
                  bridge=None) -> None:
@@ -98,6 +108,10 @@ class App:
         self.ai_menu: AiMenu | None = None  # phase 6b: F1
         self._opencode_models: OpenCodeModels | None = None  # OpenCode's free models, read once a session
         self.mcp: LiveServer | None = None  # phase 6b: the long-lived MCP server, while the AI is on
+        self._warming: threading.Thread | None = None
+        if config.ai_mode != "off":  # the server's first start imports for a second: done while the title shows
+            self._warming = threading.Thread(target=_warm_server_imports, name="warm-mcp", daemon=True)
+            self._warming.start()
 
     # --- saves --------------------------------------------------------------
     def latest_save(self) -> Path | None:
@@ -400,7 +414,9 @@ class App:
             if door is not None and hasattr(door, "mcp_url"):
                 door.mcp_url = self.mcp.url if self.mcp else None
         elif not wanted and self.mcp is not None:
-            self.mcp.stop()
+            # Stopping waits on uvicorn (about 0.2 s, more with a client connected): never on the game's thread
+            # (ultrareview). Closing the game still stops it in place (_close_game), so the port is free at exit.
+            threading.Thread(target=self.mcp.stop, name="stop-mcp", daemon=True).start()
             self.mcp = None
         if not wanted:
             self.narration.set_backend(None)  # off costs nothing: no warm server, no open session (6b review)
@@ -616,11 +632,16 @@ class App:
                 context["game_state_error"] = repr(exc)
         return context
 
-    def record_crash(self, exc: BaseException, where: str) -> Path:
+    def record_crash(self, exc: BaseException, where: str) -> Path | None:
         self.crash_count += 1
-        recent = list(self.session.recent) if self.session else []
-        path = write_crash_report(self.logs_dir, exc, self.debug_context(where), recent)
-        self._record("crash", error=repr(exc), where=where, report=str(path))
+        try:
+            recent = list(self.session.recent) if self.session else []
+            path = write_crash_report(self.logs_dir, exc, self.debug_context(where), recent)
+            self._record("crash", error=repr(exc), where=where, report=str(path))
+        except Exception:  # the report itself failed (a full disk, a locked folder): the game goes on (ultrareview)
+            self.log.append((f"Something went wrong ({type(exc).__name__}), and its crash report could not be saved.",
+                             "red"))
+            return None
         self.log.append((
             f"Something went wrong ({type(exc).__name__}). A crash report was saved to {path.name}. "
             "Press F9 to save a full bug report.", "red",

@@ -37,6 +37,20 @@ def _names_in(name: str, prose: str) -> bool:
     return name in prose and re.search(rf"(?<!\w){re.escape(name)}(?!\w)", prose) is not None
 
 
+def names_in(text: str) -> list[str]:
+    """The names a text seems to give: two or more capitalised words, a leading "The" or "You" and a trailing
+    possessive taken off ("Jin Yunhyun's eyes" names Jin Yunhyun). The guard and the deed check share it."""
+    out = []
+    for found in NAMED.findall(text):
+        words = found.split()
+        words[-1] = POSSESSIVE.sub("", words[-1])
+        while words and words[0] in LEADING:
+            words = words[1:]
+        if len(words) >= 2:
+            out.append(" ".join(words))
+    return out
+
+
 def refusal(world, prose: str, player: int, place: int, given: str, needed: str = "") -> str | None:
     """Why this prose may not be shown (None: it may). `given` is all the turn told Claude (briefs and pack);
     `needed` is the text it replaces: every number there (silver, merit, days) must be kept."""
@@ -47,13 +61,8 @@ def refusal(world, prose: str, player: int, place: int, given: str, needed: str 
     for name in _names(world, THINGS):
         if len(name) > 3 and name not in given and _names_in(name, prose):
             return f"it names {name}, which the turn did not"
-    for found in NAMED.findall(prose):  # a name Claude made up is in no table at all (6a minors)
-        words = found.split()
-        words[-1] = POSSESSIVE.sub("", words[-1])  # "Jin Yunhyun's eyes" names Jin Yunhyun (6c review)
-        while words and words[0] in LEADING:
-            words = words[1:]
-        name = " ".join(words)
-        if len(words) >= 2 and name not in given and not any(name in known for known in allowed):
+    for name in names_in(prose):  # a name Claude made up is in no table at all (6a minors)
+        if name not in given and not any(name in known for known in allowed):
             return f"it names {name}, which the turn did not"
     numbers = set(NUMBER.findall(given))
     stated = set(NUMBER.findall(prose))

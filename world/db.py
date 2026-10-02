@@ -203,6 +203,7 @@ class World:
         self._handed: set[int] = set()  # read since the last drift check: only these can have been edited in place
         self._listed: set[int] = set()  # handed out by entities(kind): checked DRIFT_WINDOW at a time, in id order
         self._drift_cursor = 0
+        self._touched_beliefs: set[int] = set()  # rowids updated in place since check_knowledge last looked
         self._acquainted: dict[int, tuple[int, dict[int, int]]] = {}
         self._about: dict[int, tuple[int, list[int]]] = {}  # chronicle ids per entity, scanned once (6a review)
 
@@ -628,7 +629,7 @@ class World:
         """Add a belief; a version already held keeps whichever telling was surer. True if it was new."""
         key = variant_key(variant)
         row = self._conn.execute(
-            "select confidence from beliefs where knower = ? and fact_id = ? and variant_key = ?",
+            "select confidence, rowid from beliefs where knower = ? and fact_id = ? and variant_key = ?",
             (knower, fact_id, key)).fetchone()
         if row is None:
             self._conn.execute(
@@ -641,6 +642,7 @@ class World:
                 "update beliefs set confidence = ?, source = ?, hops = ?, channel = ? "
                 "where knower = ? and fact_id = ? and variant_key = ?",
                 (confidence, source, hops, channel, knower, fact_id, key))
+            self._touched_beliefs.add(row[1])  # an update keeps its rowid: check_knowledge must look again
         return False
 
     def forget(self, knower: int, predicates, before: int) -> None:
@@ -665,6 +667,16 @@ class World:
         """Every belief, or only those added after rowid `after` (see last_rowid)."""
         rows = self._conn.execute(f"select {_BELIEF_COLUMNS} from beliefs b where b.rowid > ? order by b.rowid", (after,))
         return [_belief(row) for row in rows]
+
+    def take_touched_beliefs(self) -> list[Belief]:
+        """The beliefs updated in place since the last call (check_knowledge's incremental scan would skip them)."""
+        rowids, self._touched_beliefs = sorted(self._touched_beliefs), set()
+        out = []
+        for start in range(0, len(rowids), 500):
+            chunk = rowids[start:start + 500]
+            out += [_belief(row) for row in self._conn.execute(
+                f"select {_BELIEF_COLUMNS} from beliefs b where b.rowid in ({','.join('?' * len(chunk))})", chunk)]
+        return out
 
     def last_rowid(self, table: str) -> int:
         if table not in TABLES:
