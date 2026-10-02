@@ -21,6 +21,7 @@ MODE_WORDS = {"off": "AI prose off", "assist": "AI prose: procedural first, then
 MODEL, TIMEOUT = "claude-haiku-4-5", 10.0  # a prose call takes about 4 s without thinking (plan ruling 2)
 WAITING = ("…", "dim")
 RECENT = 3
+CACHE_MAX = 200  # the prose kept for re-shown turns: the latest only (ultrareview)
 PROSE_SCHEMA = {"type": "object", "properties": {"prose": {"type": "string", "maxLength": 1500}},
                 "required": ["prose"], "additionalProperties": False}
 SYSTEM = (
@@ -182,7 +183,7 @@ class Narration:
         except Exception as exc:  # the worker broke: the engine's words stand (6a review)
             reply, prose, why = None, "", f"the request failed ({exc.__class__.__name__})"
         if why is None:
-            self.cache[pending.key] = prose
+            self.remember(pending.key, prose)
             _put(log, pending, _without(pending), prose=prose)
             self.recent = (self.recent + [prose])[-RECENT:]
         else:
@@ -198,12 +199,21 @@ class Narration:
             notices.append((f"Claude's prose is off: {off}.", "system"))
         return notices
 
+    def remember(self, key: tuple, prose: str) -> None:
+        """Keep a turn's prose for a re-shown turn: the latest CACHE_MAX only (a session runs for hours)."""
+        self.cache[key] = prose
+        while len(self.cache) > CACHE_MAX:
+            del self.cache[next(iter(self.cache))]
+
     def settle(self, log: list) -> None:
         """A turn left before its prose came: in ai_only its procedural text is put back."""
         pending, self.pending = self.pending, None
         if pending is None:
             return
         pending.future.cancel()
+        cancel = getattr(self._bridge, "cancel", None)
+        if callable(cancel):
+            cancel(self.job.name)  # the backend lets it go too: the next turn's prose never waits behind it
         _put(log, pending, pending.lines)
 
 

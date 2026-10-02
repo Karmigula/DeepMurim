@@ -10,7 +10,7 @@ import re
 from dataclasses import dataclass, field
 
 import ai.deeds as D
-from ai.guard import LEADING, NAMED, POSSESSIVE, allowed_people
+from ai.guard import allowed_people, names_in
 from engine.actions import Action
 from mcp_server.tools import belief_handle
 from systems.purse import silver_of
@@ -153,13 +153,8 @@ def check(scene: Scene, p: dict, done: Accepted, felt: set) -> tuple[object, str
         if tone not in D.TONES:
             return None, "no such tone"
         known = allowed_people(world, me, here)
-        for found in NAMED.findall(text):
-            words = found.split()
-            words[-1] = POSSESSIVE.sub("", words[-1])
-            while words and words[0] in LEADING:
-                words = words[1:]
-            name = " ".join(words)
-            if len(words) >= 2 and not any(_whole(name, k) for k in known):  # whole names (6c minors)
+        for name in names_in(text):
+            if not any(_whole(name, k) for k in known):  # whole names (6c minors)
                 return None, f"it names {name}, whom you do not know"
         if any(e.kind == "ai_deed" for e in done.events):
             return None, "one deed a line"  # deeds weigh on karma: one a line, or merit could be farmed

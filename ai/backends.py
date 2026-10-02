@@ -24,7 +24,8 @@ import time
 from collections import deque
 from pathlib import Path
 
-from ai.bridge import KEPT, LOGGED_OUT, PAUSE_AFTER, PAUSE_SECONDS, Exchange, Job, conforms, run_command
+from ai.bridge import KEPT, LOGGED_OUT, PAUSE_AFTER, PAUSE_SECONDS, Exchange, Job, _kill_tree, conforms, run_command
+from mcp_server.live import free_port  # one helper for both the warm server's port and the MCP server's
 from ai.models import NO_WINDOW, OPENCODE_DEFAULT
 
 MAX_ARGUMENT = 24000  # Windows caps a command line near 32,000 characters; a prompt is far smaller
@@ -245,11 +246,6 @@ def opencode_exe() -> str | None:
     return found
 
 
-def free_port() -> int:
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
-
 
 def last_json(events: list[dict]) -> tuple[dict | None, str]:
     """The job's JSON from `opencode run --format json` events: the last text part, fences and chatter around it
@@ -367,9 +363,6 @@ class OpenCode(Backend):
 
 
 def _kill(server) -> None:
-    """The warm server and all it started (taskkill /T on Windows)."""
+    """The warm server and all it started, if it still runs."""
     if server is not None and server.poll() is None:
-        if os.name == "nt":
-            subprocess.run(["taskkill", "/F", "/T", "/PID", str(server.pid)], capture_output=True)
-        else:
-            server.kill()
+        _kill_tree(server)

@@ -2,6 +2,20 @@
 
 DeepMurim is built in phases. Each one has a design spec in `docs/superpowers/specs/` and a verified implementation plan in `docs/superpowers/plans/`. Each phase lands on `master` after a review round and a minors round. Newest first.
 
+## The whole-project review (2026-10-01)
+
+An ultrareview of the core slice: the AI layer and app shell, the engine core and invariants, the world core (45 files). Every finding was fixed, each with a test that failed first.
+
+### Fixed
+- F11 opens the tournaments, as help says; the full screen is now Alt+Enter (help names it).
+- A belief made surer in place is checked again by the invariants (the incremental check skipped it).
+- A crash report that cannot be written (a full disk) is told, never raised.
+- Prose left behind lets its backend exchange go, so the next turn's prose never waits behind it.
+- The prose cache keeps the latest 200 turns, not a whole session's.
+- The body check's memory belongs to its world and dies with it.
+- Turning the AI off never waits for the MCP server to stop; the server's imports are warmed while the title shows.
+- One shared helper each for names in a text, a free port, and ending a process tree.
+
 ## Phase 6c: Typed actions and free talk (2026-10-01)
 
 Merged from `phase-6c`. Spec: `2026-10-01-phase6-claude-layer-design.md`, section 14. Plan: `2026-10-01-phase6c-typed-actions-talk.md`.

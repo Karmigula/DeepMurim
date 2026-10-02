@@ -4,7 +4,7 @@ Last updated 2026-10-01. `master` is at the merge of `phase-6c`.
 
 ## Where things stand
 
-Phases 1 to 6 are done and merged. The suite has 1742 tests, plus two slow ones (`pytest -m slow`: the 500-year soak and a 200-year speed test) and five live tests (`-m live`: `claude -p`; prose, a typed action and a line of talk on the Agent SDK and on OpenCode); all of them pass.
+Phases 1 to 6 are done and merged. The suite has 1750 tests, plus two slow ones (`pytest -m slow`: the 500-year soak and a 200-year speed test) and five live tests (`-m live`: `claude -p`; prose, a typed action and a line of talk on the Agent SDK and on OpenCode); all of them pass.
 
 | Phase | Scope | Status |
 |---|---|---|

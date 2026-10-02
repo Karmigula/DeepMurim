@@ -30,6 +30,16 @@ def install_crash_hook(logs_dir: Path) -> None:
     sys.excepthook = hook
 
 
+def route_key(app, screen, key: str, text: str, alt: bool, repeat: bool) -> None:
+    """Alt+Enter toggles the full screen (once a press); every other key is the game's, F11 too: help names it
+    the tournaments' key (ultrareview: the full screen took it before)."""
+    if alt and key in ("return", "enter"):
+        if not repeat:
+            screen.toggle_fullscreen()
+        return
+    app.handle_key(key, text, repeat=repeat)
+
+
 def run(smoke_png: str | None = None) -> None:
     if smoke_png:
         os.environ["SDL_VIDEODRIVER"] = "dummy"
@@ -75,12 +85,8 @@ def run(smoke_png: str | None = None) -> None:
                 elif event.type == pygame.KEYDOWN:
                     repeat = event.key in held
                     held.add(event.key)
-                    key = pygame.key.name(event.key)
-                    if key == "f11":
-                        if not repeat:
-                            screen.toggle_fullscreen()
-                    else:
-                        app.handle_key(key, event.unicode, repeat=repeat)
+                    route_key(app, screen, pygame.key.name(event.key), event.unicode,
+                              alt=bool(event.mod & pygame.KMOD_ALT), repeat=repeat)
             app.poll()  # Claude's prose, when it comes (phase 6)
             screen.draw(app.grid(screen.cols, screen.rows))
             screen.present()
