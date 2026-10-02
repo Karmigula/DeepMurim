@@ -12,6 +12,7 @@ import systems.cultivation as cultivation
 import systems.talk as talk
 import systems.travel as travel
 from engine.crisis import CrisisMixin
+from engine.ai_turns import AiTurnsMixin
 from engine.alchemy import AlchemyMixin
 from engine.alchemy_world import AlchemyWorldMixin
 from engine.crafts import CraftsMixin
@@ -102,7 +103,7 @@ HELP = [
 ]
 
 
-class Game(KarmaMixin, TribulationMixin, HeartMixin, CraftsMixin, AlchemyWorldMixin, AlchemyMixin, GearMixin, IntrigueMixin, CrisisMixin, SealedMixin, RivalMixin, ChamberMixin, DelveMixin, LineageMixin, MarketMixin, SkyMixin, TournamentMixin, WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, LeavingMixin, LawMixin, LandMixin, FoundingMixin, SectMixin, SeasonsMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
+class Game(AiTurnsMixin, KarmaMixin, TribulationMixin, HeartMixin, CraftsMixin, AlchemyWorldMixin, AlchemyMixin, GearMixin, IntrigueMixin, CrisisMixin, SealedMixin, RivalMixin, ChamberMixin, DelveMixin, LineageMixin, MarketMixin, SkyMixin, TournamentMixin, WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, LeavingMixin, LawMixin, LandMixin, FoundingMixin, SectMixin, SeasonsMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
     def __init__(self, world: World, narrator: Narrator | None = None) -> None:
         self.world = world
         self.narrator = narrator or ProceduralNarrator()
