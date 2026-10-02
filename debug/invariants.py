@@ -182,7 +182,7 @@ def check_ai(world) -> list[str]:
     import json
 
     import ai.validate as V
-    from ai.deeds import KINDS, made_here
+    from ai.deeds import KINDS, TONES, made_here
     out, towns = [], set()
     # Through the partial index `chronicle_ai`: its WHERE term must stay exactly as the index's.
     rows = world._conn.execute("select id, kind, place, data from chronicle where json_extract(data, '$.ai') = 1 "
@@ -204,6 +204,12 @@ def check_ai(world) -> list[str]:
             out.append(f"event #{event_id} pays nothing")
         elif kind == "talked" and not isinstance(d.get("summary"), str):
             out.append(f"event #{event_id} is a talk with no summary")
+        elif kind == "ai_deed" and (len(str(d.get("text", ""))) > V.MAX_DEED or d.get("tone") not in TONES):
+            out.append(f"event #{event_id} tells a deed past its limits")
+        elif kind == "ai_gave" and not isinstance(d.get("item"), int):
+            out.append(f"event #{event_id} gives no thing")
+        elif kind == "ai_told" and not isinstance(d.get("fact"), int):
+            out.append(f"event #{event_id} tells no tale")
     for town in towns:
         if made_here(world, town) > V.PER_TOWN:
             out.append(f"town #{town} has {made_here(world, town)} newcomers the model made, past {V.PER_TOWN}")

@@ -6,10 +6,11 @@ writes: the caller commits the events. The checks are the hard limits; the model
 pack) and is expected to keep to them.
 """
 
+import re
 from dataclasses import dataclass, field
 
 import ai.deeds as D
-from ai.guard import NAMED, allowed_people
+from ai.guard import LEADING, NAMED, POSSESSIVE, allowed_people
 from engine.actions import Action
 from mcp_server.tools import belief_handle
 from systems.purse import silver_of
@@ -62,6 +63,7 @@ class Scene:
     place: int
     choices: list            # this turn's valid choices (shown and folded): `action` must name one
     salt: str                # seeds a minor NPC (the same turn, the same person)
+    held: bool = False       # a fight, heaven's waves or a heart trial: only a choice or a feeling
 
 
 @dataclass
@@ -90,15 +92,22 @@ def _item(scene: Scene, name) -> int | None:
         if entity is None or entity.name.lower() != wanted or entity.data.get("used"):
             continue
         if item in held or entity.data.get("armoury") is not None or entity.data.get("claimed_by") is not None:
-            return None  # what is wielded, worn or a sect's is not yours to hand over
+            continue  # what is wielded, worn or a sect's is not yours to hand over; another of its name may be
         return item
     return None
+
+
+def _whole(name: str, text: str) -> bool:
+    """`name` stands in `text` as whole words."""
+    return re.search(rf"(?<![\w']){re.escape(name)}(?![\w])", text) is not None
 
 
 def check(scene: Scene, p: dict, done: Accepted, felt: set) -> tuple[object, str | None]:
     """(an event or an Action, None) if it may stand; (None, the reason) if not."""
     world, me, here = scene.world, scene.player, scene.place
     kind = p.get("kind")
+    if scene.held and kind not in ("action", "feeling"):
+        return None, "not now: you are held"  # a fight, heaven's waves, a heart trial (6c minors)
     if kind == "action":
         choice = next((c for c in scene.choices if c.label == p.get("choice")), None)
         if choice is None:
@@ -145,13 +154,18 @@ def check(scene: Scene, p: dict, done: Accepted, felt: set) -> tuple[object, str
             return None, "no such tone"
         known = allowed_people(world, me, here)
         for found in NAMED.findall(text):
-            if not any(found in name or name in found for name in known):
-                return None, f"it names {found}, whom you do not know"
+            words = found.split()
+            words[-1] = POSSESSIVE.sub("", words[-1])
+            while words and words[0] in LEADING:
+                words = words[1:]
+            name = " ".join(words)
+            if len(words) >= 2 and not any(_whole(name, k) for k in known):  # whole names (6c minors)
+                return None, f"it names {name}, whom you do not know"
         if any(e.kind == "ai_deed" for e in done.events):
             return None, "one deed a line"  # deeds weigh on karma: one a line, or merit could be farmed
         if world.entity(me).data.get("ai_deed_day") == world.time // 4:
             return None, "one deed a day"  # and one a day (6c review)
-        people = tuple(sorted({pid for name, pid in _here(scene).items() if name in text.lower()}))
+        people = tuple(sorted({pid for name, pid in _here(scene).items() if _whole(name, text.lower())}))
         return D.deed(me, people, here, text, tone, p), None
     if kind == "tell":
         npc, handle = _someone(scene, p.get("who")), p.get("handle")
@@ -174,7 +188,10 @@ def check(scene: Scene, p: dict, done: Accepted, felt: set) -> tuple[object, str
             return None, "one newcomer a line"
         if D.made_today(world, here) >= PER_VISIT or D.made_here(world, here) >= PER_TOWN:
             return None, "enough newcomers here for now"
-        path = f"ai:{here}:{D.made_here(world, here)}:{scene.salt}:{new}"  # the same line twice: two people
+        base = f"ai:{here}:{D.made_here(world, here)}:{scene.salt}:{new}"  # the same line twice: two people
+        names = {person.name.lower() for person in people_at(world, here)}
+        path = next(f"{base}:{k}" if k else base for k in range(8)
+                    if D.newcomer_name(world, f"{base}:{k}" if k else base).lower() not in names)  # never a twin
         return D.arrived(me, here, path, occupation, traits, realm, p), None
     if kind == "hurt":
         location, injury, severity = p.get("location"), p.get("injury"), p.get("severity")

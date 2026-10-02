@@ -4,7 +4,7 @@ Last updated 2026-10-01. `master` is at the merge of `phase-6c`.
 
 ## Where things stand
 
-Phases 1 to 6 are done and merged. The suite has 1732 tests, plus two slow ones (`pytest -m slow`: the 500-year soak and a 200-year speed test) and five live tests (`-m live`: `claude -p`; prose, a typed action and a line of talk on the Agent SDK and on OpenCode); all of them pass.
+Phases 1 to 6 are done and merged. The suite has 1742 tests, plus two slow ones (`pytest -m slow`: the 500-year soak and a 200-year speed test) and five live tests (`-m live`: `claude -p`; prose, a typed action and a line of talk on the Agent SDK and on OpenCode); all of them pass.
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -40,13 +40,9 @@ See `CHANGELOG.md` for what each phase added.
 
 - **6b, open:**
   - Not yet confirmed live: whether the Agent SDK's per-call `session_id` keeps history from growing.
-- **6c minors** (from its final review):
-  - Talk takes no watch and never tries patience; each line adds a memory that `attitude()` reads.
-  - Esc does not cancel the backend's exchange, so a quick retry can queue behind it and hesitate.
-  - A proposed action is checked before the changes; deed name checks match substrings; a newcomer may share a resident's name.
-  - Typed lines are not limited during duels, tribulation waves or the heart trial.
-  - `check_ai` does not check `ai_deed`, `ai_told` or `ai_gave`; the session log keeps every prompt and reply.
-  - "A innkeeper"; the log is copied every frame while waiting.
+- **6c, open:**
+  - OpenCode's free tier is slow and uneven (13-60 s, sometimes past 120 s): its live tests can time out; rerun them.
+  - While a typed line waits, the log is copied once a frame (a few microseconds; left as is).
 
 - **Left for later** (from the phase 5 specs):
   - A pill as a fated repayment.

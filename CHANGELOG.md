@@ -26,6 +26,13 @@ Merged from `phase-6c`. Spec: `2026-10-01-phase6-claude-layer-design.md`, sectio
 - The same line asking for a newcomer twice no longer crashes; a turn that fails partway takes its changes back.
 - AI-only mode keeps what an action itself brought (an ambush, a death); possessive names pass the guard; a conversation's lines are forgotten when it ends.
 
+### Fixed (minors)
+- Talking past a person's patience (three lines a point of it) ends the conversation, as asking too much does.
+- Esc also lets the backend's exchange go, so the next typed line never waits behind it.
+- In a fight, heaven's waves or a heart trial, a typed line may only choose or feel.
+- An action the accepted changes made impossible is not run; deed names are whole names; a newcomer never shares a name with someone here; a wielded thing no longer hides another of its name.
+- `check_ai` checks every kind; the session log keeps at most 4,000 characters of a prompt; "An innkeeper".
+
 ## Phase 6b: Two backends, the AI menu, one MCP server (2026-10-01)
 
 Merged from `phase-6b`. Spec: `2026-10-01-phase6-claude-layer-design.md`, section 13. Plan: `2026-10-01-phase6b-backends-menu.md`.

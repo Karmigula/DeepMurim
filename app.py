@@ -305,9 +305,14 @@ class App:
         """A typed line the engine does not know goes to the model, when it may (spec 14.1)."""
         typed = " ".join(text.split())[:200]
         player = self.game.player
-        if not typed or typed.isdigit() or player.data.get("dying") or player.data.get("dead")                 or not self.typed.ready():
+        if (not typed or typed.isdigit() or player.data.get("dying") or player.data.get("dead")
+                or not self.typed.ready()):
             return False
         self.narration.settle(self.log)
+        if self.game.focus is not None and (tired := self.game.talk_wearies()) is not None:
+            self.log.append((f"> {typed}", "player"))  # talked past their patience: they end it, unasked
+            self._show(tired)
+            return True
         if self.log:
             self.log.append(("", "default"))
         self.log.append((f"> {typed}", "player"))

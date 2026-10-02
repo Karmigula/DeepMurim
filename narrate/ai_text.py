@@ -82,7 +82,8 @@ def _told_line(world, entry, names, place, other):
 
 @outcome("ai_arrived", body_facts=False)
 def _arrived(world, event):
-    return [f"A {event.data['occupation']} is here now."], {}
+    trade = event.data["occupation"]
+    return [f"{'An' if trade[:1] in 'aeiou' else 'A'} {trade} is here now."], {}
 
 
 @summary("ai_arrived")

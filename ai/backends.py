@@ -86,6 +86,9 @@ class Backend:
             self.paused_until = self.clock() + PAUSE_SECONDS
             self.just_paused = True
 
+    def cancel(self, job_name: str) -> None:
+        """Let an exchange still running for this job go (Esc): the next never waits behind it."""
+
     def close(self) -> None:
         self.closed = True
 
@@ -115,6 +118,7 @@ class ClaudeCode(Backend):
         self._factory = client_factory  # tests hand in a fake; the real one is the SDK's ClaudeSDKClient
         self._clients: dict[str, object] = {}
         self._locks: dict[str, asyncio.Lock] = {}  # one exchange at a time per client: its stream is shared
+        self._running: dict = {}  # each exchange in flight -> its job's name (cancel)
         self._loop: asyncio.AbstractEventLoop | None = None
         self._calls = 0
 
@@ -134,7 +138,7 @@ class ClaudeCode(Backend):
             thinking=None if job.thinking else ThinkingConfigDisabled(type="disabled"),
             output_format={"type": "json_schema", "schema": job.schema})
 
-    def _run(self, coro, timeout: float):
+    def _run(self, coro, timeout: float, name: str = ""):
         with self._lock:
             if self.closed:
                 coro.close()
@@ -147,11 +151,19 @@ class ClaudeCode(Backend):
                     loop.close()
                 threading.Thread(target=run, name="claude-code", daemon=True).start()
             future = asyncio.run_coroutine_threadsafe(coro, self._loop)
+            self._running[future] = name
         try:
             return future.result(timeout)
         except BaseException:
             future.cancel()  # the exchange lets its client go (below)
             raise
+        finally:
+            self._running.pop(future, None)
+
+    def cancel(self, job_name: str) -> None:
+        for future, name in list(self._running.items()):
+            if name == job_name:
+                future.cancel()  # its exchange drops the client a late reply would reach (6c minors)
 
     async def _client(self, key: str, job: Job):
         if key not in self._clients:
@@ -198,7 +210,7 @@ class ClaudeCode(Backend):
     def _ask(self, job: Job, prompt: str) -> tuple[dict | None, str]:
         try:
             # Room to wait behind another exchange on the same client (its own timeout bounds it).
-            return self._run(self._exchange(job, prompt), 2 * job.timeout + 10)
+            return self._run(self._exchange(job, prompt), 2 * job.timeout + 10, job.name)
         except (TimeoutError, asyncio.TimeoutError):
             return None, f"no reply within {job.timeout:.0f} s"
 

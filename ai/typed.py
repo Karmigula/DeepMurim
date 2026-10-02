@@ -18,6 +18,7 @@ from ai.intent import TALK_LINES, dialogue_job, dialogue_prompt, intent_job, int
 from ai.narrate import RECENT, unwrap
 from ai.validate import DIALOGUE_KINDS, KINDS, Scene, accept
 
+MAX_RECORDED = 4000  # the most of a prompt the session log keeps (bug reports)
 GRACE = 5.0  # past the job's own timeout, the wait is over even if the worker never answers
 HESITATE = ("You hesitate; nothing comes of it.", "dim")
 AMISS = ("You try, but it does not go as you meant.", "dim")
@@ -93,6 +94,9 @@ class Typed:
         w, self.waiting = self.waiting, None
         if w is not None:
             w.future.cancel()
+            cancel = getattr(self.narration._bridge, "cancel", None)
+            if callable(cancel):
+                cancel(w.job.name)  # the backend lets it go too, so the next line never waits behind it
         return w
 
     def _talk(self, person: int) -> list[str]:
@@ -102,7 +106,8 @@ class Typed:
     def resolve(self, game, w: Waiting, reply, choices: list, mode: str):
         """(the turn or None, the lines to show). Accepted changes are committed even when the paragraph is not
         shown: they are what really happened."""
-        record = {"job": w.job.name, "typed": w.typed, "prompt": w.prompt, "reply": reply, "accepted": [],
+        record = {"job": w.job.name, "typed": w.typed, "prompt": w.prompt[:MAX_RECORDED], "reply": reply,
+                  "accepted": [],
                   "rejected": [], "refused": None, "seconds": round(self.clock() - w.began, 2)}
         self.last = record
         if not isinstance(reply, dict):
@@ -111,7 +116,7 @@ class Typed:
         world, me, here = game.world, game.player.id, game.place.id
         dialogue = w.talk_to is not None
         salt = f"{world.time}:{hashlib.sha1(w.typed.encode()).hexdigest()[:8]}"
-        done = accept(Scene(world, me, here, list(choices), salt), reply.get("proposals"),
+        done = accept(Scene(world, me, here, list(choices), salt, game.held()), reply.get("proposals"),
                       DIALOGUE_KINDS if dialogue else KINDS)
         events = list(done.events)
         prose = unwrap(str(reply.get("reply" if dialogue else "prose") or ""))

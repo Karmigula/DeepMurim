@@ -13,11 +13,14 @@ from systems.purse import silver_of
 from systems.time import advance
 from world.body import add_injury
 from world.events import Event, Witness, effect, listen
+from world.gen.names import person_name
+from world.seed import rng_for
 
 KINDS = frozenset({"ai_paid", "ai_gave", "ai_felt", "ai_deed", "ai_told", "ai_arrived", "ai_hurt", "ai_waited",
                    "talked"})
 TONES = ("kind", "cruel", "neutral", "bold")
 DEED_WEIGHT = 1.0
+TALK_PER_PATIENCE = 3  # lines said in one conversation for each point of a person's patience (6c minors)
 # A told deed weighs little (spec 14.5): heaven counts it as a small kindness or cruelty (healing is 5), and the
 # dao heart leans by it with the least weight. Bold and neutral deeds move neither.
 DEED_KARMA = {"kind": ("merit", 3), "cruel": ("sin", 5)}
@@ -97,6 +100,12 @@ def _arrived(world, event) -> None:
                 realm=d["realm"], ai_made=True)
     world.update_data(event.place, ai_people=made_here(world, event.place) + 1,
                       ai_people_today=[world.time // 4, made_today(world, event.place) + 1])
+
+
+def newcomer_name(world, path: str) -> str:
+    """The name `make_person` will give the newcomer of this path (its first draw)."""
+    surname, given = person_name(rng_for(world.world_seed, path))
+    return f"{surname} {given}"
 
 
 def made_here(world, town: int) -> int:
