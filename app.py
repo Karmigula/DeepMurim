@@ -17,6 +17,7 @@ from ai.menu import AiMenu, make_backend
 from ai.models import OpenCodeModels
 from mcp_server.live import LiveServer
 from ai.narrate import MODE_WORDS, Narration
+from ai.typed import HESITATE, Typed
 from config import PALETTE, Config
 from debug.invariants import NARRATIVE, check_turn, check_world
 from debug.reports import write_bug_report, write_crash_report
@@ -41,6 +42,8 @@ MAX_LOG = 500
 MAX_COMMAND = 200
 MAX_NAME = 24
 MAX_VIOLATIONS = 200
+WAIT_FRAMES = ("·", "•", "o", "O", "o", "•")  # the font has no ∘ ○ ◎ (plan ruling)
+WAIT_FPS = 8
 INSTANT_KEYS = "123456789"  # submit on press, so a held key must not auto-repeat them
 CREATE_OPTIONS = ("Random (roll everything)", "Choose an origin", "Point-buy")
 ORIGIN_KEYS = tuple(ORIGINS)
@@ -89,6 +92,8 @@ class App:
         self.report_note = ""
         self._recent_narration: deque[str] = deque(maxlen=4)
         self.narration = Narration(bridge, config.ai_mode, factory=self._backend)  # phase 6: the model's prose
+        self.typed = Typed(self.narration)  # phase 6c: a typed line the engine did not know, asked of the model
+        self._typed_at: int | None = None  # where that line stands in the log
         self._given_bridge = bridge  # one handed in (the tests' FakeClaude) is the backend, built anew or not
         self.ai_menu: AiMenu | None = None  # phase 6b: F1
         self._opencode_models: OpenCodeModels | None = None  # OpenCode's free models, read once a session
@@ -204,6 +209,12 @@ class App:
             self.form_index = (self.form_index + delta) % len(FORMS)
 
     def _game_key(self, key: str, text: str) -> None:
+        if self.typed.waiting is not None:  # the turn waits for the model's answer (spec 14.2)
+            if key == "escape":
+                self._let_go()
+            elif key == "f12":
+                self.debug_visible = not self.debug_visible
+            return
         if self.ai_menu is not None:
             self._menu_key(key, text)
         elif key == "f1":
@@ -278,6 +289,8 @@ class App:
         self.command = ""
         if action is None or self.game is None:
             return
+        if action.verb == "unknown" and self._ask_ai(text):
+            return
         self.log.append((f"> {text.strip()}", "player"))
         self._record("command", text=text, verb=action.verb)
         try:
@@ -287,6 +300,66 @@ class App:
             return
         self._show(turn)
         self._follow_exit()
+
+    def _ask_ai(self, text: str) -> bool:
+        """A typed line the engine does not know goes to the model, when it may (spec 14.1)."""
+        typed = " ".join(text.split())[:200]
+        player = self.game.player
+        if (not typed or typed.isdigit() or player.data.get("dying") or player.data.get("dead")
+                or not self.typed.ready()):
+            return False
+        self.narration.settle(self.log)
+        if self.game.focus is not None and (tired := self.game.talk_wearies()) is not None:
+            self.log.append((f"> {typed}", "player"))  # talked past their patience: they end it, unasked
+            self._show(tired)
+            return True
+        if self.log:
+            self.log.append(("", "default"))
+        self.log.append((f"> {typed}", "player"))
+        self._typed_at = len(self.log) - 1
+        self._record("command", text=text, verb="ai")
+        try:
+            self.typed.start(self.game, typed, self.choices + self.extra)
+        except Exception as exc:  # the model's layer never breaks a turn
+            self._record("ai_error", error=repr(exc))
+            self.log.append(HESITATE)
+        return True
+
+    def _let_go(self) -> None:
+        """Esc while waiting: nothing happens, and the typed line says so."""
+        waiting = self.typed.cancel()
+        at = self._typed_at
+        if waiting is not None and at is not None and at < len(self.log) and self.log[at] == (f"> {waiting.typed}", "player"):
+            self.log[at] = (f"> {waiting.typed} (let go)", "dim")
+        self._record("ai", job=waiting.job.name if waiting else "", typed=waiting.typed if waiting else "",
+                     cancelled=True)
+
+    def _typed_done(self, waiting, reply) -> None:
+        try:
+            turn, lines = self.typed.resolve(self.game, waiting, reply, self.choices + self.extra,
+                                             self.narration.mode)
+        except Exception as exc:  # what was accepted is in the save; the screen falls back to the engine's word
+            self.record_crash(exc, "typed line")
+            turn, lines = None, [HESITATE]
+        self._record("ai", **self.typed.last)  # the prompt, the raw reply, each proposal's verdict (spec 8)
+        if turn is None:
+            self.log.extend(lines)
+            why = self.narration.unavailable()
+            if why is not None and self.narration.mode != "off":  # logged out meanwhile: said, and turned off
+                self.narration.mode = self.config.ai_mode = "off"
+                self.log.append((f"{self.narration.who}'s prose cannot be used: {why}.", "system"))
+                self._save_settings()
+                self._ai_server()
+            return
+        self._show(turn, lines)
+        self._follow_exit()
+
+    def waiting_line(self, now: float | None = None) -> str:
+        """The animated line under a typed line while the model is asked (spec 14.2): drawn from the clock."""
+        now = time.monotonic() if now is None else now
+        frame = WAIT_FRAMES[int(now * WAIT_FPS) % len(WAIT_FRAMES)]
+        who = self.typed.waiting.who if self.typed.waiting else ""
+        return f"{frame} {who} considers it...  (Esc lets it go)"
 
     def _follow_exit(self) -> None:
         """After a death the player may leave for a new world or a newcomer (phase 4b spec 5.3)."""
@@ -363,7 +436,11 @@ class App:
         self._ai_server()
 
     def poll(self) -> None:
-        """Every frame: Claude's prose for the last turn, if it has come (phase 6)."""
+        """Every frame: the answer to a typed line (6c), and the prose for the last turn (phase 6), if come."""
+        if self.typed.waiting is not None and self.game is not None:
+            got = self.typed.poll()
+            if got is not None:
+                self._typed_done(*got)
         bridge = self.narration._bridge  # never made just to be asked: off costs nothing
         if self.game is None or self.narration.pending is None and not getattr(bridge, "just_paused", False):
             return
@@ -375,11 +452,15 @@ class App:
             self.config.ai_mode = self.narration.mode
             self._save_settings()
 
-    def _show(self, turn: Turn) -> None:
+    def _show(self, turn: Turn, shown: list | None = None) -> None:
+        """Put a turn on screen: its own lines, or (a typed line's turn, 6c) the lines it was resolved into, which
+        are never narrated again."""
         self.narration.settle(self.log)  # a turn left before its prose came keeps its own text
-        if self.log:
+        if self.game is not None and self.game.focus is None:
+            self.typed.talk = (None, [])  # a conversation over: its lines are forgotten (6c review)
+        if shown is None and self.log:
             self.log.append(("", "default"))
-        self.log.extend(turn.lines)
+        self.log.extend(turn.lines if shown is None else shown)
         start = len(self.log) - len(turn.lines)
         self.choices = turn.choices
         self.extra = turn.extra
@@ -394,7 +475,7 @@ class App:
         self._check(turn)
         before = len(self.log)
         del self.log[:-MAX_LOG]
-        if self.game is not None:
+        if self.game is not None and shown is None:
             try:
                 self.narration.start(self.log, start - (before - len(self.log)), turn, self.game)
             except Exception as exc:  # Claude's layer never breaks a turn (6a review)
@@ -491,6 +572,8 @@ class App:
             self._ai_server()
 
     def _close_game(self) -> None:
+        self.typed.cancel()
+        self.typed.forget()  # a new game, even of the same seed, is not this conversation (6c review)
         self.narration.reset()
         if self.mcp is not None:
             self.mcp.stop()
@@ -592,6 +675,14 @@ class App:
                           else f"replied: {str(last.reply)[:120]}"), "default"))
         if n.refused:
             lines.append((f"  prose refused: {n.refused}", "red"))
+        t = self.typed.last
+        if t:  # the last typed line (6c): its job, what stood, what did not, and why the paragraph was not shown
+            kinds = ", ".join(str(p.get("kind")) for p in t.get("accepted", [])) or "nothing"
+            lines.append((f"  typed ({t['job']}, {t.get('seconds', 0.0):.1f} s): {t['typed'][:60]}", "default"))
+            lines.append((f"    accepted: {kinds}", "default"))
+            lines += [(f"    rejected {p.get('kind')}: {why}", "red") for p, why in t.get("rejected", [])]
+            if t.get("refused"):
+                lines.append((f"    paragraph refused: {t['refused']}", "red"))
         lines.append(("", "default"))
         return lines
 
@@ -623,6 +714,8 @@ class App:
             status = f"DEBUG (F12 closes) | seed {seed} | F9 reports a bug"
             log = self.debug_lines()
         choices = [c.label for c in self.choices]
+        if self.typed.waiting is not None and not self.debug_visible:
+            log, command = log + [(self.waiting_line(), "dim")], ""
         if self.ai_menu is not None:
             status, log, choices = "THE AI (F1 closes)", self.ai_menu.lines(), self.ai_menu.choices()
         if self.sheet_visible and self.game is not None:

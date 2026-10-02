@@ -55,6 +55,8 @@ INDEXES = (
     "create index if not exists beliefs_actor on beliefs(json_extract(variant, '$.actor'))",
     "create index if not exists beliefs_knower_actor on beliefs(knower, json_extract(variant, '$.actor'))",  # 4e
     "create index if not exists facts_predicate on facts(predicate)",  # 4e: the newest lists a town has heard
+    # 6c: the model's events alone (check_ai reads them every turn; the chronicle grows for centuries)
+    "create index if not exists chronicle_ai on chronicle(id) where json_extract(data, '$.ai') = 1",
 )
 SCHEMA += ";\n".join(INDEXES) + ";\n"
 

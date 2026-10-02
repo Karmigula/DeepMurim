@@ -29,22 +29,30 @@ class _KeepMissing(dict):
         return "{" + key + "}"
 
 
+_LOADED: dict[str, dict] = {}  # directory -> its tables (Grammar.load)
+
+
 class Grammar:
     def __init__(self, tables: dict) -> None:
         self.tables = tables
 
     @classmethod
     def load(cls, directory: Path | None = None) -> "Grammar":
-        directory = directory or bundled("narrate", "grammar")
-        tables: dict = {}
-        for path in sorted(directory.glob("*.toml")):
-            with open(path, "rb") as handle:
-                for key, value in tomllib.load(handle).items():
-                    if key == "symbols":
-                        tables.setdefault("symbols", {}).update(value)
-                    else:
-                        tables[key] = value
-        return cls(tables)
+        """The grammar of a directory, read once a process: it never changes while the game runs, and every Game
+        (each MCP request's View makes one, phase 6c) would otherwise parse all of it again (12 ms)."""
+        directory = Path(directory or bundled("narrate", "grammar"))
+        key = str(directory.resolve())
+        if key not in _LOADED:
+            tables: dict = {}
+            for path in sorted(directory.glob("*.toml")):
+                with open(path, "rb") as handle:
+                    for name, value in tomllib.load(handle).items():
+                        if name == "symbols":
+                            tables.setdefault("symbols", {}).update(value)
+                        else:
+                            tables[name] = value
+            _LOADED[key] = tables
+        return cls(_LOADED[key])
 
     def expand(self, key: str, rng: random.Random, context: dict) -> str:
         text = rng.choice(self.tables[key]["lines"])

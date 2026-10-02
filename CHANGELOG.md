@@ -2,6 +2,37 @@
 
 DeepMurim is built in phases. Each one has a design spec in `docs/superpowers/specs/` and a verified implementation plan in `docs/superpowers/plans/`. Each phase lands on `master` after a review round and a minors round. Newest first.
 
+## Phase 6c: Typed actions and free talk (2026-10-01)
+
+Merged from `phase-6c`. Spec: `2026-10-01-phase6-claude-layer-design.md`, section 14. Plan: `2026-10-01-phase6c-typed-actions-talk.md`.
+
+### Added
+- **Type what you do.** With the AI on, a line the game does not know goes to the model: in a conversation, as words said to that person; else, as a deed.
+  - The model answers in a paragraph and proposes changes from a fixed vocabulary: pay, give, a feeling, a deed, a belief told, a newcomer, a hurt, time passing, or one of this turn's choices.
+  - The engine checks each change against the rules and your real state, and commits only what stands.
+  - In assist mode, each change also shows as a short engine line; in AI-only mode, only the paragraph.
+- **The wait.** Input pauses under an animated line naming the backend; Esc lets it go and nothing happens. A failure says "You hesitate; nothing comes of it."
+- **Free talk is remembered.** Each exchange is a `talked` event, which the person recalls in later talk and briefs.
+- **Deeds count.** A kind or cruel deed is a tale that spreads, and moves karma and the dao heart; one a day.
+- **F12** shows the last typed line: its job, what stood, what was rejected and why; bug reports keep the whole exchange.
+
+### Faster
+- The grammar is read once a process: every MCP request and prompt was re-reading all 34 files (a prompt went from 15 ms to 2 ms).
+- The AI's events are checked through a partial index, and only what is new each turn.
+
+### Fixed (review)
+- A paragraph telling of a payment the engine rejected is never shown, even when you typed the sum.
+- Deeds and feelings weigh once a day, so they cannot be farmed.
+- The same line asking for a newcomer twice no longer crashes; a turn that fails partway takes its changes back.
+- AI-only mode keeps what an action itself brought (an ambush, a death); possessive names pass the guard; a conversation's lines are forgotten when it ends.
+
+### Fixed (minors)
+- Talking past a person's patience (three lines a point of it) ends the conversation, as asking too much does.
+- Esc also lets the backend's exchange go, so the next typed line never waits behind it.
+- In a fight, heaven's waves or a heart trial, a typed line may only choose or feel.
+- An action the accepted changes made impossible is not run; deed names are whole names; a newcomer never shares a name with someone here; a wielded thing no longer hides another of its name.
+- `check_ai` checks every kind; the session log keeps at most 4,000 characters of a prompt; "An innkeeper".
+
 ## Phase 6b: Two backends, the AI menu, one MCP server (2026-10-01)
 
 Merged from `phase-6b`. Spec: `2026-10-01-phase6-claude-layer-design.md`, section 13. Plan: `2026-10-01-phase6b-backends-menu.md`.

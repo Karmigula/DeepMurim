@@ -403,3 +403,28 @@ copy-paste setup for reaching DeepMurim's MCP server from one's own Claude Code 
 what anyone here holds touching the words typed (with the `tell` handles), put in the prompt so the model rarely
 needs a tool.
 
+
+## 18. Typed actions and free talk (phase 6c)
+
+**The router** (`App.submit`): a typed line the command parser does not know (never a number) goes to the model
+when the AI is on and its backend can answer: in a conversation (`game.focus`) as a line said to that person (the
+`dialogue` job), else as a typed action (the `intent` job). `ai/intent.py` holds both jobs and their prompts (the
+state pack, the prefetch, the last paragraphs, this turn's choices as words, the typed line).
+
+**The wait** (`ai/typed.py`, `Typed`): the prompt is built on the game's thread and asked in a daemon thread;
+`App.poll` hands the answer to `Typed.resolve` when it comes. Input waits meanwhile, under a line drawn from the
+clock (`App.waiting_line`); Esc lets the wait go and nothing happens. A timeout or any failure says "You hesitate".
+
+**Proposals** (`ai/validate.py`): `accept(scene, proposals, kinds)` returns the events that may stand, at most one
+engine action (a choice of this turn), and the rest with their reasons. There is no retry. What stands is committed
+by `Game.apply_proposals` (`engine/ai_turns.py`) as ordinary events marked `ai: true`; `check_ai` (in
+`debug/invariants.py`) holds every such event to its kind's limits.
+
+**Adding a proposal kind:**
+1. In `ai/validate.py`: the kind in `KINDS` (and in `DIALOGUE_KINDS` if talk may cause it), its fields in
+   `PROPOSAL`, and its checks in `check`, returning an event or a reason.
+2. In `ai/deeds.py`: the event's builder (its data carries `ai: True` and the proposal), its kind in `KINDS`, and
+   its `@effect`.
+3. In `narrate/ai_text.py`: an `@outcome` giving its one engine line (shown under the paragraph in assist mode) and
+   a `@summary` for the journal; in `narrate/grammar/ai.toml`, its table.
+4. In `ai/intent.py`: a line in `VOCABULARY`, so the model knows it; in `check_ai`, its limits.

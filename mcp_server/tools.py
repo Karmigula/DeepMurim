@@ -40,8 +40,13 @@ class View:
         return hits[0] if len(hits) == 1 else None
 
     def handle(self, holder: int, fact_id: int) -> str:
-        raw = f"{self.world.world_seed}:{holder}:{fact_id}".encode()
-        return "b" + hashlib.sha256(raw).hexdigest()[:10]
+        return belief_handle(self.world, holder, fact_id)
+
+
+def belief_handle(world, holder: int, fact_id: int) -> str:
+    """A belief's opaque name: what Claude passes back to `tell` it (phase 6b validates it the same way)."""
+    raw = f"{world.world_seed}:{holder}:{fact_id}".encode()
+    return "b" + hashlib.sha256(raw).hexdigest()[:10]
 
 
 def _safe(fn):

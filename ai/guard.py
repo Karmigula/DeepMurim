@@ -12,6 +12,7 @@ from world.gen.materialize import people_at
 
 THINGS = ("gear", "pill", "herb", "treasure", "scroll", "manual", "furnace", "recipe")
 NUMBER = re.compile(r"\b\d+\b")
+POSSESSIVE = re.compile(r"'s?$")
 NAMED = re.compile(r"\b[A-Z][a-z'\-]+(?:\s+[A-Z][a-z'\-]+)+")  # two or more capitalised words: a name
 LEADING = frozenset({"The", "A", "An", "You", "Your", "In", "At", "On", "As", "But", "And", "Then", "When", "Old",
                      "Young", "Little", "Elder", "Brother", "Sister", "Master", "Uncle", "Aunt", "Lord", "Lady"})
@@ -48,6 +49,7 @@ def refusal(world, prose: str, player: int, place: int, given: str, needed: str 
             return f"it names {name}, which the turn did not"
     for found in NAMED.findall(prose):  # a name Claude made up is in no table at all (6a minors)
         words = found.split()
+        words[-1] = POSSESSIVE.sub("", words[-1])  # "Jin Yunhyun's eyes" names Jin Yunhyun (6c review)
         while words and words[0] in LEADING:
             words = words[1:]
         name = " ".join(words)

@@ -12,6 +12,7 @@ import systems.cultivation as cultivation
 import systems.talk as talk
 import systems.travel as travel
 from engine.crisis import CrisisMixin
+from engine.ai_turns import AiTurnsMixin
 from engine.alchemy import AlchemyMixin
 from engine.alchemy_world import AlchemyWorldMixin
 from engine.crafts import CraftsMixin
@@ -97,12 +98,13 @@ HELP = [
     ("  heart | swear <oath> | respects | face | bury | turn back: the dao heart", "system"),
     ("  endure | shelter | face | bury: heaven's tribulation, wave by wave", "system"),
     ("  temple | alms | incense | fortune: karma, and heaven's patience", "system"),
+    ("  With the AI on (F1): type what you do; in a conversation, type what you say", "system"),
     ("  F1 the AI | F2 swap art side | F3 hide art | F4 character sheet | F9 report a bug | F12 debug | Esc menu",
      "system"),
 ]
 
 
-class Game(KarmaMixin, TribulationMixin, HeartMixin, CraftsMixin, AlchemyWorldMixin, AlchemyMixin, GearMixin, IntrigueMixin, CrisisMixin, SealedMixin, RivalMixin, ChamberMixin, DelveMixin, LineageMixin, MarketMixin, SkyMixin, TournamentMixin, WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, LeavingMixin, LawMixin, LandMixin, FoundingMixin, SectMixin, SeasonsMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
+class Game(AiTurnsMixin, KarmaMixin, TribulationMixin, HeartMixin, CraftsMixin, AlchemyWorldMixin, AlchemyMixin, GearMixin, IntrigueMixin, CrisisMixin, SealedMixin, RivalMixin, ChamberMixin, DelveMixin, LineageMixin, MarketMixin, SkyMixin, TournamentMixin, WorldMixin, FactionsMixin, JoiningMixin, RanksMixin, DutiesMixin, PoliticsMixin, LeavingMixin, LawMixin, LandMixin, FoundingMixin, SectMixin, SeasonsMixin, GossipMixin, MasksMixin, InventingMixin, DealingsMixin, RoadsMixin, FightMixin, GameHooks):
     def __init__(self, world: World, narrator: Narrator | None = None) -> None:
         self.world = world
         self.narrator = narrator or ProceduralNarrator()
