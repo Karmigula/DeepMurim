@@ -336,7 +336,7 @@ class App:
         except Exception as exc:  # what was accepted is in the save; the screen falls back to the engine's word
             self.record_crash(exc, "typed line")
             turn, lines = None, [HESITATE]
-        self._record("ai", **{k: v for k, v in self.typed.last.items() if k != "prompt"})
+        self._record("ai", **self.typed.last)  # the prompt, the raw reply, each proposal's verdict (spec 8)
         if turn is None:
             self.log.extend(lines)
             why = self.narration.unavailable()
@@ -667,6 +667,14 @@ class App:
                           else f"replied: {str(last.reply)[:120]}"), "default"))
         if n.refused:
             lines.append((f"  prose refused: {n.refused}", "red"))
+        t = self.typed.last
+        if t:  # the last typed line (6c): its job, what stood, what did not, and why the paragraph was not shown
+            kinds = ", ".join(str(p.get("kind")) for p in t.get("accepted", [])) or "nothing"
+            lines.append((f"  typed ({t['job']}, {t.get('seconds', 0.0):.1f} s): {t['typed'][:60]}", "default"))
+            lines.append((f"    accepted: {kinds}", "default"))
+            lines += [(f"    rejected {p.get('kind')}: {why}", "red") for p, why in t.get("rejected", [])]
+            if t.get("refused"):
+                lines.append((f"    paragraph refused: {t['refused']}", "red"))
         lines.append(("", "default"))
         return lines
 
