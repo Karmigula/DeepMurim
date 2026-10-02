@@ -123,6 +123,16 @@ def _waited(world, event) -> None:
     advance(world, event.data["watches"])
 
 
+@effect("ai_felt")
+def _felt_today(world, event) -> None:
+    world.update_data(event.actors[1], ai_felt_day=world.time // 4)  # one feeling a person a day (6c review)
+
+
+@effect("ai_deed")
+def _deed_today(world, event) -> None:
+    world.update_data(event.actors[0], ai_deed_day=world.time // 4)  # one deed a day (6c review)
+
+
 @listen("ai_deed")
 def _deed_weighed(world, event, event_id: int) -> None:
     """Heaven (5f) and the dao heart (5e) weigh a deed by its tone."""

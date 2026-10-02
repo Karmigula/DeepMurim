@@ -175,18 +175,23 @@ def check_alchemy(world) -> list[str]:
 
 
 def check_ai(world) -> list[str]:
-    """Every event the model's proposals made is of the vocabulary and within its limits (phase 6 spec 9, 14.7)."""
+    """Every event the model's proposals made is of the vocabulary and within its limits (phase 6 spec 9, 14.7).
+
+    The chronicle only grows, and this runs every turn: each world is read once, then only what is new since
+    (6c review); a town's newcomers are its own count, kept by `ai_arrived`'s effect."""
     import json
 
     import ai.validate as V
-    from ai.deeds import KINDS
-    out, arrivals = [], {}
-    # Through the partial index `chronicle_ai`: the WHERE must stay exactly its own.
-    rows = world._conn.execute("select id, kind, place, data from chronicle where json_extract(data, '$.ai') = 1")
+    from ai.deeds import KINDS, made_here
+    out, towns = [], set()
+    # Through the partial index `chronicle_ai`: its WHERE term must stay exactly as the index's.
+    rows = world._conn.execute("select id, kind, place, data from chronicle where json_extract(data, '$.ai') = 1 "
+                               "and id > ? order by id", (getattr(world, "_ai_checked", 0),))
     for event_id, kind, place, raw in rows:
+        world._ai_checked = event_id
         d = json.loads(raw)
         if kind == "ai_arrived":
-            arrivals[place] = arrivals.get(place, 0) + 1
+            towns.add(place)
         if kind not in KINDS:
             out.append(f"event #{event_id} ({kind}) is marked as Claude's but is of no proposal kind")
         elif kind == "ai_felt" and (d["feeling"] not in V.FEELINGS or not 0 < d["strength"] <= V.MAX_STRENGTH):
@@ -199,9 +204,9 @@ def check_ai(world) -> list[str]:
             out.append(f"event #{event_id} pays nothing")
         elif kind == "talked" and not isinstance(d.get("summary"), str):
             out.append(f"event #{event_id} is a talk with no summary")
-    for town, made in arrivals.items():
-        if made > V.PER_TOWN:
-            out.append(f"town #{town} has {made} newcomers the model made, past {V.PER_TOWN}")
+    for town in towns:
+        if made_here(world, town) > V.PER_TOWN:
+            out.append(f"town #{town} has {made_here(world, town)} newcomers the model made, past {V.PER_TOWN}")
     return out
 
 

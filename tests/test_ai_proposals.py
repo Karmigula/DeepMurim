@@ -9,6 +9,7 @@ from engine.game import Game
 from engine.journal import summarize
 from systems.creation import CreationChoice
 from systems.purse import silver_of
+from systems.time import advance
 from world.events import Event, commit
 from world.gen.materialize import people_at
 
@@ -154,6 +155,7 @@ def test_a_deed_is_weighed_by_heaven_and_the_heart_by_its_tone(game):
     commit(world, accept(scene(game), [{"kind": "deed", "text": "You fed a starving beggar.", "tone": "kind"}]).events)
     assert karma_of(world, me)["merit"] > merit and heart_of(world, me)["lean"] > lean
     sin, lean = karma_of(world, me)["sin"], heart_of(world, me)["lean"]
+    advance(world, 4)  # one deed a day (6c review)
     commit(world, accept(scene(game), [{"kind": "deed", "text": "You kicked a beggar.", "tone": "cruel"}]).events)
     assert karma_of(world, me)["sin"] > sin and heart_of(world, me)["lean"] < lean
 

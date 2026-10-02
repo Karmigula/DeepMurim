@@ -451,6 +451,8 @@ class App:
         """Put a turn on screen: its own lines, or (a typed line's turn, 6c) the lines it was resolved into, which
         are never narrated again."""
         self.narration.settle(self.log)  # a turn left before its prose came keeps its own text
+        if self.game is not None and self.game.focus is None:
+            self.typed.talk = (None, [])  # a conversation over: its lines are forgotten (6c review)
         if shown is None and self.log:
             self.log.append(("", "default"))
         self.log.extend(turn.lines if shown is None else shown)
@@ -566,6 +568,7 @@ class App:
 
     def _close_game(self) -> None:
         self.typed.cancel()
+        self.typed.forget()  # a new game, even of the same seed, is not this conversation (6c review)
         self.narration.reset()
         if self.mcp is not None:
             self.mcp.stop()

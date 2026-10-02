@@ -133,6 +133,8 @@ def check(scene: Scene, p: dict, done: Accepted, felt: set) -> tuple[object, str
             return None, f"a feeling's strength is above 0 and at most {MAX_STRENGTH}"
         if npc in felt:
             return None, "one feeling a person a line"
+        if world.entity(npc).data.get("ai_felt_day") == world.time // 4:
+            return None, "they have felt enough today"  # or a feeling could be farmed line after line (6c review)
         felt.add(npc)
         return D.felt(me, npc, here, feeling, float(strength), p), None
     if kind == "deed":
@@ -147,6 +149,8 @@ def check(scene: Scene, p: dict, done: Accepted, felt: set) -> tuple[object, str
                 return None, f"it names {found}, whom you do not know"
         if any(e.kind == "ai_deed" for e in done.events):
             return None, "one deed a line"  # deeds weigh on karma: one a line, or merit could be farmed
+        if world.entity(me).data.get("ai_deed_day") == world.time // 4:
+            return None, "one deed a day"  # and one a day (6c review)
         people = tuple(sorted({pid for name, pid in _here(scene).items() if name in text.lower()}))
         return D.deed(me, people, here, text, tone, p), None
     if kind == "tell":
@@ -170,7 +174,8 @@ def check(scene: Scene, p: dict, done: Accepted, felt: set) -> tuple[object, str
             return None, "one newcomer a line"
         if D.made_today(world, here) >= PER_VISIT or D.made_here(world, here) >= PER_TOWN:
             return None, "enough newcomers here for now"
-        return D.arrived(me, here, f"ai:{here}:{scene.salt}:{new}", occupation, traits, realm, p), None
+        path = f"ai:{here}:{D.made_here(world, here)}:{scene.salt}:{new}"  # the same line twice: two people
+        return D.arrived(me, here, path, occupation, traits, realm, p), None
     if kind == "hurt":
         location, injury, severity = p.get("location"), p.get("injury"), p.get("severity")
         if location not in BODY_PARTS or injury not in HURTS:

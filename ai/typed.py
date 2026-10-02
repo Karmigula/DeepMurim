@@ -13,7 +13,7 @@ from concurrent.futures import Future
 from dataclasses import dataclass
 
 from ai import deeds as D
-from ai.guard import refusal
+from ai.guard import NUMBER, refusal
 from ai.intent import TALK_LINES, dialogue_job, dialogue_prompt, intent_job, intent_prompt, timeout_for
 from ai.narrate import RECENT, unwrap
 from ai.validate import DIALOGUE_KINDS, KINDS, Scene, accept
@@ -115,14 +115,17 @@ class Typed:
                       DIALOGUE_KINDS if dialogue else KINDS)
         events = list(done.events)
         prose = unwrap(str(reply.get("reply" if dialogue else "prose") or ""))
+        said = w.prompt.rsplit("\nTHE PLAYER ", 1)[0]  # the typed line vouches for nothing it names (6c review)
         if dialogue:
             summary = " ".join(str(reply.get("summary") or "").split())
-            if not summary or refusal(world, summary, me, here, w.prompt) is not None:
+            if not summary or refusal(world, summary, me, here, said) is not None:
                 summary = "They spoke with you."
             events.append(D.talked(me, w.talk_to, here, summary, w.typed))
         turn = game.apply_proposals(events, done.action)
-        given = w.prompt + "\n" + "\n".join(text for text, _ in turn.lines)
-        why = refusal(world, prose, me, here, given) if prose else "no prose"
+        told = "\n".join(text for text, _ in turn.lines)
+        why = refusal(world, prose, me, here, said + "\n" + told) if prose else "no prose"
+        if why is None:
+            why = _untold(prose, done.rejected, told)
         record.update(accepted=[e.data.get("proposal", {"kind": e.kind}) for e in events],
                       rejected=[[p, reason] for p, reason in done.rejected], refused=why)
         if why is not None:
@@ -132,4 +135,19 @@ class Typed:
             name = world.entity(w.talk_to).name
             _, lines = self.talk if self.talk[0] == w.talk_to else (None, [])
             self.talk = (w.talk_to, (lines + [f"You: {w.typed}", f"{name}: {prose}"])[-TALK_LINES:])
-        return turn, [(prose, "prose")] + ([] if mode == "ai_only" else list(turn.lines))
+        # AI only hides the changes' own short lines, never what the action or the world did after (6c review)
+        return turn, [(prose, "prose")] + list(turn.lines[game.ai_lines if mode == "ai_only" else 0:])
+
+    def forget(self) -> None:
+        """A conversation over, or a game closed: its lines and the last exchange are no one else's."""
+        self.talk, self.last = (None, []), {}
+
+
+def _untold(prose: str, rejected: list, told: str) -> str | None:
+    """A number of a rejected change that the paragraph tells as done (none of the engine's lines carry it)."""
+    stated, carried = set(NUMBER.findall(prose)), set(NUMBER.findall(told))
+    for proposal, _ in rejected:
+        for value in proposal.values():
+            if isinstance(value, int) and not isinstance(value, bool) and str(value) in stated - carried:
+                return f"it tells of {value}, which did not happen"
+    return None

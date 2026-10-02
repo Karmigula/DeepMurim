@@ -2,19 +2,27 @@
 
 The model's proposals are checked by `ai/validate.py`; what stands comes here as ordinary events, and at most one
 engine action (a choice of this turn, run as if chosen). The turn's lines are the engine's own short record of each
-change (each event's outcome lines, never the grammar's), then the action's own lines.
+change (each event's outcome lines, never the grammar's), then the action's own lines. The whole turn is one
+transaction: if the action fails, the changes are taken back with it (6c review).
 """
 
 from engine.actions import Turn
 
 
 class AiTurnsMixin:
+    ai_lines = 0  # how many of the last typed turn's first lines are the changes' own (AI only hides just those)
+
     def apply_proposals(self, events: list, action=None) -> Turn:
+        with self.world.transaction():
+            return self._apply_proposals(events, action)
+
+    def _apply_proposals(self, events: list, action) -> Turn:
         self.last_briefs, self._narrated = [], []
         lines = []
         if events:
             self._commit(events)
             lines = [(text, "dim") for brief in self.last_briefs for text in brief.outcome]
+        self.ai_lines = len(lines)
         briefs = list(self.last_briefs)
         if action is not None:
             turn = self.perform(action)
