@@ -4,7 +4,11 @@ DeepMurim is built in phases. Each one has a design spec in `docs/superpowers/sp
 
 ## The whole-project review (2026-10-01)
 
-An ultrareview of the core slice: the AI layer and app shell, the engine core and invariants, the world core (45 files). Every finding was fixed, each with a test that failed first.
+Merged from `ultrareview-fixes` as `0cd36b5`. One ultrareview of the core slice (45 files, 6,560 lines; the review's cap is 8,000): the AI layer and app shell, the engine core and invariants, the world core. Its 10 findings were all fixed, each behaviour fix with a test that failed first (`tests/test_ultrareview.py`).
+
+### Added
+- `README.md`: what the game is, how to run it, the controls, the AI layer and its backends.
+- `docs/REVIEW-GUIDE.md`: a map of the code for reviewers, with the rules it keeps, its performance budgets, its threads, and what is already known.
 
 ### Fixed
 - F11 opens the tournaments, as help says; the full screen is now Alt+Enter (help names it).

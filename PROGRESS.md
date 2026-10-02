@@ -1,10 +1,10 @@
 # Progress
 
-Last updated 2026-10-01. `master` is at the merge of `phase-6c`.
+Last updated 2026-10-02. `master` is at the merge of `ultrareview-fixes` (`0cd36b5`).
 
 ## Where things stand
 
-Phases 1 to 6 are done and merged. The suite has 1750 tests, plus two slow ones (`pytest -m slow`: the 500-year soak and a 200-year speed test) and five live tests (`-m live`: `claude -p`; prose, a typed action and a line of talk on the Agent SDK and on OpenCode); all of them pass.
+Phases 1 to 6 are done and merged, and the whole-project review's findings are fixed. The suite has 1750 tests, plus two slow ones (`pytest -m slow`: the 500-year soak and a 200-year speed test) and five live tests (`-m live`: `claude -p`; prose, a typed action and a line of talk on the Agent SDK and on OpenCode); all of them pass.
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -21,9 +21,10 @@ Phases 1 to 6 are done and merged. The suite has 1750 tests, plus two slow ones 
 | 6a | The Claude layer's foundation: the bridge, the state pack, the MCP server, Claude's prose | Done |
 | 6b | Two backends (Claude Code via the Agent SDK, OpenCode free models), the AI menu, the Connect page, one MCP server, prefetch | Done |
 | 6c | Typed actions and free talk: the model answers, the engine validates its proposals; an animated wait | Done |
+| Review | An ultrareview of the core slice (45 files: the AI layer and app shell, the engine core and invariants, the world core); 10 findings, all fixed | Done |
 | 7 | Not yet designed | Next |
 
-See `CHANGELOG.md` for what each phase added.
+See `CHANGELOG.md` for what each phase added, and `README.md` for playing it.
 
 ## How a phase is built
 
@@ -44,6 +45,8 @@ See `CHANGELOG.md` for what each phase added.
   - OpenCode's free tier is slow and uneven (13-60 s, sometimes past 120 s): its live tests can time out; rerun them.
   - While a typed line waits, the log is copied once a frame (a few microseconds; left as is).
 
+- **The review's reach:** one ultrareview was run, capped at 8,000 lines, on the core slice. `systems/` (23,000 lines of game rules), the feature mixins of `engine/`, `narrate/` and `render/` were not reviewed; they are covered by the suite and the soak. `docs/REVIEW-GUIDE.md` is the map for a later review.
+
 - **Left for later** (from the phase 5 specs):
   - A pill as a fated repayment.
   - Flags forged from spirit iron.
@@ -53,7 +56,7 @@ See `CHANGELOG.md` for what each phase added.
 
 ## Running it
 
-- Play: `run.bat` on Windows (it makes `.venv` and installs `requirements.txt`), or `python main.py`.
+- Play: `run.bat` on Windows (it makes `.venv` and installs `requirements.txt`), or `python main.py`. See `README.md`.
 - Tests: `python -m pytest -q -p no:cacheprovider` (about 6 minutes).
 - Live Claude test: `DEEPMURIM_LIVE=1 python -m pytest -q -p no:cacheprovider -m live` (needs Claude Code installed and logged in, and OpenCode for its test).
 - Soak: `python -m pytest -q -p no:cacheprovider -m slow` (about 2 minutes).
