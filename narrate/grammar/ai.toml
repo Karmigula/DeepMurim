@@ -1,0 +1,41 @@
+# The AI layer (phase 6c): what Claude's accepted proposals did. Claude's prose tells the moment; these are the
+# engine's own quiet frame for it.
+
+[symbols]
+ai_air = ["The moment passes.", "Somewhere a door creaks shut.", "The wind shifts.", "A dog barks, far off.", "The light moves on the wall.", "Life in the town goes on."]
+
+[ai_paid]
+colour = "dim"
+lines = ["#ai_air#"]
+
+[ai_gave]
+colour = "dim"
+lines = ["#ai_air#"]
+
+[ai_felt]
+colour = "dim"
+lines = ["#ai_air#"]
+
+[ai_deed]
+colour = "dim"
+lines = ["#ai_air#"]
+
+[ai_told]
+colour = "dim"
+lines = ["#ai_air#"]
+
+[ai_arrived]
+colour = "dim"
+lines = ["#ai_air#"]
+
+[ai_hurt]
+colour = "dim"
+lines = ["#ai_air#"]
+
+[ai_waited]
+colour = "dim"
+lines = ["#ai_air#"]
+
+[talked]
+colour = "dim"
+lines = ["#ai_air#"]

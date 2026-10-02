@@ -64,4 +64,5 @@ import narrate.crafts_text  # noqa: E402,F401
 import narrate.heart_text  # noqa: E402,F401
 import narrate.tribulation_text  # noqa: E402,F401
 import narrate.karma_text  # noqa: E402,F401
+import narrate.ai_text  # noqa: E402,F401  (phase 6b: what Claude's proposals did)
 import systems.price_events  # noqa: E402,F401  (registers price events)

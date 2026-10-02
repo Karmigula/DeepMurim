@@ -378,3 +378,4 @@ import systems.threads  # noqa: E402,F401  phase 5f: karmic threads, and fated m
 import systems.tribulations  # noqa: E402,F401  phase 5f: tribulations weighed by karma, minor ones, NPC fates
 import systems.tribulation_waves  # noqa: E402,F401  phase 5f: a tribulation played wave by wave
 import systems.karma_world  # noqa: E402,F401  phase 5f: heaven's retribution, a sinner's luck, temples
+import ai.deeds  # noqa: E402,F401  phase 6b: what Claude's accepted proposals become

@@ -17,6 +17,7 @@ FEELING_VALUE = {
     "grateful": 1.0, "saved": 1.0, "respect": 0.6, "amused": 0.3,
     "sparred": 0.1, "conversed": 0.1, "met": 0.1, "curious": 0.1, "familiar": 0.1,
     "annoyed": -0.4, "contempt": -0.3, "humiliated": -0.8, "hatred": -1.5, "grief": -1.5, "wronged": -1.2,
+    "fear": -0.5,  # phase 6b: one Claude may leave in someone
 }
 JUDGEMENT = {
     "killed": -1.0, "crippled": -0.7, "robbed": -0.5, "defeated": 0.0, "spared": 0.4, "fled_from": -0.2,
@@ -27,6 +28,7 @@ JUDGEMENT = {
     "healed": 0.3,  # phase 5c: a healer is thought well of
     "poisoned_for_hire": -1.0,
     "enslaved": -0.8,  # phase 5c: a control pill forced on someone
+    "deed_kind": 0.3, "deed_cruel": -0.6, "deed_bold": 0.1, "deed_neutral": 0.0,  # phase 6b: a deed told by its tone
 }
 HARSH = frozenset({"killed", "crippled", "robbed"})
 HARM = frozenset({"killed", "crippled"})

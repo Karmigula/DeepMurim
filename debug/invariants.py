@@ -66,6 +66,7 @@ def check_world(world) -> list[str]:
     problems += check_toxins(world)
     problems += check_alchemy(world)
     problems += check_alchemy_world(world)
+    problems += check_ai(world)
     problems += check_crafts(world)
     problems += check_heart(world)
     problems += check_spirits(world)
@@ -170,6 +171,37 @@ def check_alchemy(world) -> list[str]:
     for person, value in world._conn.execute("select a, value from relations where kind = 'knows_recipe'"):
         if not 0 <= value <= 1:
             out.append(f"#{person} knows a recipe at mastery {value}")
+    return out
+
+
+def check_ai(world) -> list[str]:
+    """Every event the model's proposals made is of the vocabulary and within its limits (phase 6 spec 9, 14.7)."""
+    import json
+
+    import ai.validate as V
+    from ai.deeds import KINDS
+    out, arrivals = [], {}
+    # Through the partial index `chronicle_ai`: the WHERE must stay exactly its own.
+    rows = world._conn.execute("select id, kind, place, data from chronicle where json_extract(data, '$.ai') = 1")
+    for event_id, kind, place, raw in rows:
+        d = json.loads(raw)
+        if kind == "ai_arrived":
+            arrivals[place] = arrivals.get(place, 0) + 1
+        if kind not in KINDS:
+            out.append(f"event #{event_id} ({kind}) is marked as Claude's but is of no proposal kind")
+        elif kind == "ai_felt" and (d["feeling"] not in V.FEELINGS or not 0 < d["strength"] <= V.MAX_STRENGTH):
+            out.append(f"event #{event_id} leaves a feeling past its limits")
+        elif kind == "ai_hurt" and not 1 <= d["severity"] <= V.MAX_SEVERITY:
+            out.append(f"event #{event_id} hurts past its limits")
+        elif kind == "ai_waited" and not 1 <= d["watches"] <= V.MAX_WATCHES:
+            out.append(f"event #{event_id} passes time past its limits")
+        elif kind == "ai_paid" and d["amount"] <= 0:
+            out.append(f"event #{event_id} pays nothing")
+        elif kind == "talked" and not isinstance(d.get("summary"), str):
+            out.append(f"event #{event_id} is a talk with no summary")
+    for town, made in arrivals.items():
+        if made > V.PER_TOWN:
+            out.append(f"town #{town} has {made} newcomers the model made, past {V.PER_TOWN}")
     return out
 
 
